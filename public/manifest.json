@@ -1,7 +1,7 @@
 {
-  "name": "NYAAY Legal Platform",
-  "short_name": "NYAAY",
-  "description": "Bilingual Legal Technology Platform for Indian Advocates and Citizens",
+  "name": "NAYANEETI Legal OS",
+  "short_name": "NAYANEETI",
+  "description": "Next-Generation Legal Technology Platform for Advocates and Citizens",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

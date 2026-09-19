@@ -49,15 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if profile exists
     let p = await getUserProfile(firebaseUser.uid);
     if (!p) {
-      // New user - will be prompted to complete registration
+      // New user - will be prompted to complete onboarding registration
       p = {
         uid: firebaseUser.uid,
-        role: 'client', // default, user will choose
+        role: 'client',
         name: firebaseUser.displayName || '',
         phone: firebaseUser.phoneNumber || '',
         email: firebaseUser.email || '',
         photoURL: firebaseUser.photoURL || '',
-        verificationStatus: 'pending',
+        verificationStatus: 'not_submitted',
+        onboardingCompleted: false,
       };
       await createUserProfile(firebaseUser.uid, p);
     }

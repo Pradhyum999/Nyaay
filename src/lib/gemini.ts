@@ -14,9 +14,9 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
-const NYAAY_SYSTEM_PROMPT = `You are Nyaay AI, a helpful legal assistant for Indian citizens. 
-You provide guidance on Indian law, legal procedures, and rights in simple language.
-You understand both English and Hindi. 
+const NAYANEETI_SYSTEM_PROMPT = `You are NAYANEETI AI, an advanced, highly specialized legal intelligence assistant for Indian citizens and advocates. 
+You provide guidance on Indian law, court procedures, procedural timelines, and constitutional rights in crystal-clear language.
+You understand English, Hindi, and Hinglish. 
 Key principles:
 - Always clarify that you provide general legal information, not legal advice
 - Recommend consulting a licensed advocate for specific legal matters
@@ -39,7 +39,7 @@ export async function sendLegalQuery(
 ): Promise<{ text: string; interactionId: string }> {
   const ai = getClient();
   
-  const systemInstruction = NYAAY_SYSTEM_PROMPT + (language === 'hi' 
+  const systemInstruction = NAYANEETI_SYSTEM_PROMPT + (language === 'hi' 
     ? '\n\nPlease respond in Hindi (हिन्दी) as the user prefers Hindi.' 
     : '');
 
@@ -65,7 +65,7 @@ export async function streamLegalQuery(
 ): Promise<void> {
   const ai = getClient();
   
-  const systemInstruction = NYAAY_SYSTEM_PROMPT + (language === 'hi'
+  const systemInstruction = NAYANEETI_SYSTEM_PROMPT + (language === 'hi'
     ? '\n\nकृपया हिन्दी में जवाब दें।'
     : '');
 

@@ -181,15 +181,15 @@ export function ClientAIConsultation({ language }: ClientAIConsultationProps) {
       <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/30 border border-amber-500/30 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-amber-300" />
             </div>
             <div>
-              <p className="text-white text-sm font-semibold">Nyaay AI</p>
+              <p className="text-white text-sm font-semibold tracking-tight">NAYANEETI AI</p>
               <div className="flex items-center gap-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${isGeminiConfigured() ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`} />
-                <p className="text-white/40 text-[10px]">
-                  {isGeminiConfigured() ? t('Online · Gemini 3.8', 'ऑनलाइन · Gemini 3.8') : t('Demo Mode', 'डेमो मोड')}
+                <div className={`w-1.5 h-1.5 rounded-full ${isGeminiConfigured() ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <p className="text-white/40 text-[10px] font-mono">
+                  {isGeminiConfigured() ? t('Live · Gemini 3.8 Flash', 'लाइव · Gemini 3.8 Flash') : t('Demo Mode', 'डेमो मोड')}
                 </p>
               </div>
             </div>

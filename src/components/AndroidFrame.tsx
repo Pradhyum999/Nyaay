@@ -19,61 +19,28 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
   onToggleRole,
   hideRoleToggle = false,
 }) => {
-  // Detect if running on a real mobile device
-  const [isMobile, setIsMobile] = useState(false);
-  const [showFrame, setShowFrame] = useState(true);
+  // Mobile / Full-Screen view toggle:
+  // By default, if the user opens this on their mobile phone or small viewport, showFrame is FALSE (full edge-to-edge).
+  const [showFrame, setShowFrame] = useState<boolean>(false);
+  const [isWideScreen, setIsWideScreen] = useState<boolean>(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (mobile) setShowFrame(false); // Full screen on real phones
+    const handleResize = () => {
+      const wide = window.innerWidth >= 1024;
+      setIsWideScreen(wide);
+      // Only show phone frame border if specifically on a wide desktop display
+      setShowFrame(wide);
     };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ── MOBILE: Full-screen native app experience ──────────────────────────────
-  if (isMobile) {
+  // ── ON REAL SMARTPHONES OR TABLETS: ALWAYS FULL-SCREEN ────────────────────
+  if (!isWideScreen) {
     return (
       <div className="min-h-screen w-full bg-black text-white flex flex-col relative">
-        {/* Minimal top bar for language + role toggle */}
-        <div className="flex-shrink-0 flex items-center justify-between px-4 pt-3 pb-1">
-          <span className="text-white font-bold text-base tracking-tight">Nyaay</span>
-          <div className="flex items-center gap-2">
-            {!hideRoleToggle && (
-              <div className="flex items-center bg-white/[0.08] p-0.5 rounded-full border border-white/[0.08]">
-                <button
-                  onClick={() => userRole !== 'lawyer' && onToggleRole()}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                    userRole === 'lawyer' ? 'bg-white text-black' : 'text-white/50'
-                  }`}
-                >
-                  <Briefcase size={10} />
-                  <span>{activeLanguage === 'en' ? 'Lawyer' : 'वकील'}</span>
-                </button>
-                <button
-                  onClick={() => userRole !== 'client' && onToggleRole()}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                    userRole === 'client' ? 'bg-white text-black' : 'text-white/50'
-                  }`}
-                >
-                  <UserCheck size={10} />
-                  <span>{activeLanguage === 'en' ? 'Client' : 'मुवक्किल'}</span>
-                </button>
-              </div>
-            )}
-            <button
-              onClick={onToggleLanguage}
-              className="px-2.5 py-1 rounded-full bg-white/[0.08] border border-white/[0.08] text-xs text-white/70 font-medium"
-            >
-              {activeLanguage === 'en' ? 'हिन्दी' : 'EN'}
-            </button>
-          </div>
-        </div>
-
-        {/* Full screen content */}
+        {/* Full-screen Content (Zero mock device borders or punch-holes) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {children}
         </div>
@@ -81,16 +48,16 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
     );
   }
 
-  // ── DESKTOP: Show phone frame preview ─────────────────────────────────────
+  // ── ON WIDE DESKTOP MONITORS: STUDIO PREVIEW MODE ─────────────────────────
   return (
-    <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center justify-start p-2 sm:p-6 selection:bg-amber-400/20">
-      {/* Top Control Bar */}
-      <header className="w-full max-w-4xl flex items-center justify-between mb-4 px-3 py-2 rounded-2xl glass-panel text-xs">
+    <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center justify-start p-4 sm:p-6 selection:bg-amber-400/20">
+      {/* Top Studio Control Bar */}
+      <header className="w-full max-w-4xl flex items-center justify-between mb-4 px-4 py-2.5 rounded-2xl glass-panel text-xs">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,197,99,0.8)]" />
-          <span className="font-semibold tracking-wider text-neutral-200 text-sm">NYAAY</span>
+          <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,197,99,0.8)] animate-radar" />
+          <span className="font-semibold tracking-wider text-neutral-200 text-sm font-display">NAYANEETI</span>
           <span className="text-[11px] text-neutral-500">|</span>
-          <span className="text-[11px] text-neutral-400">Legal OS · Desktop Preview</span>
+          <span className="text-[11px] text-neutral-400 font-mono">Studio Desktop Preview</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -127,14 +94,14 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
           <button
             onClick={() => setShowFrame(!showFrame)}
             className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] flex items-center justify-center text-neutral-300 transition ios-press"
-            title="Toggle Frame"
+            title="Toggle Phone Mockup vs Full Canvas"
           >
             {showFrame ? <Monitor size={13} /> : <Smartphone size={13} />}
           </button>
         </div>
       </header>
 
-      {/* Phone Frame or Wide View */}
+      {/* Main Preview Container */}
       <div
         className={`w-full transition-all duration-300 bg-black flex flex-col overflow-hidden relative shadow-[0_25px_70px_rgba(0,0,0,0.8)] ${
           showFrame
@@ -142,6 +109,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
             : 'max-w-4xl min-h-[88vh] rounded-3xl border border-white/[0.08]'
         }`}
       >
+        {/* Dynamic Island bar only in desktop mockup mode */}
         {showFrame && (
           <div className="w-full bg-transparent px-7 pt-3.5 pb-2 flex items-center justify-between text-[11px] text-neutral-300 font-medium select-none z-30 shrink-0">
             <span className="font-semibold tracking-tight">9:41</span>

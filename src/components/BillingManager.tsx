@@ -46,7 +46,7 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
     const total = Number(newAppearanceFee) + Number(newDraftingFee) + Number(newClerkage);
     const newInv: InvoiceItem = {
       id: `inv-${Date.now()}`,
-      invoiceNumber: `NYAAY/2026/${Math.floor(100 + Math.random() * 900)}`,
+      invoiceNumber: `NAYANEETI/2026/${Math.floor(100 + Math.random() * 900)}`,
       caseNumber: newCase,
       clientName: newClient,
       date: '19 Sep 2026',
@@ -120,12 +120,35 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
       </div>
 
       {/* Invoice Feed */}
-      <div className="space-y-3">
-        {invoices.map(inv => (
-          <div
-            key={inv.id}
-            className="glass-card rounded-3xl p-4 flex flex-col gap-3"
+      {invoices.length === 0 ? (
+        <div className="glass-card rounded-3xl p-8 text-center flex flex-col items-center gap-3 border border-white/[0.08]">
+          <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-amber-300 font-mono font-bold text-lg">
+            ₹
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white">
+              {language === 'en' ? 'No Invoices Yet' : 'अभी कोई बिल नहीं है'}
+            </h4>
+            <p className="text-xs text-neutral-400 mt-1 max-w-xs">
+              {language === 'en'
+                ? 'Create your first itemized legal bill to receive instant UPI payments from clients.'
+                : 'मुवक्किलों से त्वरित यूपीआई भुगतान प्राप्त करने के लिए पहला बिल बनाएं।'}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsCreatingNew(true)}
+            className="mt-1 px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs transition-all hover:bg-neutral-200 ios-press"
           >
+            {language === 'en' ? '+ Create First Invoice' : '+ पहला बिल बनाएं'}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {invoices.map(inv => (
+            <div
+              key={inv.id}
+              className="glass-card rounded-3xl p-4 flex flex-col gap-3"
+            >
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-[10px] font-mono text-neutral-500 block">
@@ -190,6 +213,7 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
           </div>
         ))}
       </div>
+    )}
 
       {/* UPI QR Modal (Apple / Cash App Minimalist) */}
       {selectedInvoiceForPayment && (

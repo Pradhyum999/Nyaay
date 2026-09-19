@@ -6,6 +6,95 @@ export type CourtHierarchy = 'Supreme Court' | 'High Court' | 'Sessions Court' |
 
 export type CaseStage = 'Admission' | 'Notice/Summons' | 'Written Statement' | 'Framing of Issues' | 'Evidence' | 'Final Arguments' | 'Judgment/Order' | 'Execution';
 
+export type VerificationStatus = 'not_submitted' | 'pending' | 'verified' | 'rejected' | 'resubmission_required';
+
+export interface UserProfile {
+  uid: string;
+  role: 'lawyer' | 'client' | 'junior';
+  name: string;
+  phone: string;
+  email?: string;
+  photoURL?: string;
+  state?: string;
+  city?: string;
+  createdAt?: any;
+  onboardingCompleted?: boolean;
+  // Verification
+  verificationStatus: VerificationStatus;
+  idDocumentType?: 'Aadhaar' | 'Voter ID' | 'Passport' | 'Driving License' | 'Bar Council Card';
+  idDocumentUrl?: string;
+  idDocumentNumberMasked?: string;
+  rejectionReason?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  // Lawyer specific
+  barCouncilId?: string;
+  aibeCertificateNo?: string;
+  barAssociation?: string;
+  practiceCourts?: string[];
+  practiceAreas?: string[];
+  experience?: number;
+  education?: string[];
+  languages?: string[];
+  feeRange?: { min: number; max: number };
+  rating?: number;
+  totalCases?: number;
+  bio?: string;
+  publicCases?: PublicCourtCase[];
+}
+
+export interface PublicCourtCase {
+  id: string;
+  cnrNumber?: string;
+  caseNumber: string;
+  title: string;
+  court: string;
+  year: number;
+  stage: string;
+  judgmentOutcome?: string;
+  showOnProfile: boolean;
+  sourceType: 'ecourts_public' | 'self_reported' | 'high_court_repository';
+  sourceCitation?: string;
+  advocateNotes?: string;
+  ecourtsUrl?: string;
+  filingDate?: string;
+  nextHearingDate?: string;
+  benchJudge?: string;
+  petitioner?: string;
+  respondent?: string;
+  petitionerAdvocate?: string;
+  respondentAdvocate?: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  text: string;
+  timestamp: string;
+  hasAttachment?: boolean;
+  attachmentName?: string;
+  attachmentUrl?: string;
+}
+
+export interface DirectThread {
+  id: string;
+  lawyerId: string;
+  lawyerName: string;
+  lawyerPhoto?: string;
+  clientId: string;
+  clientName: string;
+  clientPhoto?: string;
+  matterSubject: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  aiBriefAttached?: boolean;
+  aiBriefText?: string;
+  status: 'active' | 'archived';
+}
+
 export interface ClientUser {
   id: string;
   name: string;
@@ -21,7 +110,6 @@ export interface ChatMessage {
   timestamp: string;
   isStreaming?: boolean;
   legalSections?: string[];
-  // Legacy fields (kept for backward compat)
   sender?: 'user' | 'ai';
   textEn?: string;
   textHi?: string;
@@ -72,7 +160,7 @@ export interface CaseFile {
   caseType: string;
   filingDate: string;
   nextHearingDate: string;
-  status: 'Active' | 'Reserved' | 'Disposed';
+  status: 'Active' | 'Disposed' | 'Stayed';
   unreadDocuments: number;
   pendingChecklistItems: number;
   totalBilled: number;
@@ -84,20 +172,21 @@ export interface DocumentItem {
   caseNumber: string;
   titleEn: string;
   titleHi: string;
-  requiredFormat: 'Certified Copy' | 'Original' | 'Self-Attested' | 'Affidavit' | 'Photocopy';
-  status: 'Pending' | 'Uploaded' | 'Format_Issue' | 'Verified';
+  requiredFormat: string;
+  status: 'Verified' | 'Pending Review' | 'Missing' | 'Format_Issue' | 'Pending';
   uploadedAt?: string;
+  fileSize?: string;
   validationNoteEn?: string;
   validationNoteHi?: string;
-  fileSize?: string;
 }
 
 export interface AIIntakeBrief {
   id: string;
   clientName: string;
-  caseCategory: string;
+  clientPhone?: string;
   briefTitleEn: string;
   briefTitleHi: string;
+  caseCategory?: string;
   summaryTextEn: string;
   summaryTextHi: string;
   extractedFactsEn: string[];
@@ -150,4 +239,43 @@ export interface JudicialAnalytic {
   adjournmentFrequencyHi: string;
   keyObservationEn: string;
   keyObservationHi: string;
+}
+
+export interface VerificationRequest {
+  id: string;
+  uid: string;
+  role: 'lawyer' | 'client';
+  name: string;
+  email?: string;
+  phone?: string;
+  documentType: string;
+  documentUrl?: string;
+  maskedIdNumber?: string;
+  govIdType?: string;
+  barCouncilId?: string;
+  status: VerificationStatus;
+  submittedAt: string;
+  notifyAdminEmail: string;
+  rejectionReason?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  auditTrail?: Array<{
+    decision: VerificationStatus;
+    adminEmail: string;
+    timestamp: string;
+    reason?: string;
+  }>;
+}
+
+export interface AppNotification {
+  id: string;
+  recipientId: string;
+  type: 'engagement' | 'verification' | 'chat' | 'system';
+  title: string;
+  message: string;
+  senderName?: string;
+  threadId?: string;
+  read: boolean;
+  createdAt: string;
+  actionUrl?: string;
 }

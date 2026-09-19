@@ -12,6 +12,8 @@ import { DocumentManager } from './components/DocumentManager';
 import { BillingManager } from './components/BillingManager';
 import { CourtAnalyticsAndForum } from './components/CourtAnalyticsAndForum';
 import { LawyerProfileModal } from './components/LawyerProfileModal';
+import { ClientProfileModal } from './components/client/ClientProfileModal';
+import { AdminVerificationDashboard } from './components/admin/AdminVerificationDashboard';
 import { AuthScreen } from './components/auth/AuthScreen';
 
 // Client Screens
@@ -20,33 +22,59 @@ import { ClientCaseTracker } from './components/client/ClientCaseTracker';
 import { ClientDocumentUpload } from './components/client/ClientDocumentUpload';
 import { ClientPaymentView } from './components/client/ClientPaymentView';
 import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory';
+import { DirectChatView } from './components/chat/DirectChatView';
 
-import { 
-  mockHearings, 
-  mockLimitationAlerts, 
-  mockCaseFiles, 
-  mockDocuments, 
-  mockAIBriefs, 
-  mockInvoices, 
-  mockJudicialAnalytics, 
-  mockForumPosts 
-} from './data/mockData';
-import { Language, UserRole, HearingItem, InvoiceItem, AIIntakeBrief } from './types';
+// Firestore Realtime Services & Auto-Seeding
+import {
+  subscribeToCases,
+  subscribeToHearings,
+  subscribeToInvoices,
+  subscribeToDocuments,
+  subscribeToForumPosts,
+  subscribeToUserNotifications,
+  markNotificationRead,
+  updateHearingRecord,
+  addHearingRecord,
+  createInvoiceRecord,
+  markInvoiceRecordPaid,
+  updateDocumentVerification,
+  createCaseRecord,
+  processVerificationRequest,
+  updateUserProfile
+} from './services/firestoreService';
 
-// ── Loading Screen ────────────────────────────────────────────────────────────
+import { mockJudicialAnalytics } from './data/mockData';
+import {
+  Language,
+  UserRole,
+  HearingItem,
+  InvoiceItem,
+  AIIntakeBrief,
+  CaseFile,
+  DocumentItem,
+  ForumPost,
+  LimitationAlert,
+  UserProfile,
+  AppNotification
+} from './types';
+
+// ── Cinematic Loading Screen ──────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto animate-pulse">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-neutral-800 to-neutral-900 border border-white/[0.14] flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,197,99,0.2)] animate-pulse">
+          <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
           </svg>
         </div>
-        <p className="text-white text-xl font-bold">Nyaay</p>
-        <div className="flex gap-1.5 justify-center">
+        <div>
+          <p className="text-white text-xl font-bold tracking-wider font-display">NAYANEETI</p>
+          <p className="text-amber-400/80 text-[11px] font-mono uppercase tracking-widest mt-0.5">Legal Operating System</p>
+        </div>
+        <div className="flex gap-1.5 justify-center pt-2">
           {[0, 1, 2].map(i => (
-            <div key={i} className="w-2 h-2 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+            <div key={i} className="w-2 h-2 rounded-full bg-amber-400/60 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
           ))}
         </div>
       </div>
@@ -54,47 +82,143 @@ function LoadingScreen() {
   );
 }
 
-// ── Main App (inside AuthProvider) ───────────────────────────────────────────
+// ── Main App Content ──────────────────────────────────────────────────────────
 function AppContent() {
-  const { user, profile, loading, logout } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   const [language, setLanguage] = useState<Language>('en');
   const [userRole, setUserRole] = useState<UserRole>('client');
   const [lawyerTab, setLawyerTab] = useState<NavTab>('diary');
   const [clientTab, setClientTab] = useState<ClientNavTab>('consult');
 
-  // Auth state
+  // Auth Modal/Screen state
   const [showAuth, setShowAuth] = useState(false);
-  
-  // Modals
-  const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
-  // Data states (still using mock for non-AI features, Firestore for real saves)
-  const [hearings, setHearings] = useState<HearingItem[]>(mockHearings);
-  const [limitationAlerts] = useState(mockLimitationAlerts);
-  const [cases] = useState(mockCaseFiles);
-  const [documents, setDocuments] = useState(mockDocuments);
-  const [invoices, setInvoices] = useState<InvoiceItem[]>(mockInvoices);
-  const [aiBriefs, setAiBriefs] = useState<AIIntakeBrief[]>(mockAIBriefs);
+  // Modal states
+  const [isLawyerProfileOpen, setIsLawyerProfileOpen] = useState<boolean>(false);
+  const [isClientProfileOpen, setIsClientProfileOpen] = useState<boolean>(false);
+  const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState<boolean>(false);
 
-  // Sync user role from profile when auth state changes
+  // Admin authorization: designated admin email pradhumb1998@gmail.com, or ?admin=true override
+  const isAdmin = user?.email === 'pradhumb1998@gmail.com' || 
+                  profile?.email === 'pradhumb1998@gmail.com' || 
+                  window.location.search.includes('admin=true');
+
+  // Handle URL query parameters for Admin One-Click Actions (e.g. from verification email)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const adminAction = params.get('adminAction');
+    const reqId = params.get('reqId');
+
+    if (adminAction && reqId) {
+      const runAdminUrlAction = async () => {
+        try {
+          if (adminAction === 'approve') {
+            await processVerificationRequest(reqId, 'verified', 'Approved via Direct Admin Email Action');
+            alert(`✅ Verification request #${reqId} has been successfully APPROVED.`);
+          } else if (adminAction === 'reject') {
+            const reason = prompt('Please provide a reason for rejecting this verification request:', 'Document details did not match official registry.') || 'Document rejected by administrator';
+            await processVerificationRequest(reqId, 'rejected', reason);
+            alert(`❌ Verification request #${reqId} has been REJECTED.`);
+          }
+          // Clean URL params without page reload
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch (err) {
+          console.error("Error processing admin action from URL:", err);
+        }
+      };
+      runAdminUrlAction();
+    }
+  }, []);
+
+  // Active Direct Chat state
+  const [activeThread, setActiveThread] = useState<{
+    threadId: string;
+    recipientName: string;
+    recipientPhoto?: string;
+    matterSubject: string;
+    aiBriefAttached?: boolean;
+    aiBriefText?: string;
+  } | null>(null);
+
+  // In-app Notifications
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // Live Database States — ZERO static mock fallbacks
+  const [hearings, setHearings] = useState<HearingItem[]>([]);
+  const [limitationAlerts, setLimitationAlerts] = useState<LimitationAlert[]>([]);
+  const [cases, setCases] = useState<CaseFile[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  const [aiBriefs, setAiBriefs] = useState<AIIntakeBrief[]>([]);
+  const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+
+  // Sync user role from Firestore profile
   useEffect(() => {
     if (profile?.role) {
       setUserRole(profile.role === 'junior' ? 'lawyer' : profile.role);
     }
   }, [profile]);
 
-  // Auto-show auth on startup if no user
+  // Prompt auth if not logged in
   useEffect(() => {
     if (!loading && !user) {
       setShowAuth(true);
     }
   }, [loading, user]);
 
+  // ── Firestore Realtime Subscriptions ────────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Subscribe to Hearings
+    const unsubHearings = subscribeToHearings(user.uid, userRole, (liveHearings) => {
+      setHearings(liveHearings);
+    });
+
+    // 2. Subscribe to Cases
+    const unsubCases = subscribeToCases(user.uid, userRole, (liveCases) => {
+      setCases(liveCases);
+    });
+
+    // 3. Subscribe to Invoices
+    const unsubInvoices = subscribeToInvoices(user.uid, userRole, (liveInvoices) => {
+      setInvoices(liveInvoices);
+    });
+
+    // 4. Subscribe to Documents
+    const unsubDocuments = subscribeToDocuments(user.uid, userRole, (liveDocs) => {
+      setDocuments(liveDocs);
+    });
+
+    // 5. Subscribe to Community Forum Posts
+    const unsubForum = subscribeToForumPosts((livePosts) => {
+      setForumPosts(livePosts);
+    });
+
+    // 6. Subscribe to In-App Notifications
+    const unsubNotifs = subscribeToUserNotifications(user.uid, (liveNotifs) => {
+      setNotifications(liveNotifs);
+    });
+
+    return () => {
+      unsubHearings();
+      unsubCases();
+      unsubInvoices();
+      unsubDocuments();
+      unsubForum();
+      unsubNotifs();
+    };
+  }, [user, userRole]);
+
   if (loading) return <LoadingScreen />;
 
-  // ── Auth Screen (shown when not logged in) ─────────────────────────────────
-  if (showAuth && !user) {
+  // ── Mandatory Authentication & Onboarding Gate ──────────────────────────────
+  // The user MUST complete onboarding registration before entering the main app.
+  const needsAuthOrOnboarding = !user || !profile?.onboardingCompleted;
+
+  if (needsAuthOrOnboarding) {
     return (
       <AndroidFrame
         activeLanguage={language}
@@ -115,9 +239,20 @@ function AppContent() {
   }
 
   const handleToggleLanguage = () => setLanguage(prev => prev === 'en' ? 'hi' : 'en');
-  const handleToggleRole = () => setUserRole(prev => prev === 'lawyer' ? 'client' : 'lawyer');
+  const handleToggleRole = async () => {
+    const nextRole = userRole === 'lawyer' ? 'client' : 'lawyer';
+    setUserRole(nextRole);
+    if (user?.uid) {
+      try {
+        await updateUserProfile(user.uid, { role: nextRole });
+      } catch (err) {
+        console.warn("Failed to persist role switch:", err);
+      }
+    }
+  };
 
-  const handleUpdateHearingOrder = (hearingId: string, orderNotes: string, nextDate: string) => {
+  // Hearing Order Update with Firestore persistence
+  const handleUpdateHearingOrder = async (hearingId: string, orderNotes: string, nextDate: string) => {
     setHearings(prev => prev.map(h => {
       if (h.id === hearingId) {
         return {
@@ -129,33 +264,87 @@ function AppContent() {
       }
       return h;
     }));
+
+    try {
+      await updateHearingRecord(hearingId, orderNotes, nextDate);
+    } catch {
+      // Local optimistic state preserved
+    }
   };
 
-  const handlePayInvoice = (invoiceId: string) => {
+  // Add Hearing to Daily Cause List
+  const handleAddHearing = async (newHearingData: Omit<HearingItem, 'id'>) => {
+    const tempId = `hr-${Date.now()}`;
+    const newHearing: HearingItem = { id: tempId, ...newHearingData };
+    setHearings(prev => [newHearing, ...prev]);
+
+    try {
+      if (user) {
+        await addHearingRecord({
+          ...newHearingData,
+          // @ts-ignore
+          lawyerId: user.uid
+        });
+      }
+    } catch {
+      // Local optimistic state preserved
+    }
+  };
+
+  // Pay Invoice with Firestore persistence
+  const handlePayInvoice = async (invoiceId: string) => {
+    const upiRef = `UPI/${Date.now().toString().slice(-10)}/NAYANEETI`;
     setInvoices(prev => prev.map(inv => {
       if (inv.id === invoiceId) {
         return {
           ...inv,
           status: 'Paid',
           paidVia: 'UPI',
-          upiRef: `UPI/${Date.now().toString().slice(-10)}/AXIS`
+          upiRef
         };
       }
       return inv;
     }));
+
+    try {
+      await markInvoiceRecordPaid(invoiceId, upiRef);
+    } catch {
+      // Local optimistic state preserved
+    }
   };
 
-  const handleCreateInvoice = (newInv: InvoiceItem) => {
+  // Create new Invoice with Firestore persistence
+  const handleCreateInvoice = async (newInv: InvoiceItem) => {
     setInvoices(prev => [newInv, ...prev]);
+
+    try {
+      if (user) {
+        const { id, ...data } = newInv;
+        await createInvoiceRecord({
+          ...data,
+          // @ts-ignore
+          lawyerId: user.uid
+        });
+      }
+    } catch {
+      // Local optimistic state preserved
+    }
   };
 
-  const handleUploadDocument = (docId: string) => {
+  // Upload document with verification toggle
+  const handleUploadDocument = async (docId: string) => {
     setDocuments(prev => prev.map(doc => {
       if (doc.id === docId) {
         return { ...doc, status: 'Verified', uploadedAt: 'Just now' };
       }
       return doc;
     }));
+
+    try {
+      await updateDocumentVerification(docId, 'Verified');
+    } catch {
+      // Local optimistic state preserved
+    }
   };
 
   const handleAcceptAICase = (brief: AIIntakeBrief) => {
@@ -176,10 +365,6 @@ function AppContent() {
     setHearings(prev => [newHearing, ...prev]);
   };
 
-  const handleClientShareBrief = (brief: AIIntakeBrief) => {
-    setAiBriefs(prev => [brief, ...prev]);
-  };
-
   const handleFABAction = (actionType: 'addHearing' | 'newInvoice' | 'uploadDoc' | 'aiConsult') => {
     if (actionType === 'addHearing') setLawyerTab('diary');
     else if (actionType === 'newInvoice') setLawyerTab('billing');
@@ -193,138 +378,256 @@ function AppContent() {
       onToggleLanguage={handleToggleLanguage}
       userRole={userRole}
       onToggleRole={handleToggleRole}
+      hideRoleToggle={false}
     >
       <TopAppBar
         language={language}
         userRole={userRole}
-        onOpenProfile={() => userRole === 'lawyer' ? setIsProfileOpen(true) : setShowAuth(true)}
+        userName={profile?.name}
+        userIdentifier={userRole === 'lawyer' 
+          ? (profile?.barCouncilId ? `${profile.barCouncilId} • ${profile.state || 'HC'}` : 'Bar Council Member')
+          : (profile?.phone || profile?.email || 'NAYANEETI Citizen')
+        }
+        userPhoto={profile?.photoURL}
+        isVerified={profile?.verificationStatus === 'verified'}
+        isAdmin={isAdmin}
+        onOpenProfile={() => {
+          if (userRole === 'lawyer') {
+            setIsLawyerProfileOpen(true);
+            setIsClientProfileOpen(false);
+          } else {
+            setIsClientProfileOpen(true);
+            setIsLawyerProfileOpen(false);
+          }
+        }}
+        onToggleRole={handleToggleRole}
+        onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
         urgentAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
       />
 
-      <main className="flex-1">
-        {userRole === 'lawyer' ? (
-          <>
-            {lawyerTab === 'diary' && (
-              <VirtualCaseDiary
-                hearings={hearings}
-                limitationAlerts={limitationAlerts}
-                language={language}
-                onUpdateHearingOrder={handleUpdateHearingOrder}
-                onOpenCaseDetails={() => setLawyerTab('cases')}
-              />
-            )}
+      {/* In-App Notifications Alert Banner (Advocate & Citizen) */}
+      {notifications.length > 0 && notifications.some(n => !n.read) && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-neutral-900 to-black border-b border-amber-500/30 px-4 py-2.5 flex items-center justify-between animate-in fade-in z-20">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <div>
+              <p className="text-xs font-bold text-amber-200">
+                {notifications.find(n => !n.read)?.title}
+              </p>
+              <p className="text-[10px] text-neutral-300 line-clamp-1">
+                {notifications.find(n => !n.read)?.message}
+              </p>
+            </div>
+          </div>
+          {notifications.find(n => !n.read)?.threadId ? (
+            <button
+              onClick={async () => {
+                const notif = notifications.find(n => !n.read);
+                if (notif) {
+                  await markNotificationRead(notif.id);
+                  setActiveThread({
+                    threadId: notif.threadId!,
+                    recipientName: notif.senderName || 'Client Consultation',
+                    matterSubject: notif.message,
+                  });
+                }
+              }}
+              className="px-3 py-1 bg-white text-black text-[11px] font-bold rounded-xl ios-press flex-shrink-0 ml-2 hover:bg-neutral-200 transition"
+            >
+              Start Chat
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                const notif = notifications.find(n => !n.read);
+                if (notif) markNotificationRead(notif.id);
+              }}
+              className="text-[10px] text-neutral-400 hover:text-white px-2 py-1"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
 
-            {lawyerTab === 'cases' && (
-              <div className="flex flex-col">
-                <CaseListView
-                  cases={cases}
+      {/* Main View: Direct Chat View or Role Dashboards */}
+      {activeThread ? (
+        <div className="flex-1 flex flex-col h-[calc(100%-60px)]">
+          <DirectChatView
+            threadId={activeThread.threadId}
+            currentUserId={user?.uid || 'guest'}
+            currentUserName={profile?.name || (userRole === 'lawyer' ? 'Advocate' : 'Client')}
+            currentUserRole={userRole}
+            recipientName={activeThread.recipientName}
+            recipientPhoto={activeThread.recipientPhoto}
+            matterSubject={activeThread.matterSubject}
+            aiBriefAttached={activeThread.aiBriefAttached}
+            aiBriefText={activeThread.aiBriefText}
+            language={language}
+            onBack={() => setActiveThread(null)}
+          />
+        </div>
+      ) : (
+        <main className="flex-1">
+          {userRole === 'lawyer' ? (
+            <>
+              {lawyerTab === 'diary' && (
+                <VirtualCaseDiary
+                  hearings={hearings}
+                  limitationAlerts={limitationAlerts}
                   language={language}
-                  onSelectCase={() => {}}
+                  onUpdateHearingOrder={handleUpdateHearingOrder}
+                  onOpenCaseDetails={() => setLawyerTab('cases')}
+                  onAddHearing={handleAddHearing}
                 />
-                <DocumentManager
+              )}
+
+              {lawyerTab === 'cases' && (
+                <div className="flex flex-col">
+                  <CaseListView
+                    cases={cases}
+                    language={language}
+                    onSelectCase={() => {}}
+                  />
+                  <DocumentManager
+                    documents={documents}
+                    language={language}
+                    onUploadDocument={handleUploadDocument}
+                  />
+                </div>
+              )}
+
+              {lawyerTab === 'aibriefs' && (
+                <AIIntakeSummary
+                  briefs={aiBriefs}
+                  language={language}
+                  onAcceptCase={handleAcceptAICase}
+                />
+              )}
+
+              {lawyerTab === 'billing' && (
+                <BillingManager
+                  invoices={invoices}
+                  language={language}
+                  onPayInvoice={handlePayInvoice}
+                  onCreateInvoice={handleCreateInvoice}
+                />
+              )}
+
+              {lawyerTab === 'community' && (
+                <CourtAnalyticsAndForum
+                  analytics={mockJudicialAnalytics}
+                  posts={forumPosts}
+                  language={language}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {clientTab === 'consult' && (
+                <ClientAIConsultation
+                  language={language}
+                />
+              )}
+
+              {clientTab === 'mycase' && (
+                <ClientCaseTracker
+                  activeCase={cases[0] || null}
+                  latestHearing={hearings[0] || null}
+                  language={language}
+                  onNavigateToDocs={() => setClientTab('docs')}
+                  onNavigateToPay={() => setClientTab('payments')}
+                  onNavigateToConsult={() => setClientTab('consult')}
+                  onNavigateToDirectory={() => setClientTab('lawyers')}
+                />
+              )}
+
+              {clientTab === 'docs' && (
+                <ClientDocumentUpload
                   documents={documents}
                   language={language}
                   onUploadDocument={handleUploadDocument}
                 />
-              </div>
-            )}
+              )}
 
-            {lawyerTab === 'aibriefs' && (
-              <AIIntakeSummary
-                briefs={aiBriefs}
-                language={language}
-                onAcceptCase={handleAcceptAICase}
-              />
-            )}
+              {clientTab === 'payments' && (
+                <ClientPaymentView
+                  invoices={invoices}
+                  language={language}
+                  onPayInvoice={handlePayInvoice}
+                />
+              )}
 
-            {lawyerTab === 'billing' && (
-              <BillingManager
-                invoices={invoices}
-                language={language}
-                onPayInvoice={handlePayInvoice}
-                onCreateInvoice={handleCreateInvoice}
-              />
-            )}
+              {clientTab === 'lawyers' && (
+                <ClientLawyerDirectory
+                  language={language}
+                  onOpenChat={(threadId, lawyer) => {
+                    setActiveThread({
+                      threadId,
+                      recipientName: lawyer.name,
+                      recipientPhoto: lawyer.photoURL,
+                      matterSubject: `Consultation with ${lawyer.name}`,
+                    });
+                  }}
+                />
+              )}
+            </>
+          )}
+        </main>
+      )}
 
-            {lawyerTab === 'community' && (
-              <CourtAnalyticsAndForum
-                analytics={mockJudicialAnalytics}
-                posts={mockForumPosts}
-                language={language}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            {clientTab === 'consult' && (
-              <ClientAIConsultation
-                language={language}
-              />
-            )}
-
-            {clientTab === 'mycase' && (
-              <ClientCaseTracker
-                activeCase={cases[0]}
-                latestHearing={hearings[0]}
-                language={language}
-                onNavigateToDocs={() => setClientTab('docs')}
-                onNavigateToPay={() => setClientTab('payments')}
-              />
-            )}
-
-            {clientTab === 'docs' && (
-              <ClientDocumentUpload
-                documents={documents}
-                language={language}
-                onUploadDocument={handleUploadDocument}
-              />
-            )}
-
-            {clientTab === 'payments' && (
-              <ClientPaymentView
-                invoices={invoices}
-                language={language}
-                onPayInvoice={handlePayInvoice}
-              />
-            )}
-
-            {clientTab === 'lawyers' && (
-              <ClientLawyerDirectory
-                language={language}
-              />
-            )}
-          </>
-        )}
-      </main>
-
-      {userRole === 'lawyer' && (
+      {userRole === 'lawyer' && !activeThread && (
         <SpeedDialFAB language={language} onAction={handleFABAction} />
       )}
 
-      {userRole === 'lawyer' ? (
-        <BottomNavBar
-          activeTab={lawyerTab}
-          onSelectTab={setLawyerTab}
-          language={language}
-        />
-      ) : (
-        <ClientBottomNav
-          activeTab={clientTab}
-          onSelectTab={setClientTab}
-          language={language}
-        />
+      {!activeThread && (
+        userRole === 'lawyer' ? (
+          <BottomNavBar
+            activeTab={lawyerTab}
+            onSelectTab={setLawyerTab}
+            language={language}
+          />
+        ) : (
+          <ClientBottomNav
+            activeTab={clientTab}
+            onSelectTab={setClientTab}
+            language={language}
+          />
+        )
       )}
 
       <LawyerProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
+        isOpen={isLawyerProfileOpen}
+        onClose={() => setIsLawyerProfileOpen(false)}
+        language={language}
+        onSwitchToClient={async () => {
+          await handleToggleRole();
+          setIsLawyerProfileOpen(false);
+          setIsClientProfileOpen(true);
+        }}
+      />
+
+      <ClientProfileModal
+        isOpen={isClientProfileOpen}
+        onClose={() => setIsClientProfileOpen(false)}
+        language={language}
+        onSwitchToLawyer={async () => {
+          await handleToggleRole();
+          setIsClientProfileOpen(false);
+          setIsLawyerProfileOpen(true);
+        }}
+      />
+
+      <AdminVerificationDashboard
+        isOpen={isAdminDashboardOpen}
+        onClose={() => setIsAdminDashboardOpen(false)}
         language={language}
       />
     </AndroidFrame>
   );
 }
 
-// ── Root with Providers ───────────────────────────────────────────────────────
+// ── Root Provider ─────────────────────────────────────────────────────────────
 export function App() {
   return (
     <AuthProvider>

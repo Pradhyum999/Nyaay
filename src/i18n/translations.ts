@@ -1,8 +1,8 @@
 export const translations = {
   en: {
     // App Header & Branding
-    appName: "NYAAY",
-    appSubtitle: "Legal-Tech Platform",
+    appName: "NAYANEETI",
+    appSubtitle: "Legal Operating System",
     advocateTitle: "Adv. Rajesh Mehta",
     barCouncil: "Bar Council of Delhi (D/1482/2015)",
     verifiedAdvocate: "Verified Advocate",
@@ -161,8 +161,8 @@ export const translations = {
 
   hi: {
     // App Header & Branding
-    appName: "न्याय (NYAAY)",
-    appSubtitle: "विधिक तकनीकी मंच",
+    appName: "नयनीति (NAYANEETI)",
+    appSubtitle: "विधिक ऑपरेटिंग सिस्टम",
     advocateTitle: "अधिवक्ता राजेश मेहता",
     barCouncil: "बार काउंसिल ऑफ दिल्ली (D/1482/2015)",
     verifiedAdvocate: "सत्यापित अधिवक्ता",
