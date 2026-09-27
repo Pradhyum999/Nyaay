@@ -23,6 +23,7 @@ import { ClientDocumentUpload } from './components/client/ClientDocumentUpload';
 import { ClientPaymentView } from './components/client/ClientPaymentView';
 import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory';
 import { DirectChatView } from './components/chat/DirectChatView';
+import { ChatInboxView } from './components/chat/ChatInboxView';
 
 // Firestore Realtime Services & Auto-Seeding
 import {
@@ -32,6 +33,7 @@ import {
   subscribeToDocuments,
   subscribeToForumPosts,
   subscribeToUserNotifications,
+  subscribeToUserThreads,
   markNotificationRead,
   updateHearingRecord,
   addHearingRecord,
@@ -43,7 +45,7 @@ import {
   updateUserProfile
 } from './services/firestoreService';
 
-import { mockJudicialAnalytics } from './data/mockData';
+
 import {
   Language,
   UserRole,
@@ -55,21 +57,29 @@ import {
   ForumPost,
   LimitationAlert,
   UserProfile,
-  AppNotification
+  AppNotification,
+  DirectThread
 } from './types';
 
 // ── Cinematic Loading Screen ──────────────────────────────────────────────────
 function LoadingScreen() {
+  const [showRetry, setShowRetry] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowRetry(true), 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 max-w-xs px-4">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-neutral-800 to-neutral-900 border border-white/[0.14] flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(245,197,99,0.2)] animate-pulse">
           <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
           </svg>
         </div>
         <div>
-          <p className="text-white text-xl font-bold tracking-wider font-display">NAYANEETI</p>
+          <p className="text-white text-xl font-bold tracking-wider font-display">NYAAYNEETI</p>
           <p className="text-amber-400/80 text-[11px] font-mono uppercase tracking-widest mt-0.5">Legal Operating System</p>
         </div>
         <div className="flex gap-1.5 justify-center pt-2">
@@ -77,6 +87,17 @@ function LoadingScreen() {
             <div key={i} className="w-2 h-2 rounded-full bg-amber-400/60 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
           ))}
         </div>
+
+        {showRetry && (
+          <div className="pt-3 animate-in fade-in">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold transition ios-press"
+            >
+              Taking a moment? Tap to Refresh
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -99,9 +120,15 @@ function AppContent() {
   const [isClientProfileOpen, setIsClientProfileOpen] = useState<boolean>(false);
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState<boolean>(false);
 
-  // Admin authorization: designated admin email pradhumb1998@gmail.com, or ?admin=true override
+  // Admin session authentication
+  const [adminSessionAuthenticated, setAdminSessionAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('nyaay_admin_authenticated') === 'true';
+  });
+
+  // Admin authorization: designated admin email pradhumb1998@gmail.com, or ?admin=true override, or authenticated admin portal session
   const isAdmin = user?.email === 'pradhumb1998@gmail.com' || 
                   profile?.email === 'pradhumb1998@gmail.com' || 
+                  adminSessionAuthenticated ||
                   window.location.search.includes('admin=true');
 
   // Handle URL query parameters for Admin One-Click Actions (e.g. from verification email)
@@ -142,8 +169,9 @@ function AppContent() {
     aiBriefText?: string;
   } | null>(null);
 
-  // In-app Notifications
+  // In-app Notifications & Chat Threads
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [userThreads, setUserThreads] = useState<DirectThread[]>([]);
 
   // Live Database States — ZERO static mock fallbacks
   const [hearings, setHearings] = useState<HearingItem[]>([]);
@@ -202,6 +230,11 @@ function AppContent() {
       setNotifications(liveNotifs);
     });
 
+    // 7. Subscribe to User Direct Threads
+    const unsubThreads = subscribeToUserThreads(user.uid, userRole, (liveThreads) => {
+      setUserThreads(liveThreads);
+    });
+
     return () => {
       unsubHearings();
       unsubCases();
@@ -209,14 +242,28 @@ function AppContent() {
       unsubDocuments();
       unsubForum();
       unsubNotifs();
+      unsubThreads();
     };
   }, [user, userRole]);
 
   if (loading) return <LoadingScreen />;
 
+  const handleCloseAdminDashboard = () => {
+    setIsAdminDashboardOpen(false);
+    setAdminSessionAuthenticated(false);
+    sessionStorage.removeItem('nyaay_admin_authenticated');
+  };
+
   // ── Mandatory Authentication & Onboarding Gate ──────────────────────────────
-  // The user MUST complete onboarding registration before entering the main app.
-  const needsAuthOrOnboarding = !user || !profile?.onboardingCompleted;
+  // Signup details should ONLY be asked once:
+  // - For advocate: verified with email AND bar council ID!
+  // - For citizen: verified with email AND completed onboarding!
+  const isAlreadySignedUp = Boolean(
+    (profile?.role === 'lawyer' && profile?.email && profile?.barCouncilId && profile.barCouncilId.trim().length > 0) ||
+    (profile?.role === 'client' && profile?.email && profile?.onboardingCompleted === true)
+  );
+
+  const needsAuthOrOnboarding = !user || !isAlreadySignedUp;
 
   if (needsAuthOrOnboarding) {
     return (
@@ -233,23 +280,24 @@ function AppContent() {
             setUserRole(role);
             setShowAuth(false);
           }}
+          onAdminSuccess={() => {
+            setAdminSessionAuthenticated(true);
+            sessionStorage.setItem('nyaay_admin_authenticated', 'true');
+            setIsAdminDashboardOpen(true);
+          }}
+        />
+
+        <AdminVerificationDashboard
+          isOpen={isAdminDashboardOpen}
+          onClose={handleCloseAdminDashboard}
+          language={language}
         />
       </AndroidFrame>
     );
   }
 
+
   const handleToggleLanguage = () => setLanguage(prev => prev === 'en' ? 'hi' : 'en');
-  const handleToggleRole = async () => {
-    const nextRole = userRole === 'lawyer' ? 'client' : 'lawyer';
-    setUserRole(nextRole);
-    if (user?.uid) {
-      try {
-        await updateUserProfile(user.uid, { role: nextRole });
-      } catch (err) {
-        console.warn("Failed to persist role switch:", err);
-      }
-    }
-  };
 
   // Hearing Order Update with Firestore persistence
   const handleUpdateHearingOrder = async (hearingId: string, orderNotes: string, nextDate: string) => {
@@ -293,7 +341,7 @@ function AppContent() {
 
   // Pay Invoice with Firestore persistence
   const handlePayInvoice = async (invoiceId: string) => {
-    const upiRef = `UPI/${Date.now().toString().slice(-10)}/NAYANEETI`;
+    const upiRef = `UPI/${Date.now().toString().slice(-10)}/NYAAYNEETI`;
     setInvoices(prev => prev.map(inv => {
       if (inv.id === invoiceId) {
         return {
@@ -377,8 +425,8 @@ function AppContent() {
       activeLanguage={language}
       onToggleLanguage={handleToggleLanguage}
       userRole={userRole}
-      onToggleRole={handleToggleRole}
-      hideRoleToggle={false}
+      onToggleRole={() => {}}
+      hideRoleToggle={true}
     >
       <TopAppBar
         language={language}
@@ -386,7 +434,7 @@ function AppContent() {
         userName={profile?.name}
         userIdentifier={userRole === 'lawyer' 
           ? (profile?.barCouncilId ? `${profile.barCouncilId} • ${profile.state || 'HC'}` : 'Bar Council Member')
-          : (profile?.phone || profile?.email || 'NAYANEETI Citizen')
+          : (profile?.phone || profile?.email || 'NYAAYNEETI Citizen')
         }
         userPhoto={profile?.photoURL}
         isVerified={profile?.verificationStatus === 'verified'}
@@ -400,8 +448,16 @@ function AppContent() {
             setIsLawyerProfileOpen(false);
           }
         }}
-        onToggleRole={handleToggleRole}
         onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
+        onOpenChatInbox={() => {
+          setActiveThread(null);
+          if (userRole === 'lawyer') {
+            setLawyerTab('chats');
+          } else {
+            setClientTab('chats');
+          }
+        }}
+        unreadChatCount={userThreads.length}
         urgentAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
       />
 
@@ -425,6 +481,11 @@ function AppContent() {
                 const notif = notifications.find(n => !n.read);
                 if (notif) {
                   await markNotificationRead(notif.id);
+                  if (userRole === 'lawyer') {
+                    setLawyerTab('chats');
+                  } else {
+                    setClientTab('chats');
+                  }
                   setActiveThread({
                     threadId: notif.threadId!,
                     recipientName: notif.senderName || 'Client Consultation',
@@ -497,6 +558,25 @@ function AppContent() {
                 </div>
               )}
 
+              {lawyerTab === 'chats' && (
+                <ChatInboxView
+                  currentUserId={user?.uid || ''}
+                  currentUserRole="lawyer"
+                  currentUserName={profile?.name || 'Advocate'}
+                  language={language}
+                  onSelectThread={(thread) => {
+                    setActiveThread({
+                      threadId: thread.id,
+                      recipientName: thread.clientName,
+                      recipientPhoto: thread.clientPhoto,
+                      matterSubject: thread.matterSubject,
+                      aiBriefAttached: thread.aiBriefAttached,
+                      aiBriefText: thread.aiBriefText,
+                    });
+                  }}
+                />
+              )}
+
               {lawyerTab === 'aibriefs' && (
                 <AIIntakeSummary
                   briefs={aiBriefs}
@@ -516,7 +596,7 @@ function AppContent() {
 
               {lawyerTab === 'community' && (
                 <CourtAnalyticsAndForum
-                  analytics={mockJudicialAnalytics}
+                  analytics={[]}
                   posts={forumPosts}
                   language={language}
                 />
@@ -527,6 +607,26 @@ function AppContent() {
               {clientTab === 'consult' && (
                 <ClientAIConsultation
                   language={language}
+                />
+              )}
+
+              {clientTab === 'chats' && (
+                <ChatInboxView
+                  currentUserId={user?.uid || ''}
+                  currentUserRole="client"
+                  currentUserName={profile?.name || 'Client'}
+                  language={language}
+                  onSelectThread={(thread) => {
+                    setActiveThread({
+                      threadId: thread.id,
+                      recipientName: thread.lawyerName,
+                      recipientPhoto: thread.lawyerPhoto,
+                      matterSubject: thread.matterSubject,
+                      aiBriefAttached: thread.aiBriefAttached,
+                      aiBriefText: thread.aiBriefText,
+                    });
+                  }}
+                  onOpenDirectory={() => setClientTab('lawyers')}
                 />
               )}
 
@@ -562,6 +662,7 @@ function AppContent() {
                 <ClientLawyerDirectory
                   language={language}
                   onOpenChat={(threadId, lawyer) => {
+                    setClientTab('chats');
                     setActiveThread({
                       threadId,
                       recipientName: lawyer.name,
@@ -586,12 +687,14 @@ function AppContent() {
             activeTab={lawyerTab}
             onSelectTab={setLawyerTab}
             language={language}
+            unreadCount={userThreads.length}
           />
         ) : (
           <ClientBottomNav
             activeTab={clientTab}
             onSelectTab={setClientTab}
             language={language}
+            unreadCount={userThreads.length}
           />
         )
       )}
@@ -600,27 +703,17 @@ function AppContent() {
         isOpen={isLawyerProfileOpen}
         onClose={() => setIsLawyerProfileOpen(false)}
         language={language}
-        onSwitchToClient={async () => {
-          await handleToggleRole();
-          setIsLawyerProfileOpen(false);
-          setIsClientProfileOpen(true);
-        }}
       />
 
       <ClientProfileModal
         isOpen={isClientProfileOpen}
         onClose={() => setIsClientProfileOpen(false)}
         language={language}
-        onSwitchToLawyer={async () => {
-          await handleToggleRole();
-          setIsClientProfileOpen(false);
-          setIsLawyerProfileOpen(true);
-        }}
       />
 
       <AdminVerificationDashboard
         isOpen={isAdminDashboardOpen}
-        onClose={() => setIsAdminDashboardOpen(false)}
+        onClose={handleCloseAdminDashboard}
         language={language}
       />
     </AndroidFrame>

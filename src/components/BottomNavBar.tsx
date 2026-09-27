@@ -1,45 +1,100 @@
 import React from 'react';
-import { Calendar, Folder, Sparkles, CreditCard, Landmark } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar, Folder, Sparkles, CreditCard, MessageSquare } from 'lucide-react';
 import { translations } from '../i18n/translations';
 import { Language } from '../types';
 
-export type NavTab = 'diary' | 'cases' | 'aibriefs' | 'billing' | 'community';
+export type NavTab = 'diary' | 'cases' | 'chats' | 'aibriefs' | 'billing' | 'community';
 
 interface BottomNavBarProps {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   language: Language;
+  unreadCount?: number;
 }
 
-export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onSelectTab, language }) => {
-  const t = translations[language];
+const tabs = [
+  { id: 'diary' as NavTab,    labelKey: 'navDiary',     icon: Calendar },
+  { id: 'cases' as NavTab,    labelKey: 'navCases',     icon: Folder },
+  { id: 'chats' as NavTab,    labelKey: 'navChats',     icon: MessageSquare },
+  { id: 'aibriefs' as NavTab, labelKey: 'navAIBriefs',  icon: Sparkles },
+  { id: 'billing' as NavTab,  labelKey: 'navBilling',   icon: CreditCard },
+];
 
-  const tabs: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'diary', label: t.navDiary, icon: <Calendar size={18} strokeWidth={1.8} /> },
-    { id: 'cases', label: t.navCases, icon: <Folder size={18} strokeWidth={1.8} /> },
-    { id: 'aibriefs', label: t.navAIBriefs, icon: <Sparkles size={18} strokeWidth={1.8} /> },
-    { id: 'billing', label: t.navBilling, icon: <CreditCard size={18} strokeWidth={1.8} /> },
-    { id: 'community', label: t.navCommunity, icon: <Landmark size={18} strokeWidth={1.8} /> },
-  ];
+export const BottomNavBar: React.FC<BottomNavBarProps> = ({
+  activeTab,
+  onSelectTab,
+  language,
+  unreadCount = 0,
+}) => {
+  const t = translations[language] as Record<string, string>;
 
   return (
-    <nav className="sticky bottom-0 z-20 bg-black/85 backdrop-blur-2xl border-t border-white/[0.08] px-3 py-2 flex items-center justify-around">
+    <nav
+      className="sticky bottom-0 z-30 bg-black/90 backdrop-blur-2xl border-t border-white/[0.06] px-2 py-1.5 flex items-center justify-around"
+      style={{ paddingBottom: 'calc(0.375rem + env(safe-area-inset-bottom))' }}
+    >
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
+        const Icon = tab.icon;
+        const label = t[tab.labelKey] ?? tab.labelKey;
+
         return (
           <button
             key={tab.id}
+            type="button"
             onClick={() => onSelectTab(tab.id)}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ios-press ${
-              isActive ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'
-            }`}
+            className="relative flex flex-col items-center justify-center flex-1 py-1.5 gap-0.5 rounded-2xl min-w-0 ios-press cursor-pointer"
           >
-            <div className={`p-1 rounded-xl transition-all ${isActive ? 'text-amber-300 scale-105' : ''}`}>
-              {tab.icon}
+            {/* Sliding background pill */}
+            {isActive && (
+              <motion.span
+                layoutId="advocate-nav-pill"
+                className="absolute inset-0 rounded-2xl bg-white/[0.08]"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              />
+            )}
+
+            {/* Icon + badge */}
+            <div className="relative z-10">
+              <motion.div
+                animate={isActive
+                  ? { scale: 1.1, color: '#F5C563' }
+                  : { scale: 1, color: '#6B6E7A' }
+                }
+                transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+              >
+                <Icon size={19} strokeWidth={isActive ? 2.1 : 1.7} />
+              </motion.div>
+
+              {/* Unread badge on chats */}
+              <AnimatePresence>
+                {tab.id === 'chats' && unreadCount > 0 && (
+                  <motion.span
+                    key="badge"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 600, damping: 22 }}
+                    className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 px-0.5 bg-amber-400 text-black text-[8px] font-black rounded-full flex items-center justify-center"
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
-            <span className={`text-[10px] tracking-tight mt-0.5 transition-all ${isActive ? 'font-semibold text-white' : 'font-normal'}`}>
-              {tab.label}
-            </span>
+
+            {/* Label */}
+            <motion.span
+              animate={isActive
+                ? { opacity: 1, color: '#FFFFFF' }
+                : { opacity: 0.45, color: '#9496A1' }
+              }
+              transition={{ duration: 0.18 }}
+              className="text-[9.5px] tracking-tight font-medium whitespace-nowrap z-10"
+            >
+              {label}
+            </motion.span>
           </button>
         );
       })}

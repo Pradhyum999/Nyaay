@@ -61,7 +61,6 @@ interface LawyerProfileModalProps {
   onClose: () => void;
   language: Language;
   onOpenAdminDashboard?: () => void;
-  onSwitchToClient?: () => void;
 }
 
 const ADVOCATE_AVATARS = [
@@ -76,7 +75,6 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
   onClose,
   language,
   onOpenAdminDashboard,
-  onSwitchToClient
 }) => {
   const { user, profile, updateProfile, logout } = useAuth();
   const t = translations[language];
@@ -145,7 +143,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
 
   const status: VerificationStatus = profile?.verificationStatus || 'not_submitted';
   const isVerified = status === 'verified';
-  const isAdmin = user?.email === 'pradhumb1998@gmail.com' || true;
+  const isAdmin = user?.email === 'pradhumb1998@gmail.com';
 
   const handleDocFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -854,25 +852,6 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
             </button>
           </div>
         )}
-
-        {/* Role Switcher Option */}
-        <div className="bg-black/40 p-3.5 rounded-2xl border border-white/[0.08] flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-white">Current Mode: Advocate</p>
-            <p className="text-[10px] text-neutral-400">Want to test or view as a Citizen/Client?</p>
-          </div>
-          {onSwitchToClient && (
-            <button
-              onClick={() => {
-                onClose();
-                onSwitchToClient();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition ios-press"
-            >
-              Switch to Citizen
-            </button>
-          )}
-        </div>
 
         {/* Regulatory disclaimer */}
         <div className="bg-black/40 p-3 rounded-2xl border border-white/[0.06] text-[10px] text-neutral-500 leading-relaxed italic">

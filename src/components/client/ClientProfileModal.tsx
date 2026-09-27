@@ -30,7 +30,6 @@ interface ClientProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   language: Language;
-  onSwitchToLawyer?: () => void;
 }
 
 const CITIZEN_AVATARS = [
@@ -45,7 +44,6 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({
   isOpen,
   onClose,
   language,
-  onSwitchToLawyer
 }) => {
   const { user, profile, updateProfile, logout } = useAuth();
 
@@ -171,7 +169,7 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({
                 {status === 'verified' && <ShieldCheck size={15} className="text-emerald-400" />}
               </div>
               <p className="text-xs text-neutral-400 font-mono mt-0.5">
-                {profile?.phone || profile?.email || 'NAYANEETI User'}
+                {profile?.phone || profile?.email || 'NYAAYNEETI Citizen'}
               </p>
             </div>
           </div>
@@ -424,25 +422,6 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({
             </button>
           </form>
         )}
-
-        {/* Role Switcher Option */}
-        <div className="bg-black/40 p-3.5 rounded-2xl border border-white/[0.08] flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-white">Current Mode: Citizen Account</p>
-            <p className="text-[10px] text-neutral-400">Looking to access Advocate features & case diary?</p>
-          </div>
-          {onSwitchToLawyer && (
-            <button
-              onClick={() => {
-                onClose();
-                onSwitchToLawyer();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 text-xs font-bold border border-amber-400/30 transition ios-press"
-            >
-              Switch to Advocate
-            </button>
-          )}
-        </div>
 
         {/* DPDP Compliance Notice */}
         <div className="bg-black/40 p-3 rounded-2xl border border-white/[0.06] text-[10px] text-neutral-500 leading-relaxed italic">

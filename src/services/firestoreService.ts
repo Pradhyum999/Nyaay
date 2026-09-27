@@ -27,30 +27,91 @@ import {
   DirectMessage,
   DirectThread,
   VerificationRequest,
-  AppNotification
+  AppNotification,
+  CaseProfile,
+  CaseTimelineEvent,
+  CaseTask,
+  CaseNote
 } from '../types';
 import { searchECourtsByAdvocate } from './ecourtsService';
 
 // Re-export UserProfile for convenience
 export type { UserProfile };
 
+// ─── Firestore Helpers ───────────────────────────────────────────────────────
+
+export function sanitizeFirestoreData<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
 // ─── User Profiles ──────────────────────────────────────────────────────────
 
 export async function createUserProfile(uid: string, data: Omit<UserProfile, 'uid'>) {
+  const cleanData = sanitizeFirestoreData(data);
   await setDoc(doc(db, 'users', uid), {
     uid,
-    ...data,
+    ...cleanData,
     createdAt: serverTimestamp(),
-  });
+  }, { merge: true });
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists() ? (snap.data() as UserProfile) : null;
+  try {
+    const snap = await Promise.race([
+      getDoc(doc(db, 'users', uid)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))
+    ]);
+    return snap && 'exists' in snap && snap.exists() ? (snap.data() as UserProfile) : null;
+  } catch (err) {
+    console.warn("Error fetching user profile:", err);
+    return null;
+  }
+}
+
+export async function getUserProfileByEmail(email: string): Promise<UserProfile | null> {
+  if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('email', '==', cleanEmail)
+    );
+    const snap = await Promise.race([
+      getDocs(q),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))
+    ]);
+    if (snap && 'empty' in snap && !snap.empty) {
+      return snap.docs[0].data() as UserProfile;
+    }
+    // Fallback in case email was stored in original casing
+    const q2 = query(
+      collection(db, 'users'),
+      where('email', '==', email.trim())
+    );
+    const snap2 = await Promise.race([
+      getDocs(q2),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+    ]);
+    return snap2 && 'empty' in snap2 && !snap2.empty ? (snap2.docs[0].data() as UserProfile) : null;
+  } catch (err) {
+    console.warn("Error fetching user profile by email:", err);
+    return null;
+  }
 }
 
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
-  await updateDoc(doc(db, 'users', uid), data);
+  const cleanData = sanitizeFirestoreData(data);
+  await setDoc(doc(db, 'users', uid), {
+    uid,
+    ...cleanData,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 export async function getLawyerDirectory(): Promise<UserProfile[]> {
@@ -280,6 +341,203 @@ export async function saveAIBrief(data: Omit<AIBrief, 'id'>): Promise<string> {
   return ref.id;
 }
 
+// ─── CASE ROOM: Case-scoped realtime subscriptions & mutations ───────────────
+// The Case Room is the persistent workspace for a single matter. Everything
+// (documents, hearings, invoices, tasks, timeline, notes) is keyed by caseId.
+
+export function subscribeToCase(
+  caseId: string,
+  callback: (caseFile: CaseFile | null) => void
+) {
+  return onSnapshot(doc(db, 'cases', caseId), snap => {
+    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as CaseFile) : null);
+  }, err => {
+    console.warn("Firestore case subscription fallback:", err);
+  });
+}
+
+export function subscribeToCaseDocuments(
+  caseId: string,
+  callback: (docs: DocumentItem[]) => void
+) {
+  const q = query(collection(db, 'documents'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as DocumentItem)));
+  }, err => console.warn("Case documents subscription fallback:", err));
+}
+
+export function subscribeToCaseHearings(
+  caseId: string,
+  callback: (hearings: HearingItem[]) => void
+) {
+  const q = query(collection(db, 'hearings'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as HearingItem)));
+  }, err => console.warn("Case hearings subscription fallback:", err));
+}
+
+export function subscribeToCaseInvoices(
+  caseId: string,
+  callback: (invoices: AppInvoiceItem[]) => void
+) {
+  const q = query(collection(db, 'invoices'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as AppInvoiceItem)));
+  }, err => console.warn("Case invoices subscription fallback:", err));
+}
+
+// ── Timeline ────────────────────────────────────────────────────────────────
+
+export function subscribeToCaseTimeline(
+  caseId: string,
+  callback: (events: CaseTimelineEvent[]) => void
+) {
+  const q = query(collection(db, 'case_timeline'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as CaseTimelineEvent));
+    list.sort((a, b) => (a.eventDate || '').localeCompare(b.eventDate || ''));
+    callback(list);
+  }, err => console.warn("Case timeline subscription fallback:", err));
+}
+
+export async function addTimelineEvent(
+  event: Omit<CaseTimelineEvent, 'id' | 'createdAt'>
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'case_timeline'), {
+    ...event,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+export function subscribeToCaseTasks(
+  caseId: string,
+  callback: (tasks: CaseTask[]) => void
+) {
+  const q = query(collection(db, 'tasks'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as CaseTask)));
+  }, err => console.warn("Case tasks subscription fallback:", err));
+}
+
+export async function createCaseTask(
+  task: Omit<CaseTask, 'id' | 'createdAt'>
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'tasks'), {
+    ...task,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateCaseTask(
+  taskId: string,
+  data: Partial<Pick<CaseTask, 'status' | 'titleEn' | 'titleHi' | 'dueDate' | 'assignedTo'>>
+) {
+  await updateDoc(doc(db, 'tasks', taskId), {
+    ...data,
+    ...(data.status === 'done' ? { completedAt: new Date().toISOString() } : {}),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteCaseTask(taskId: string) {
+  await deleteDoc(doc(db, 'tasks', taskId));
+}
+
+// ── Notes ───────────────────────────────────────────────────────────────────
+
+export function subscribeToCaseNotes(
+  caseId: string,
+  callback: (notes: CaseNote[]) => void
+) {
+  const q = query(collection(db, 'case_notes'), where('caseId', '==', caseId));
+  return onSnapshot(q, snap => {
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as CaseNote));
+    list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    callback(list);
+  }, err => console.warn("Case notes subscription fallback:", err));
+}
+
+export async function addCaseNote(
+  note: Omit<CaseNote, 'id' | 'createdAt'>
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'case_notes'), {
+    ...note,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+// ── Create a Case Room from an AI Case Profile ("Build my case") ─────────────
+
+export async function createCaseFromProfile(params: {
+  clientId: string;
+  clientName: string;
+  clientPhone: string;
+  profile: CaseProfile;
+  caseNumber?: string;
+}): Promise<string> {
+  const caseNumber = params.caseNumber || `NY/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const caseRef = await addDoc(collection(db, 'cases'), {
+    caseNumber,
+    clientId: params.clientId,
+    clientName: params.clientName,
+    clientPhone: params.clientPhone,
+    opponentName: 'To be determined',
+    court: 'District Court',
+    courtLocation: params.profile.location || 'India',
+    actSections: [],
+    caseType: params.profile.matterType,
+    filingDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    nextHearingDate: 'Not scheduled',
+    status: 'Active',
+    stage: 'Admission',
+    unreadDocuments: 0,
+    pendingChecklistItems: params.profile.documentsRequired.length,
+    totalBilled: 0,
+    totalCollected: 0,
+    profile: params.profile,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  const caseId = caseRef.id;
+
+  // Seed the document checklist from the profile's required documents
+  for (const docName of params.profile.documentsRequired) {
+    await addDoc(collection(db, 'documents'), {
+      caseId,
+      caseNumber,
+      clientId: params.clientId,
+      titleEn: docName,
+      titleHi: docName,
+      requiredFormat: 'PDF / Certified Copy',
+      status: 'Missing',
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  // Seed the timeline with the intake event
+  await addTimelineEvent({
+    caseId,
+    type: 'intake',
+    titleEn: 'Case created via AI intake',
+    titleHi: 'AI इनटेक द्वारा केस बनाया गया',
+    descriptionEn: params.profile.summaryText,
+    descriptionHi: params.profile.summaryText,
+    eventDate: new Date().toISOString(),
+    actorId: params.clientId,
+    actorName: params.clientName,
+    actorRole: 'client',
+  });
+
+  return caseId;
+}
+
 // ─── Auto-Seeding / Starter Data for New Users ──────────────────────────────
 
 export async function seedInitialAdvocateData(uid: string, advocateName: string) {
@@ -373,8 +631,9 @@ export async function submitVerificationRequest(params: {
   education?: string[];
   city?: string;
 }): Promise<string> {
+  const cleanParams = sanitizeFirestoreData(params);
   const reqRef = await addDoc(collection(db, 'verification_requests'), {
-    ...params,
+    ...cleanParams,
     status: 'pending' as const,
     submittedAt: new Date().toISOString(),
     notifyAdminEmail: 'pradhumb1998@gmail.com',
@@ -390,16 +649,20 @@ export async function submitVerificationRequest(params: {
   });
 
   // Keep user profile in pending status with submitted document info
-  await updateUserProfile(params.uid, {
+  const profileUpdates: Partial<UserProfile> = {
     verificationStatus: 'pending',
     idDocumentType: params.documentType as any,
     idDocumentUrl: params.documentUrl || '',
     idDocumentNumberMasked: params.maskedIdNumber || '',
     barCouncilId: params.barCouncilId || '',
-    education: params.education,
-    city: params.city,
+    city: params.city || '',
     rejectionReason: '',
-  });
+  };
+  if (params.education && params.education.length > 0) {
+    profileUpdates.education = params.education;
+  }
+
+  await updateUserProfile(params.uid, profileUpdates);
 
   // Also write an admin notification alert
   await addDoc(collection(db, 'notifications'), {
@@ -637,6 +900,8 @@ export async function sendDirectMessage(threadId: string, msg: {
   hasAttachment?: boolean;
   attachmentName?: string;
   attachmentUrl?: string;
+  attachmentType?: 'image' | 'file';
+  attachmentSize?: string;
 }) {
   const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   await addDoc(collection(db, `threads/${threadId}/messages`), {
@@ -646,9 +911,16 @@ export async function sendDirectMessage(threadId: string, msg: {
     createdAt: serverTimestamp(),
   });
 
+  const lastPreview = msg.text?.trim()
+    ? (msg.text.length > 80 ? msg.text.slice(0, 80) + '...' : msg.text)
+    : (msg.attachmentType === 'image' ? '📷 Photo' : '📎 Document: ' + (msg.attachmentName || 'Attachment'));
+
   await updateDoc(doc(db, 'threads', threadId), {
-    lastMessage: msg.text.slice(0, 80),
+    lastMessage: lastPreview,
     lastMessageAt: timestamp,
+    lastMessageSenderId: msg.senderId,
+    hasAttachment: !!msg.hasAttachment,
+    attachmentType: msg.attachmentType || null,
     updatedAt: serverTimestamp(),
   });
 }
@@ -710,6 +982,14 @@ export function subscribeToUserThreads(
       id: d.id,
       ...d.data()
     } as DirectThread));
+    
+    // Sort most recent first
+    list.sort((a: any, b: any) => {
+      const timeA = a.updatedAt?.toMillis?.() || (a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0);
+      const timeB = b.updatedAt?.toMillis?.() || (b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0);
+      return timeB - timeA;
+    });
+
     callback(list);
   }, err => {
     console.warn("Threads subscription fallback:", err);
@@ -777,3 +1057,29 @@ export async function markNotificationRead(notifId: string) {
     read: true,
   });
 }
+
+export async function purgeAllCitizenData(): Promise<{ deletedCount: number }> {
+  try {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('role', '==', 'client'));
+    const snap = await getDocs(q);
+    let count = 0;
+    for (const userDoc of snap.docs) {
+      await deleteDoc(doc(db, 'users', userDoc.id));
+      count++;
+    }
+
+    // Also remove any client verification requests
+    const vq = query(collection(db, 'verification_requests'), where('role', '==', 'client'));
+    const vSnap = await getDocs(vq);
+    for (const vDoc of vSnap.docs) {
+      await deleteDoc(doc(db, 'verification_requests', vDoc.id));
+    }
+
+    return { deletedCount: count };
+  } catch (err) {
+    console.error("Error purging citizen data:", err);
+    throw err;
+  }
+}
+

@@ -46,7 +46,7 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
     const total = Number(newAppearanceFee) + Number(newDraftingFee) + Number(newClerkage);
     const newInv: InvoiceItem = {
       id: `inv-${Date.now()}`,
-      invoiceNumber: `NAYANEETI/2026/${Math.floor(100 + Math.random() * 900)}`,
+      invoiceNumber: `NYAAYNEETI/2026/${Math.floor(100 + Math.random() * 900)}`,
       caseNumber: newCase,
       clientName: newClient,
       date: '19 Sep 2026',

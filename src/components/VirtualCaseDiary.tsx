@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, Calendar, ChevronRight, CheckCircle2, Gavel, Mic, MicOff, Sparkles, Clock, MapPin, User, Plus } from 'lucide-react';
 import { HearingItem, LimitationAlert, Language } from '../types';
 import { translations } from '../i18n/translations';
@@ -127,12 +128,20 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6 pb-28">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="sticky top-2 z-40 bg-neutral-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-2xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
-          <CheckCircle2 size={15} className="text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="sticky top-2 z-40 bg-neutral-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-2xl flex items-center gap-2 text-xs font-medium"
+          >
+            <CheckCircle2 size={15} className="text-emerald-400" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Header: Linear-grade Typography with Live Court Pulse */}
       <div className="flex items-start justify-between pt-1">
@@ -255,10 +264,19 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <motion.div
+          className="space-y-3"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07 } } }}
+        >
           {filteredHearings.map((item, idx) => (
-            <div
+            <motion.div
               key={item.id || idx}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-20px' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
               className="glass-card rounded-3xl p-4 flex flex-col gap-3 relative border border-white/[0.08] hover:border-amber-400/25 transition group"
             >
             {/* Header: Item No, Stage & Hearing Time */}
@@ -329,15 +347,28 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                 {t.viewDetails}
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+        </motion.div>
     )}
 
       {/* Action Sheet Modal: Update Order with Voice Dictation */}
-      {activeModalHearing && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-end sm:items-center justify-center p-3 animate-in fade-in">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-white/[0.14] bg-[#0E0F14]">
+      <AnimatePresence>
+        {activeModalHearing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-end sm:items-center justify-center p-3"
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-sm glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-white/[0.14] bg-[#0E0F14]"
+            >
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
                 <h3 className="text-sm font-semibold text-white tracking-tight">
@@ -411,14 +442,27 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                 {t.save}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add New Hearing Modal */}
-      {showAddHearingModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-end sm:items-center justify-center p-3 animate-in fade-in">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-white/[0.14] bg-[#0E0F14]">
+      <AnimatePresence>
+        {showAddHearingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-end sm:items-center justify-center p-3"
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-sm glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-4 border border-white/[0.14] bg-[#0E0F14]"
+            >
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
                 <h3 className="text-sm font-semibold text-white tracking-tight">
@@ -512,9 +556,10 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

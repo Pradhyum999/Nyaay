@@ -77,6 +77,8 @@ export interface DirectMessage {
   hasAttachment?: boolean;
   attachmentName?: string;
   attachmentUrl?: string;
+  attachmentType?: 'image' | 'file';
+  attachmentSize?: string;
 }
 
 export interface DirectThread {
@@ -90,9 +92,13 @@ export interface DirectThread {
   matterSubject: string;
   lastMessage: string;
   lastMessageAt: string;
+  lastMessageSenderId?: string;
+  hasAttachment?: boolean;
+  attachmentType?: 'image' | 'file';
   aiBriefAttached?: boolean;
   aiBriefText?: string;
   status: 'active' | 'archived';
+  unreadCount?: number;
 }
 
 export interface ClientUser {
@@ -132,8 +138,11 @@ export interface LimitationAlert {
 
 export interface HearingItem {
   id: string;
+  caseId?: string;
   caseNumber: string;
   clientName: string;
+  clientId?: string;
+  lawyerId?: string;
   courtName: string;
   itemNumber: number;
   courtRoom: string;
@@ -148,11 +157,83 @@ export interface HearingItem {
   isUrgent?: boolean;
 }
 
+// ── Case Room: Structured Case Profile (AI intake output) ────────────────────
+export interface CaseProfile {
+  matterType: string;              // e.g. "Rental deposit dispute"
+  legalArea: string;               // e.g. "Landlord–tenant / civil dispute"
+  location: string;                // city / jurisdiction
+  facts: string[];                 // key facts extracted from intake
+  missingInfo: string[];           // questions still unanswered
+  documentsAvailable: string[];    // docs the client already has
+  documentsRequired: string[];     // docs needed for the matter
+  urgency: 'low' | 'medium' | 'high';
+  confidenceScore: number;         // 0-100 AI confidence in classification
+  summaryText: string;             // human-readable AI summary
+  generatedAt: string;
+}
+
+// ── Case Room: Timeline event log ────────────────────────────────────────────
+export type CaseTimelineEventType =
+  | 'intake'
+  | 'notice'
+  | 'reply'
+  | 'filing'
+  | 'hearing'
+  | 'order'
+  | 'document'
+  | 'task'
+  | 'payment'
+  | 'note'
+  | 'status';
+
+export interface CaseTimelineEvent {
+  id: string;
+  caseId: string;
+  type: CaseTimelineEventType;
+  titleEn: string;
+  titleHi: string;
+  descriptionEn?: string;
+  descriptionHi?: string;
+  eventDate: string;               // ISO or display date
+  actorId?: string;
+  actorName?: string;
+  actorRole?: 'lawyer' | 'client' | 'system';
+  createdAt?: any;
+}
+
+// ── Case Room: Tasks / action items ──────────────────────────────────────────
+export interface CaseTask {
+  id: string;
+  caseId: string;
+  titleEn: string;
+  titleHi: string;
+  assignedTo: 'lawyer' | 'client';
+  assignedToId?: string;
+  status: 'pending' | 'in_progress' | 'done';
+  dueDate?: string;
+  createdBy?: string;
+  createdAt?: any;
+  completedAt?: string;
+}
+
+// ── Case Room: Lawyer notes ──────────────────────────────────────────────────
+export interface CaseNote {
+  id: string;
+  caseId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: 'lawyer' | 'client';
+  text: string;
+  createdAt?: any;
+}
+
 export interface CaseFile {
   id: string;
   caseNumber: string;
   clientName: string;
   clientPhone: string;
+  clientId?: string;
+  lawyerId?: string;
   opponentName: string;
   court: CourtHierarchy;
   courtLocation: string;
@@ -165,11 +246,20 @@ export interface CaseFile {
   pendingChecklistItems: number;
   totalBilled: number;
   totalCollected: number;
+  // Case Room additions
+  profile?: CaseProfile;
+  lawyerName?: string;
+  stage?: CaseStage;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface DocumentItem {
   id: string;
+  caseId?: string;
   caseNumber: string;
+  clientId?: string;
+  lawyerId?: string;
   titleEn: string;
   titleHi: string;
   requiredFormat: string;
@@ -200,9 +290,12 @@ export interface AIIntakeBrief {
 
 export interface InvoiceItem {
   id: string;
+  caseId?: string;
   invoiceNumber: string;
   caseNumber: string;
   clientName: string;
+  clientId?: string;
+  lawyerId?: string;
   date: string;
   appearanceFee: number;
   draftingFee: number;

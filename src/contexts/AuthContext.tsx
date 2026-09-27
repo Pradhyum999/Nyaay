@@ -7,7 +7,7 @@ import {
   signOut,
   User
 } from '../lib/firebase';
-import { getUserProfile, createUserProfile, UserProfile } from '../services/firestoreService';
+import { getUserProfile, getUserProfileByEmail, createUserProfile, UserProfile } from '../services/firestoreService';
 
 interface AuthContextType {
   user: User | null;
@@ -28,17 +28,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    // 3.5-second safety timer so loading never hangs indefinitely
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 3500);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        const p = await getUserProfile(firebaseUser.uid);
-        setProfile(p);
-      } else {
-        setProfile(null);
+      try {
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          let p = await getUserProfile(firebaseUser.uid);
+          if (!p && firebaseUser.email) {
+            p = await getUserProfileByEmail(firebaseUser.email);
+          }
+          if (mounted) setProfile(p);
+        } else {
+          if (mounted) setProfile(null);
+        }
+      } catch (err) {
+        console.error("Auth state profile fetch error:", err);
+      } finally {
+        clearTimeout(safetyTimer);
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
@@ -46,23 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await signInWithPopup(auth, provider);
     const firebaseUser = result.user;
     
-    // Check if profile exists
+    // Check if profile exists by UID or by email
     let p = await getUserProfile(firebaseUser.uid);
-    if (!p) {
-      // New user - will be prompted to complete onboarding registration
-      p = {
-        uid: firebaseUser.uid,
-        role: 'client',
-        name: firebaseUser.displayName || '',
-        phone: firebaseUser.phoneNumber || '',
-        email: firebaseUser.email || '',
-        photoURL: firebaseUser.photoURL || '',
-        verificationStatus: 'not_submitted',
-        onboardingCompleted: false,
-      };
-      await createUserProfile(firebaseUser.uid, p);
+    if (!p && firebaseUser.email) {
+      p = await getUserProfileByEmail(firebaseUser.email);
     }
-    setProfile(p);
+    if (p) {
+      setProfile(p);
+    } else {
+      // Do not write a default client profile to Firestore!
+      // The user will choose lawyer or client during onboarding.
+      setProfile(null);
+    }
   };
 
   const signInWithPhone = async (_phone: string): Promise<string> => {
@@ -85,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = (data: Partial<UserProfile>) => {
-    setProfile(prev => prev ? { ...prev, ...data } : null);
+    setProfile(prev => prev ? { ...prev, ...data } : (data as UserProfile));
   };
 
   return (

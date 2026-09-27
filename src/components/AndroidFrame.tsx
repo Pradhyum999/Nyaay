@@ -55,7 +55,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
       <header className="w-full max-w-4xl flex items-center justify-between mb-4 px-4 py-2.5 rounded-2xl glass-panel text-xs">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,197,99,0.8)] animate-radar" />
-          <span className="font-semibold tracking-wider text-neutral-200 text-sm font-display">NAYANEETI</span>
+          <span className="font-semibold tracking-wider text-neutral-200 text-sm font-display">NYAAYNEETI</span>
           <span className="text-[11px] text-neutral-500">|</span>
           <span className="text-[11px] text-neutral-400 font-mono">Studio Desktop Preview</span>
         </div>

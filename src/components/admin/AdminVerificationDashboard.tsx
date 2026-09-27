@@ -15,11 +15,13 @@ import {
   Lock,
   ExternalLink,
   Maximize2,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 import {
   getAllVerificationRequests,
-  processVerificationRequest
+  processVerificationRequest,
+  purgeAllCitizenData
 } from '../../services/firestoreService';
 import { generateAdminEmailContent } from '../../utils/masking';
 import { VerificationRequest, VerificationStatus, Language } from '../../types';
@@ -47,6 +49,24 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
     action: 'reject' | 'resubmit';
   } | null>(null);
   const [reasonInput, setReasonInput] = useState('');
+  const [isPurgingCitizens, setIsPurgingCitizens] = useState(false);
+
+  const handlePurgeCitizens = async () => {
+    const confirm = window.confirm("⚠️ ARE YOU SURE? This will permanently delete ALL citizen (client) accounts and their verification requests from Firebase Firestore.\n\nAdvocate accounts will remain safe. Proceed?");
+    if (!confirm) return;
+
+    setIsPurgingCitizens(true);
+    try {
+      const res = await purgeAllCitizenData();
+      setToastMessage(`✅ Successfully purged ${res.deletedCount} citizen profile(s) from Firebase.`);
+      loadRequests();
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      alert("Error purging citizen data: " + (err.message || err));
+    } finally {
+      setIsPurgingCitizens(false);
+    }
+  };
 
   const loadRequests = async () => {
     setLoading(true);
@@ -148,7 +168,16 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePurgeCitizens}
+              disabled={isPurgingCitizens}
+              className="px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center gap-1.5 text-xs font-semibold transition ios-press"
+              title="Permanently delete all citizen accounts and reset citizen data"
+            >
+              <Trash2 size={13} className={isPurgingCitizens ? "animate-spin" : ""} />
+              <span className="hidden sm:inline">{isPurgingCitizens ? "Purging..." : "Purge Citizens"}</span>
+            </button>
             <button
               onClick={loadRequests}
               className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] flex items-center justify-center text-neutral-300 transition ios-press"
@@ -158,9 +187,11 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
             </button>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] flex items-center justify-center text-neutral-400 hover:text-white ios-press"
+              className="px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-red-500/20 text-neutral-300 hover:text-red-400 border border-white/[0.1] hover:border-red-500/30 flex items-center gap-1.5 text-xs font-bold transition ios-press"
+              title="Exit Admin Console and return to Home Screen"
             >
               <X size={15} />
+              <span>Exit</span>
             </button>
           </div>
         </div>

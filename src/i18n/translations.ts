@@ -1,7 +1,7 @@
 export const translations = {
   en: {
     // App Header & Branding
-    appName: "NAYANEETI",
+    appName: "NYAAYNEETI",
     appSubtitle: "Legal Operating System",
     advocateTitle: "Adv. Rajesh Mehta",
     barCouncil: "Bar Council of Delhi (D/1482/2015)",
@@ -26,16 +26,18 @@ export const translations = {
     // Navigation Tabs - Advocate
     navDiary: "Diary",
     navCases: "Cases",
+    navChats: "Chats",
     navAIBriefs: "AI Briefs",
     navBilling: "Billing",
     navCommunity: "Community",
 
     // Navigation Tabs - Client
     clientNavConsult: "AI Consult",
+    clientNavChats: "Chats",
+    clientNavLawyers: "Directory",
     clientNavMyCase: "My Case",
     clientNavDocs: "Documents",
     clientNavPay: "Pay Fees",
-    clientNavLawyers: "Directory",
 
     // Common Actions
     save: "Save",
@@ -161,7 +163,7 @@ export const translations = {
 
   hi: {
     // App Header & Branding
-    appName: "नयनीति (NAYANEETI)",
+    appName: "न्यायनीति (NYAAYNEETI)",
     appSubtitle: "विधिक ऑपरेटिंग सिस्टम",
     advocateTitle: "अधिवक्ता राजेश मेहता",
     barCouncil: "बार काउंसिल ऑफ दिल्ली (D/1482/2015)",
@@ -186,16 +188,18 @@ export const translations = {
     // Navigation Tabs - Advocate
     navDiary: "केस डायरी",
     navCases: "मामले",
+    navChats: "परामर्श चैट",
     navAIBriefs: "एआई सारांश",
     navBilling: "शुल्क एवं बिलिंग",
     navCommunity: "अदालत व मंच",
 
     // Navigation Tabs - Client
     clientNavConsult: "एआई परामर्श",
+    clientNavChats: "परामर्श चैट",
+    clientNavLawyers: "वकील खोजें",
     clientNavMyCase: "मेरा केस",
     clientNavDocs: "दस्तावेज़",
     clientNavPay: "फीस भुगतान",
-    clientNavLawyers: "वकील खोजें",
 
     // Common Actions
     save: "सहेजें",

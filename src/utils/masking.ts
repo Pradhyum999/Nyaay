@@ -1,5 +1,5 @@
 /**
- * NAYANEETI Privacy & Sensitive PII Masking Utilities
+ * NYAAYNEETI Privacy & Sensitive PII Masking Utilities
  * Follows Digital Personal Data Protection (DPDP) Act 2023 & UIDAI Guidelines
  */
 
@@ -33,8 +33,8 @@ export function generateAdminEmailContent(params: {
   barCouncilId?: string;
   requestId: string;
 }) {
-  const subject = `[NAYANEETI Action Required] Verify ${params.role === 'lawyer' ? 'Advocate' : 'Citizen'}: ${params.applicantName}`;
-  const body = `Dear NAYANEETI Administrator,
+  const subject = `[NYAAYNEETI Action Required] Verify ${params.role === 'lawyer' ? 'Advocate' : 'Citizen'}: ${params.applicantName}`;
+  const body = `Dear NYAAYNEETI Administrator,
 
 A new verification request has been submitted and is pending your manual approval.
 
@@ -54,10 +54,10 @@ https://nyaay-legal-app-f6e99.web.app/?adminAction=approve&reqId=${params.reques
 Reject / Request Resubmission:
 https://nyaay-legal-app-f6e99.web.app/?adminAction=reject&reqId=${params.requestId}
 
-Or review inside the NAYANEETI Admin Dashboard at https://nyaay-legal-app-f6e99.web.app
+Or review inside the NYAAYNEETI Admin Dashboard at https://nyaay-legal-app-f6e99.web.app
 
 --
-NAYANEETI Legal Operating System (Autonomous Verification Pipeline)`;
+NYAAYNEETI Legal Operating System (Autonomous Verification Pipeline)`;
 
   return {
     subject: encodeURIComponent(subject),
