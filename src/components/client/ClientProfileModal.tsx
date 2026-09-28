@@ -15,7 +15,8 @@ import {
   Lock,
   Upload,
   Trash2,
-  Maximize2
+  Maximize2,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -30,6 +31,7 @@ interface ClientProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   language: Language;
+  onOpenFeedback?: () => void;
 }
 
 const CITIZEN_AVATARS = [
@@ -44,6 +46,7 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({
   isOpen,
   onClose,
   language,
+  onOpenFeedback,
 }) => {
   const { user, profile, updateProfile, logout } = useAuth();
 
@@ -427,6 +430,21 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({
         <div className="bg-black/40 p-3 rounded-2xl border border-white/[0.06] text-[10px] text-neutral-500 leading-relaxed italic">
           🛡️ Digital Personal Data Protection (DPDP) Act 2023 compliant. Government ID numbers are never displayed in full on public records.
         </div>
+
+        {/* Citizen Feedback Button */}
+        {onOpenFeedback && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenFeedback();
+            }}
+            className="w-full py-3 rounded-2xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-semibold flex items-center justify-center gap-2 transition ios-press shadow-sm"
+          >
+            <MessageSquare size={14} />
+            <span>{t('Share Citizen Feedback (Text & Voice)', 'नागरिक प्रतिक्रिया व रेटिंग दें (टाइप या बोलकर)')}</span>
+          </button>
+        )}
 
         {/* Buttons */}
         <div className="flex gap-2 pt-1">

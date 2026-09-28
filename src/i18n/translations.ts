@@ -24,12 +24,16 @@ export const translations = {
     logout: "Log Out",
 
     // Navigation Tabs - Advocate
-    navDiary: "Diary",
+    navHome: "Home",
     navCases: "Cases",
-    navChats: "Chats",
-    navAIBriefs: "AI Briefs",
-    navBilling: "Billing",
+    navAI: "AI Chat",
+    navCalendar: "Calendar",
+    navChats: "Sessions",
+    navBilling: "Wallet",
+    navDiary: "Diary",
+    navAIBriefs: "AI Chat",
     navCommunity: "Community",
+    navFirm: "Chambers",
 
     // Navigation Tabs - Client
     clientNavConsult: "AI Consult",
@@ -186,12 +190,16 @@ export const translations = {
     logout: "लॉग आउट",
 
     // Navigation Tabs - Advocate
-    navDiary: "केस डायरी",
+    navHome: "होम",
     navCases: "मामले",
-    navChats: "परामर्श चैट",
-    navAIBriefs: "एआई सारांश",
-    navBilling: "शुल्क एवं बिलिंग",
+    navAI: "एआई चैट",
+    navCalendar: "कैलेंडर",
+    navChats: "सत्र",
+    navBilling: "वॉलेट",
+    navDiary: "केस डायरी",
+    navAIBriefs: "एआई चैट",
     navCommunity: "अदालत व मंच",
+    navFirm: "फर्म व क्लिनिक",
 
     // Navigation Tabs - Client
     clientNavConsult: "एआई परामर्श",
@@ -321,5 +329,171 @@ export const translations = {
     requestedDocuments: "अधिवक्ता द्वारा मांगे गए दस्तावेज़",
     payAdvocateBill: "बकाया विधिक शुल्क का भुगतान करें",
     instantReceiptNote: "यूपीआई भुगतान के तुरंत बाद अधिकृत रसीद आपके वॉल्ट में सुरक्षित हो जाएगी।"
+  },
+
+  mr: {
+    // App Header & Branding
+    appName: "न्यायनीती (NYAAYNEETI)",
+    appSubtitle: "कायदेशीर ऑपरेटिंग सिस्टम",
+    advocateTitle: "अॅड. राजेश मेहता",
+    barCouncil: "बार कौन्सिल ऑफ दिल्ली (D/1482/2015)",
+    verifiedAdvocate: "सत्यापित वकील",
+    skillScore: "कौशल्य गुण: 94/100",
+
+    // Roles & Auth
+    selectRole: "आपला पोर्टल निवडा",
+    roleAdvocate: "वकील पोर्टल",
+    roleClient: "नागरिक / पक्षकार पोर्टल",
+    advocateDesc: "केस डायरी, वाद यादी, मुदत अलर्ट, पक्षकार इनटेक आणि UPI बिलिंग",
+    clientDesc: "AI कायदेशीर मार्गदर्शन, केस ट्रॅकिंग, कागदपत्रे अपलोड, फी भरणा व वकील शोध",
+    loginAsAdvocate: "वकील म्हणून लॉगिन करा",
+    loginAsClient: "नागरिक म्हणून लॉगिन करा",
+    quickDemoLogin: "एक-क्लिक डेमो लॉगिन",
+    enterOtp: "6-अंकी OTP प्रविष्ट करा",
+    verifyAndLogin: "सत्यापित करा व प्रवेश करा",
+    switchRole: "भूमिका बदला",
+    currentRole: "सध्याची भूमिका",
+    logout: "लॉग आउट",
+
+    // Navigation Tabs - Advocate
+    navHome: "होम",
+    navCases: "प्रकरणे",
+    navAI: "AI चॅट",
+    navCalendar: "कॅलेंडर",
+    navChats: "सत्रे",
+    navBilling: "वॉलेट",
+    navDiary: "डायरी",
+    navAIBriefs: "AI चॅट",
+    navCommunity: "समुदाय",
+    navFirm: "फर्म व क्लिनिक",
+
+    // Navigation Tabs - Client
+    clientNavConsult: "AI सल्ला",
+    clientNavChats: "चॅट",
+    clientNavLawyers: "निर्देशिका",
+    clientNavMyCase: "माझी केस",
+    clientNavDocs: "कागदपत्रे",
+    clientNavPay: "फी भरा",
+
+    // Common Actions
+    save: "जतन करा",
+    cancel: "रद्द करा",
+    close: "बंद करा",
+    viewDetails: "तपशील पहा",
+    actionRequired: "कृती आवश्यक",
+    allCourts: "सर्व न्यायालये",
+    today: "आज",
+    upcoming: "आगामी",
+    urgentNotice: "तातडीची मुदत",
+
+    // Diary Screen (Advocate)
+    todaysCauseList: "आजची वाद यादी (Cause List)",
+    casesListed: "प्रकरणे सूचीबद्ध",
+    itemNo: "मद क्र.",
+    courtRoom: "कोर्ट रूम",
+    judge: "न्यायाधीश",
+    purpose: "उद्देश",
+    nextHearing: "पुढील सुनावणी",
+    limitationWatch: "कायदेशीर मुदत अलर्ट",
+    limitationSub: "CPC, CrPC व विशेष कायद्यांतर्गत मुदत ट्रॅकिंग",
+    daysLeft: "दिवस शिल्लक",
+    updateOutcome: "आदेश व पुढील तारीख नोंदवा",
+    orderLoggedSuccessfully: "न्यायालयीन आदेश व पुढील सुनावणी तारीख यशस्वीरीत्या नोंदवली!",
+
+    // Case Details & Modal
+    caseNumber: "केस क्र.",
+    petitionerVsRespondent: "याचिकाकर्ता विरुद्ध प्रतिवादी",
+    actsSections: "लागू कलमे व कायदे",
+    filingDate: "दाखल तारीख",
+    courtLocation: "न्यायालय व खंडपीठ",
+    documentsStatus: "कागदपत्रे",
+    verifiedCount: "सत्यापित",
+
+    // Post-Hearing Order Modal
+    hearingOutcomeTitle: "सुनावणीचा निकाल नोंदवा",
+    orderSummaryPlaceholder: "न्यायालयाने दिलेल्या आदेशाचा थोडक्यात सारांश प्रविष्ट करा...",
+    selectNextDate: "पुढील सुनावणीची तारीख निवडा",
+    actionItemsPlaceholder: "ज्युनियर किंवा क्लार्कसाठी कामे...",
+    submitOrder: "अद्यतन जतन करा",
+
+    // AI Intake Screen
+    aiIntakeHeader: "AI पूर्व-सल्ला केस सारांश",
+    aiIntakeSubtitle: "AI द्वारे तयार केलेला वस्तुनिष्ठ सारांश व कायदेशीर तरतुदी",
+    confidenceLevel: "AI विश्वासार्हता पातळी",
+    clientReadiness: "कागदपत्र पूर्तता",
+    extractedFacts: "घटनाक्रम व मुख्य तथ्ये",
+    potentialIssues: "संबंधित कलमे व कायदे",
+    preMeetingBrief: "वकिलांसाठी प्राथमिक अहवाल",
+    bciDisclaimer: "वैधानिक अस्वीकरण: AI केस सारांश केवळ तयारीच्या मदतीसाठी आहे. हा अधिकृत कायदेशीर सल्ल्याचा पर्याय नाही.",
+    acceptCase: "काम स्वीकारा",
+    caseAcceptedNotice: "केस स्वीकारली! केस डायरीमध्ये जोडली गेली.",
+
+    // Document Checklist Screen
+    docChecklistHeader: "व्हर्च्युअल केस फाइल व चेकलिस्ट",
+    docChecklistSub: "सुनावणी-विशिष्ट अनिवार्य कागदपत्रे व पडताळणी",
+    requiredFormat: "आवश्यक स्वरूप",
+    uploadDoc: "कागदपत्र अपलोड करा",
+    validationWarning: "स्वरूप त्रुटी: साधी झेरॉक्स प्रत मिळाली. न्यायालयास प्रमाणित सत्य प्रत हवी आहे.",
+    allDocumentsReceived: "सर्व कागदपत्रे प्राप्त व सत्यापित.",
+    simulatingUpload: "सुरक्षित AES-256 क्लाउड व्हॉल्टमध्ये अपलोड होत आहे...",
+
+    // Billing & UPI Screen
+    billingHeader: "शुल्क व्यवस्थापन व UPI भरणा",
+    billingSub: "BCI नियमांनुसार पारदर्शक मदनिहाय बीजक व त्वरित पावती",
+    totalBilled: "एकूण आकारलेले",
+    totalReceived: "एकूण प्राप्त",
+    outstanding: "थकीत रक्कम",
+    appearanceFee: "हजेरी शुल्क",
+    draftingCharges: "मसुदा (ड्राफ्टिंग) शुल्क",
+    clerkageMisc: "क्लार्केज व इतर खर्च",
+    generateInvoice: "बीजक तयार करा",
+    payWithUPI: "UPI द्वारे भरा",
+    scanToPay: "वकील फी भरण्यासाठी QR स्कॅन करा",
+    upiId: "UPI ID: nyaay.adv.mehta@oksbi",
+    markAsPaid: "UPI भरणा पडताळणी सिमुलेट करा",
+    receiptTitle: "व्यावसायिक सेवा शुल्क पावती",
+    receiptNumber: "पावती क्र.",
+    paymentSuccessNotice: "भरणा पडताळला! पावती तयार करून पक्षकारास पाठवली.",
+
+    // Court Analytics & Forum Screen
+    analyticsHeader: "न्यायालय विश्लेषण व वकील मंच",
+    analyticsSub: "न्यायिक प्रवृत्ती व सत्यापित वकिलांची रणनीती",
+    benchTendencies: "न्यायिक खंडपीठाची कार्यशैली व कल",
+    avgInterval: "सरासरी समयांतर",
+    adjournmentRate: "तहकुबीची प्रवृत्ती",
+    peerForum: "वकील-विशिष्ट चर्चा मंच",
+    askPeers: "बार सदस्यांना विचारा",
+    upvotes: "उपयुक्त",
+    replies: "उत्तरे",
+
+    // Speed Dial FAB
+    fabAddHearing: "सुनावणी जोडा",
+    fabNewInvoice: "नवे बिल",
+    fabUploadDoc: "कागदपत्र अपलोड",
+    fabAIChat: "AI कायदेशीर सहाय्यक",
+
+    // Profile Screen
+    profileTitle: "वकील प्रोफाइल व प्रमाणपत्र",
+    bciStatus: "बार कौन्सिलने सत्यापित",
+    practiceCourts: "प्रमुख न्यायालये",
+    yearsOfExperience: "सराव वर्षे",
+    yearsCount: "12 वर्षे",
+    practiceAreas: "विशेषज्ञता क्षेत्र",
+    bciComplianceNote: "हे प्रोफाइल बार कौन्सिलच्या नियमांनुसार केवळ व्यावसायिक परिचय आहे आणि कोणत्याही प्रकारची जाहिरात नाही.",
+
+    // Client Portal Strings
+    clientWelcome: "नागरिक कायदेशीर मदत केंद्र",
+    clientGreeting: "NYAAY AI आज आपल्या कायदेशीर प्रकरणात कशी मदत करू शकते?",
+    chatPlaceholder: "आपली अडचण सोप्या मराठीत किंवा इंग्रजीत लिहा...",
+    sendToAdvocate: "वकिलांना केस अहवाल पाठवा",
+    briefSharedAlert: "केस सारांश अॅड. राजेश मेहता यांना यशस्वीरीत्या पाठवला!",
+    activeCaseTitle: "आपले सध्याचे प्रकरण",
+    representedBy: "प्रतिनिधित्व करणारे वकील",
+    lastCourtUpdate: "वकिलांनी नोंदवलेला न्यायालयीन आदेश",
+    nextCourtDate: "पुढील सुनावणी तारीख",
+    noActionNeeded: "सध्या आपल्याकडून कोणतीही अतिरिक्त कृती आवश्यक नाही.",
+    requestedDocuments: "वकिलांनी मागवलेली कागदपत्रे",
+    payAdvocateBill: "थकीत वकील फी भरा",
+    instantReceiptNote: "UPI भरणानंतर लगेच अधिकृत पावती आपल्या व्हॉल्टमध्ये सुरक्षित होईल."
   }
 };

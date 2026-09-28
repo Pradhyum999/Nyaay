@@ -1,6 +1,8 @@
-export type Language = 'en' | 'hi';
+export type Language = 'en' | 'hi' | 'mr';
+export type ThemeMode = 'bnw' | 'dark' | 'light';
 
 export type UserRole = 'lawyer' | 'client';
+export type ExtendedRole = 'lawyer' | 'client' | 'junior' | 'firm_admin' | 'student';
 
 export type CourtHierarchy = 'Supreme Court' | 'High Court' | 'Sessions Court' | 'District Court' | 'Consumer Forum' | 'NCLT';
 
@@ -10,7 +12,7 @@ export type VerificationStatus = 'not_submitted' | 'pending' | 'verified' | 'rej
 
 export interface UserProfile {
   uid: string;
-  role: 'lawyer' | 'client' | 'junior';
+  role: ExtendedRole;
   name: string;
   phone: string;
   email?: string;
@@ -41,6 +43,7 @@ export interface UserProfile {
   totalCases?: number;
   bio?: string;
   publicCases?: PublicCourtCase[];
+  firmId?: string;
 }
 
 export interface PublicCourtCase {
@@ -99,6 +102,10 @@ export interface DirectThread {
   aiBriefText?: string;
   status: 'active' | 'archived';
   unreadCount?: number;
+  caseNumber?: string;
+  courtName?: string;
+  nextHearingDate?: string;
+  source?: 'direct' | 'diary';
 }
 
 export interface ClientUser {
@@ -250,6 +257,7 @@ export interface CaseFile {
   profile?: CaseProfile;
   lawyerName?: string;
   stage?: CaseStage;
+  orderNotes?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -363,7 +371,7 @@ export interface VerificationRequest {
 export interface AppNotification {
   id: string;
   recipientId: string;
-  type: 'engagement' | 'verification' | 'chat' | 'system';
+  type: 'engagement' | 'verification' | 'chat' | 'system' | 'case_transfer' | 'limitation';
   title: string;
   message: string;
   senderName?: string;
@@ -371,4 +379,40 @@ export interface AppNotification {
   read: boolean;
   createdAt: string;
   actionUrl?: string;
+}
+
+export interface FirmProfile {
+  id: string;
+  firmName: string;
+  institutionType: 'firm' | 'college' | 'school';
+  firmRegistrationId: string;
+  gstPan?: string;
+  address: string;
+  adminEmail: string;
+  adminUid: string;
+  memberCount: number;
+  createdAt?: any;
+}
+
+export interface FirmMember {
+  id: string;
+  firmId: string;
+  name: string;
+  email: string;
+  role: 'associate' | 'junior' | 'paralegal' | 'student';
+  tempPassword?: string;
+  mustChangePassword: boolean;
+  joinedAt?: any;
+  uid?: string;
+}
+
+export interface CitizenFeedback {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  rating: number;
+  feedbackText: string;
+  voiceAudioUrl?: string;
+  createdAt: any;
 }

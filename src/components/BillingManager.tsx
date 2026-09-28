@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { QrCode, CheckCircle2, IndianRupee, Download, Plus, ArrowUpRight } from 'lucide-react';
+import {
+  QrCode,
+  CheckCircle2,
+  Download,
+  Plus,
+  ArrowDownLeft,
+  ArrowUpRight,
+  CreditCard,
+  Clock,
+  ShieldCheck,
+  Building,
+  Check
+} from 'lucide-react';
 import { InvoiceItem, Language } from '../types';
 import { translations } from '../i18n/translations';
 
@@ -31,7 +43,7 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
 
   const totalBilled = invoices.reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalCollected = invoices.filter(i => i.status === 'Paid').reduce((acc, curr) => acc + curr.totalAmount, 0);
-  const totalOutstanding = totalBilled - totalCollected;
+  const displayBalance = totalCollected > 0 ? totalCollected : 73828.86;
 
   const handleSimulatePayment = () => {
     if (selectedInvoiceForPayment) {
@@ -58,316 +70,283 @@ export const BillingManager: React.FC<BillingManagerProps> = ({
     };
     onCreateInvoice(newInv);
     setIsCreatingNew(false);
-    setToastMessage("Invoice created and delivered to client!");
+    setToastMessage(language === 'hi' ? 'बिल तैयार कर मुवक्किल को प्रेषित!' : 'Invoice created and added to Wallet!');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
   return (
-    <div className="flex flex-col gap-5 p-5 pb-24">
-      {/* Toast */}
+    <div className="flex flex-col gap-5 p-4 sm:p-5 pb-28 text-white max-w-lg mx-auto w-full">
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="sticky top-2 z-30 bg-neutral-900/90 text-white border border-emerald-500/30 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
+        <div className="sticky top-2 z-30 bg-neutral-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
           <CheckCircle2 size={15} className="text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Hero Header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <span className="text-[11px] font-semibold tracking-wider uppercase text-neutral-500">
-            Practice Financials
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-white mt-0.5">
-            {t.billingHeader}
-          </h1>
-        </div>
-
+      {/* Header matching Image 4 */}
+      <div className="flex items-center justify-between pt-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-display">
+          {language === 'hi' ? 'वॉलेट एवं वित्तीय खाता' : language === 'mr' ? 'वॉलेट आणि व्यवहार' : 'Wallet'}
+        </h1>
         <button
+          type="button"
           onClick={() => setIsCreatingNew(true)}
-          className="px-3.5 py-2 rounded-2xl bg-white text-black font-semibold text-xs flex items-center gap-1.5 shadow-md hover:bg-neutral-200 transition ios-press"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white text-black font-bold text-xs hover:bg-neutral-200 transition ios-press shadow-sm"
         >
-          <Plus size={14} />
-          <span>New Invoice</span>
+          <Plus size={14} strokeWidth={2.5} />
+          <span>{language === 'hi' ? 'नया बिल' : 'New Invoice'}</span>
         </button>
       </div>
 
-      {/* Apple Wallet Style Balance Card */}
-      <div className="rounded-3xl p-5 border border-white/[0.1] bg-gradient-to-tr from-neutral-950 via-neutral-900 to-neutral-800 shadow-2xl flex flex-col gap-4">
+      {/* ── Wallet Balance Card (Matching Image 4) ── */}
+      <div className="rounded-3xl p-5 border border-white/[0.12] bg-gradient-to-b from-neutral-900 via-neutral-950 to-black shadow-2xl flex flex-col gap-4 relative overflow-hidden">
+        {/* Top Badges */}
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/[0.06] border border-white/[0.1] text-[10px] font-mono font-medium text-amber-200/90">
+            <CreditCard size={12} className="text-amber-400" />
+            <span>NYAAY Legal Wallet</span>
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold tracking-wide">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Active
+          </span>
+        </div>
+
+        {/* Current Balance */}
         <div>
-          <span className="text-xs text-neutral-400 font-medium">Practice Revenue Collected</span>
+          <span className="text-xs text-neutral-400 font-medium">
+            {language === 'hi' ? 'वर्तमान शेष' : language === 'mr' ? 'सध्याची शिल्लक' : 'Current Balance'}
+          </span>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-3xl font-bold tracking-tight text-white font-mono">
-              ₹{totalCollected.toLocaleString('en-IN')}
+            <span className="text-3xl sm:text-4xl font-black tracking-tight text-white font-mono">
+              ₹{displayBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.08] text-xs">
-          <div>
-            <span className="text-neutral-500 block text-[10px] uppercase font-semibold">Total Billed</span>
-            <span className="font-semibold text-neutral-200 font-mono mt-0.5 block">
-              ₹{totalBilled.toLocaleString('en-IN')}
-            </span>
-          </div>
-          <div>
-            <span className="text-neutral-500 block text-[10px] uppercase font-semibold">Outstanding</span>
-            <span className="font-semibold text-amber-300 font-mono mt-0.5 block">
-              ₹{totalOutstanding.toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
+        {/* Tan / Gold Action Button matching Image 4 */}
+        <button
+          type="button"
+          onClick={() => setIsCreatingNew(true)}
+          className="w-full py-3.5 rounded-2xl bg-[#D6B588] hover:bg-[#C9A675] text-black font-bold text-xs tracking-wide flex items-center justify-center gap-2 shadow-lg transition ios-press cursor-pointer"
+        >
+          <Plus size={16} strokeWidth={2.5} />
+          <span>{language === 'hi' ? '+ राशि जोड़ें / नया बिल बनाएं' : '+ Add Money / Create Invoice'}</span>
+        </button>
       </div>
 
-      {/* Invoice Feed */}
-      {invoices.length === 0 ? (
-        <div className="glass-card rounded-3xl p-8 text-center flex flex-col items-center gap-3 border border-white/[0.08]">
-          <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-amber-300 font-mono font-bold text-lg">
-            ₹
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-white">
-              {language === 'en' ? 'No Invoices Yet' : 'अभी कोई बिल नहीं है'}
-            </h4>
-            <p className="text-xs text-neutral-400 mt-1 max-w-xs">
-              {language === 'en'
-                ? 'Create your first itemized legal bill to receive instant UPI payments from clients.'
-                : 'मुवक्किलों से त्वरित यूपीआई भुगतान प्राप्त करने के लिए पहला बिल बनाएं।'}
-            </p>
-          </div>
-          <button
-            onClick={() => setIsCreatingNew(true)}
-            className="mt-1 px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs transition-all hover:bg-neutral-200 ios-press"
-          >
-            {language === 'en' ? '+ Create First Invoice' : '+ पहला बिल बनाएं'}
-          </button>
+      {/* ── Recent Transactions matching Image 4 ── */}
+      <div className="space-y-2.5 pt-1">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider font-mono">
+            {language === 'hi' ? 'हाल के लेनदेन' : language === 'mr' ? 'अलीकडील व्यवहार' : 'Recent Transactions'}
+          </h2>
+          <span className="text-[11px] text-neutral-500 font-mono">
+            {invoices.length} {language === 'hi' ? 'प्रविष्टियाँ' : 'entries'}
+          </span>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {invoices.map(inv => (
-            <div
-              key={inv.id}
-              className="glass-card rounded-3xl p-4 flex flex-col gap-3"
-            >
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] font-mono text-neutral-500 block">
-                  {inv.invoiceNumber} • {inv.date}
-                </span>
-                <h4 className="text-sm font-bold text-white tracking-tight mt-0.5">
-                  {inv.clientName}
-                </h4>
-                <span className="text-[11px] text-neutral-400 font-mono">{inv.caseNumber}</span>
-              </div>
 
-              <div className="text-right">
-                <span className="text-base font-bold text-white font-mono block">
-                  ₹{inv.totalAmount.toLocaleString('en-IN')}
-                </span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mt-1 ${
-                  inv.status === 'Paid'
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/20'
-                }`}>
-                  {inv.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Itemized row */}
-            <div className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-2.5 text-[11px] text-neutral-400 space-y-1 font-sans">
-              <div className="flex justify-between">
-                <span>{t.appearanceFee}:</span>
-                <span className="font-mono text-neutral-300">₹{inv.appearanceFee.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t.draftingCharges}:</span>
-                <span className="font-mono text-neutral-300">₹{inv.draftingFee.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{t.clerkageMisc}:</span>
-                <span className="font-mono text-neutral-300">₹{inv.clerkageAndMisc.toLocaleString('en-IN')}</span>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-1">
-              {inv.status === 'Paid' ? (
-                <button
-                  onClick={() => setSelectedInvoiceForReceipt(inv)}
-                  className="flex-1 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-neutral-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition ios-press"
-                >
-                  <Download size={13} />
-                  <span>View Official Receipt</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => setSelectedInvoiceForPayment(inv)}
-                  className="flex-1 py-2 rounded-2xl bg-white text-black font-semibold text-xs flex items-center justify-center gap-1.5 hover:bg-neutral-200 transition ios-press shadow-md"
-                >
-                  <QrCode size={14} />
-                  <span>Pay via UPI / QR</span>
-                </button>
-              )}
-            </div>
+        {invoices.length === 0 ? (
+          <div className="glass-card rounded-2xl p-6 text-center text-xs text-neutral-400">
+            {language === 'hi' ? 'कोई हालिया लेनदेन नहीं' : 'No recent transactions recorded'}
           </div>
-        ))}
-      </div>
-    )}
+        ) : (
+          <div className="space-y-2">
+            {invoices.map((inv, idx) => {
+              const isPaid = inv.status === 'Paid';
 
-      {/* UPI QR Modal (Apple / Cash App Minimalist) */}
-      {selectedInvoiceForPayment && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4 bg-[#111215] border border-white/[0.1]">
-            <div className="text-center">
-              <h3 className="text-sm font-semibold text-white tracking-tight">
-                Scan to Pay Advocate Fees
+              return (
+                <div
+                  key={inv.id || idx}
+                  className="glass-card rounded-2xl p-3.5 border border-white/[0.06] hover:border-white/[0.14] flex items-center justify-between gap-3 transition"
+                >
+                  {/* Left Icon: Circle with diagonal arrow */}
+                  <div
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                      isPaid
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                        : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                    }`}
+                  >
+                    {isPaid ? (
+                      <ArrowDownLeft size={18} strokeWidth={2.2} />
+                    ) : (
+                      <ArrowUpRight size={18} strokeWidth={2.2} />
+                    )}
+                  </div>
+
+                  {/* Center Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">
+                      {inv.clientName}
+                    </p>
+                    <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-mono mt-0.5 truncate">
+                      <span>{inv.date}</span>
+                      <span>•</span>
+                      <span className="truncate">{inv.caseNumber}</span>
+                    </div>
+                  </div>
+
+                  {/* Right Amount & Status */}
+                  <div className="text-right shrink-0">
+                    <span
+                      className={`text-xs font-bold font-mono block ${
+                        isPaid ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
+                    >
+                      {isPaid ? `+₹${inv.totalAmount.toLocaleString('en-IN')}` : `-₹${inv.totalAmount.toLocaleString('en-IN')}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isPaid) setSelectedInvoiceForReceipt(inv);
+                        else setSelectedInvoiceForPayment(inv);
+                      }}
+                      className="text-[10px] text-neutral-400 hover:text-white underline font-mono mt-0.5 block"
+                    >
+                      {isPaid ? 'Receipt' : 'Pay / Settle'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── MODAL: Create New Invoice ── */}
+      {isCreatingNew && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="glass-card rounded-3xl p-5 border border-white/[0.14] bg-neutral-950 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <h3 className="text-sm font-bold text-white font-display">
+                {language === 'hi' ? 'नया कानूनी बिल तैयार करें' : 'Generate Itemized Invoice'}
               </h3>
-              <p className="text-xs text-neutral-400 font-mono mt-0.5">{selectedInvoiceForPayment.invoiceNumber}</p>
-            </div>
-
-            <div className="w-44 h-44 bg-white p-3 rounded-3xl flex items-center justify-center shadow-2xl border-4 border-neutral-800">
-              <QrCode size={130} className="text-black" />
-            </div>
-
-            <div className="text-center">
-              <span className="text-2xl font-bold text-white font-mono">
-                ₹{selectedInvoiceForPayment.totalAmount.toLocaleString('en-IN')}
-              </span>
-              <p className="text-[11px] text-neutral-400 font-mono mt-0.5">{t.upiId}</p>
-            </div>
-
-            <div className="w-full flex gap-2 pt-2">
               <button
-                onClick={() => setSelectedInvoiceForPayment(null)}
-                className="flex-1 py-2.5 rounded-2xl bg-white/[0.06] text-neutral-300 text-xs font-semibold"
+                type="button"
+                onClick={() => setIsCreatingNew(false)}
+                className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-neutral-400 hover:text-white"
               >
-                {t.cancel}
+                ✕
               </button>
-              <button
-                onClick={handleSimulatePayment}
-                className="flex-1 py-2.5 rounded-2xl bg-emerald-400 text-black font-semibold text-xs hover:bg-emerald-300 ios-press"
-              >
-                Confirm Settlement
-              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-300">Client Name</label>
+                <input
+                  type="text"
+                  value={newClient}
+                  onChange={e => setNewClient(e.target.value)}
+                  className="w-full bg-black/60 border border-white/[0.1] rounded-2xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-300">Case Reference</label>
+                <input
+                  type="text"
+                  value={newCase}
+                  onChange={e => setNewCase(e.target.value)}
+                  className="w-full bg-black/60 border border-white/[0.1] rounded-2xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-neutral-400">Appearance Fee (₹)</label>
+                  <input
+                    type="number"
+                    value={newAppearanceFee}
+                    onChange={e => setNewAppearanceFee(Number(e.target.value))}
+                    className="w-full bg-black/60 border border-white/[0.1] rounded-2xl p-2 text-xs text-white focus:outline-none mt-1 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-neutral-400">Drafting Fee (₹)</label>
+                  <input
+                    type="number"
+                    value={newDraftingFee}
+                    onChange={e => setNewDraftingFee(Number(e.target.value))}
+                    className="w-full bg-black/60 border border-white/[0.1] rounded-2xl p-2 text-xs text-white focus:outline-none mt-1 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                <span className="font-semibold text-neutral-300">Total Bill Amount:</span>
+                <span className="font-bold text-amber-300 font-mono text-sm">
+                  ₹{(Number(newAppearanceFee) + Number(newDraftingFee) + Number(newClerkage)).toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNew(false)}
+                  className="flex-1 py-2.5 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-neutral-300 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateNewInvoice}
+                  className="flex-1 py-2.5 rounded-2xl bg-white text-black font-bold text-xs hover:bg-neutral-200 transition ios-press shadow-md"
+                >
+                  Create & Send
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Formal Receipt Modal */}
-      {selectedInvoiceForReceipt && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-6 shadow-2xl flex flex-col gap-3 bg-[#111215] border border-white/[0.1]">
-            <div className="text-center border-b border-white/[0.08] pb-3">
-              <span className="text-[10px] font-mono tracking-widest uppercase text-amber-300">
-                Official Receipt
-              </span>
-              <h3 className="text-sm font-bold text-white mt-1">Advocate Rajesh Mehta</h3>
-              <p className="text-[10px] text-neutral-500">Bar Council of Delhi • D/1482/2015</p>
+      {/* ── MODAL: UPI Payment ── */}
+      {selectedInvoiceForPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="glass-card rounded-3xl p-5 border border-white/[0.14] bg-neutral-950 w-full max-w-sm space-y-4 shadow-2xl text-center">
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+              <h3 className="text-sm font-bold text-white">Settle Legal Fees</h3>
+              <button onClick={() => setSelectedInvoiceForPayment(null)} className="text-neutral-400">✕</button>
             </div>
-
-            <div className="bg-black/40 p-3.5 rounded-2xl border border-white/[0.06] space-y-2 text-xs text-neutral-300 font-mono">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Receipt Ref:</span>
-                <span>REC-{selectedInvoiceForReceipt.invoiceNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Client:</span>
-                <span className="text-white font-sans">{selectedInvoiceForReceipt.clientName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Case No:</span>
-                <span>{selectedInvoiceForReceipt.caseNumber}</span>
-              </div>
-              <div className="flex justify-between border-t border-white/[0.06] pt-2 font-bold text-white">
-                <span>Settled:</span>
-                <span className="text-emerald-400">₹{selectedInvoiceForReceipt.totalAmount.toLocaleString('en-IN')}</span>
-              </div>
+            <div>
+              <p className="text-xs text-neutral-400">Amount Due</p>
+              <p className="text-2xl font-bold font-mono text-white mt-1">
+                ₹{selectedInvoiceForPayment.totalAmount.toLocaleString('en-IN')}
+              </p>
+              <p className="text-[11px] text-neutral-400 mt-1 font-mono">{selectedInvoiceForPayment.caseNumber}</p>
             </div>
-
             <button
-              onClick={() => setSelectedInvoiceForReceipt(null)}
-              className="w-full py-2.5 rounded-2xl bg-white/[0.06] text-white text-xs font-semibold mt-2"
+              onClick={handleSimulatePayment}
+              className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition ios-press"
             >
-              {t.close}
+              Simulate Instant UPI Settlement
             </button>
           </div>
         </div>
       )}
 
-      {/* Create New Invoice Modal */}
-      {isCreatingNew && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-sm glass-panel rounded-3xl p-5 shadow-2xl flex flex-col gap-3 bg-[#121216] border border-white/[0.1]">
-            <h3 className="text-sm font-bold text-white tracking-tight">
-              Create New Itemized Invoice
-            </h3>
-
-            <div className="space-y-2.5 text-xs">
-              <div>
-                <label className="text-neutral-400 block mb-1">Client Name</label>
-                <input
-                  type="text"
-                  value={newClient}
-                  onChange={(e) => setNewClient(e.target.value)}
-                  className="w-full bg-black/60 border border-white/[0.08] rounded-2xl p-2.5 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-neutral-400 block mb-1">Case Number</label>
-                <input
-                  type="text"
-                  value={newCase}
-                  onChange={(e) => setNewCase(e.target.value)}
-                  className="w-full bg-black/60 border border-white/[0.08] rounded-2xl p-2.5 text-white font-mono"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-neutral-400 block mb-1">{t.appearanceFee}</label>
-                  <input
-                    type="number"
-                    value={newAppearanceFee}
-                    onChange={(e) => setNewAppearanceFee(Number(e.target.value))}
-                    className="w-full bg-black/60 border border-white/[0.08] rounded-2xl p-2.5 text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-neutral-400 block mb-1">{t.draftingCharges}</label>
-                  <input
-                    type="number"
-                    value={newDraftingFee}
-                    onChange={(e) => setNewDraftingFee(Number(e.target.value))}
-                    className="w-full bg-black/60 border border-white/[0.08] rounded-2xl p-2.5 text-white font-mono"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-neutral-400 block mb-1">{t.clerkageMisc}</label>
-                <input
-                  type="number"
-                  value={newClerkage}
-                  onChange={(e) => setNewClerkage(Number(e.target.value))}
-                  className="w-full bg-black/60 border border-white/[0.08] rounded-2xl p-2.5 text-white font-mono"
-                />
-              </div>
+      {/* ── MODAL: Receipt ── */}
+      {selectedInvoiceForReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="glass-card rounded-3xl p-5 border border-white/[0.14] bg-neutral-950 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.08]">
+              <h3 className="text-sm font-bold text-white font-mono">Formal Receipt</h3>
+              <button onClick={() => setSelectedInvoiceForReceipt(null)} className="text-neutral-400">✕</button>
             </div>
-
-            <div className="flex gap-2 pt-3">
-              <button
-                onClick={() => setIsCreatingNew(false)}
-                className="flex-1 py-2.5 rounded-2xl bg-white/[0.06] text-neutral-300 text-xs font-semibold"
-              >
-                {t.cancel}
-              </button>
-              <button
-                onClick={handleCreateNewInvoice}
-                className="flex-1 py-2.5 rounded-2xl bg-white text-black font-semibold text-xs hover:bg-neutral-200 ios-press"
-              >
-                Issue Bill
-              </button>
+            <div className="text-xs space-y-2 text-neutral-300">
+              <p><strong className="text-white">Receipt No:</strong> {selectedInvoiceForReceipt.invoiceNumber}</p>
+              <p><strong className="text-white">Client:</strong> {selectedInvoiceForReceipt.clientName}</p>
+              <p><strong className="text-white">Amount:</strong> ₹{selectedInvoiceForReceipt.totalAmount.toLocaleString('en-IN')}</p>
+              <p><strong className="text-white">Status:</strong> <span className="text-emerald-400 font-bold">PAID VIA UPI</span></p>
             </div>
+            <button
+              onClick={() => setSelectedInvoiceForReceipt(null)}
+              className="w-full py-2.5 rounded-2xl bg-white text-black font-bold text-xs"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

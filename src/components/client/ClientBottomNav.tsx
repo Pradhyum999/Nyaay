@@ -10,6 +10,7 @@ interface ClientBottomNavProps {
   activeTab: ClientNavTab;
   onSelectTab: (tab: ClientNavTab) => void;
   language: Language;
+  onToggleLanguage?: () => void;
   unreadCount?: number;
 }
 
@@ -25,13 +26,14 @@ export const ClientBottomNav: React.FC<ClientBottomNavProps> = ({
   activeTab,
   onSelectTab,
   language,
+  onToggleLanguage,
   unreadCount = 0,
 }) => {
   const t = translations[language] as Record<string, string>;
 
   return (
     <nav
-      className="sticky bottom-0 z-30 bg-black/90 backdrop-blur-2xl border-t border-white/[0.06] px-2 py-1.5 flex items-center justify-around"
+      className="sticky bottom-0 z-30 bg-black/90 backdrop-blur-2xl border-t border-white/[0.06] px-2 py-1.5 flex items-center justify-around relative"
       style={{ paddingBottom: 'calc(0.375rem + env(safe-area-inset-bottom))' }}
     >
       {clientTabs.map((tab) => {

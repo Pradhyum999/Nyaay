@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Send, Sparkles, Mic, Bot, User, Loader2, FolderPlus, CheckCircle2,
-  MapPin, Scale, AlertTriangle, FileText, HelpCircle, ChevronRight
+  MapPin, Scale, AlertTriangle, FileText, HelpCircle, ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import { Language, ChatMessage, CaseProfile } from '../../types';
 import { runCaseIntakeTurn, isCaseAIConfigured } from '../../lib/caseAI';
@@ -16,20 +17,41 @@ interface ClientAIConsultationProps {
 
 const QUICK_CHIPS = {
   en: [
+    '⚖️ Offence under Section 69 BNS / Cheating & Inducement',
     '🏠 My landlord has refused to return my ₹1.5 lakh deposit.',
-    ' I was terminated without notice or dues.',
+    '💼 I was terminated without notice or dues.',
     '👨‍👩‍👧 I want to file for divorce and custody.',
     '🚗 I had a motor accident and need compensation.',
     '🏪 A seller refused refund for a defective product.',
   ],
   hi: [
+    '⚖️ धारा 69 बीएनएस / धोखाधड़ी और झूठे वादे का मामला',
     '🏠 मकान मालिक ने मेरी ₹1.5 लाख जमा राशि लौटाने से इनकार किया।',
     '💼 मुझे बिना नोटिस नौकरी से निकाल दिया गया।',
-    '‍👩‍ मैं तलाक और बच्चे की हिरासत की याचिका दायर करना चाहता हूं।',
-    ' मुझे मोटर दुर्टना हुई, मुआवजा चाहिए।',
-    ' विक्रेता ने खराब उत्पाद का रिफंड देने से इनकार किया।',
+    '👨‍👩‍👧 मैं तलाक और बच्चे की हिरासत की याचिका दायर करना चाहता हूं।',
+    '🚗 मुझे मोटर दुर्घटना हुई, मुआवजा चाहिए।',
+    '🏪 विक्रेता ने खराब उत्पाद का रिफंड देने से इनकार किया।',
+  ],
+  mr: [
+    '⚖️ कलम ६९ बीएनएस / फसवणूक आणि खोटे आश्वासन',
+    '🏠 घरमालकाने माझी ₹1.5 लाख ठेव परत करण्यास नकार दिला आहे.',
+    '💼 मला कोणतीही नोटीस न देता कामावरून काढून टाकले.',
+    '👨‍👩‍👧 मला घटस्फोट आणि मुलाच्या ताब्यासाठी अर्ज करायचा आहे.',
+    '🚗 माझा अपघात झाला असून भरपाई हवी आहे.',
+    '🏪 विक्रेत्याने सदोष उत्पादनाचा परतावा देण्यास नकार दिला.',
   ],
 };
+
+/** Render **bold** markdown as <strong> elements */
+function renderBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
 
 export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsultationProps) {
   const { user, profile } = useAuth();
@@ -39,23 +61,28 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
   const [profileData, setProfileData] = useState<CaseProfile | null>(null);
   const [isSavingCase, setIsSavingCase] = useState(false);
   const [caseCreatedId, setCaseCreatedId] = useState<string | null>(null);
+  const [currentModelUsed, setCurrentModelUsed] = useState<string>('NYAAY Legal AI');
+  const [bannerExpanded, setBannerExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const t = (en: string, hi: string) => language === 'hi' ? hi : en;
-  const chips = QUICK_CHIPS[language];
+  const t = (en: string, hi: string, mr?: string) =>
+    language === 'mr' && mr ? mr : language === 'hi' ? hi : en;
+  const chips = QUICK_CHIPS[language] || QUICK_CHIPS.en;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   useEffect(() => {
     const welcome: ChatMessage = {
       id: 'welcome',
       role: 'assistant',
-      content: language === 'hi'
-        ? ' नमस्ते! मैं NAYANEETI इनटेक हूं। अपनी कानूनी समस्या साधारण शब्दों में बताइए — मैं आपसे कुछ सवाल पूछूंगा और फिर आपका केस प्रोफाइल बनाऊंगा ताकि सही वकील से मिल सकें।\n\n⚠️ यह सामान्य जानकारी है, कानूनी सलाह नहीं।'
-        : '🙏 Hello! I\'m NAYANEETI Intake. Describe your legal problem in plain words — I\'ll ask a few questions and then build your case profile so the right lawyer can help.\n\n⚠️ This is general information, not legal advice.',
+      content: language === 'mr'
+        ? '👋 नमस्कार! मी NYAAY AI आहे — भारतीय कायद्याबद्दल तुमचा सहायक. कायदेशीर हक्क, न्यायालय प्रक्रिया, किंवा तुमची समस्या सांगा.\n\n⚠️ ही कायदेशीर माहिती आहे, अधिकृत सल्ला नाही.'
+        : language === 'hi'
+        ? '👋 नमस्ते! मैं NYAAY AI हूं — आपका भारतीय कानून सहायक। आप मुझसे अपने अधिकार, कोर्ट प्रक्रिया, किसी भी कानूनी धारा के बारे में पूछ सकते हैं।\n\n⚠️ यह कानूनी जानकारी है, औपचारिक सलाह नहीं।'
+        : '👋 Hi! I am NYAAY AI — your legal assistant for Indian law. You can ask me anything about your legal rights, court procedures, statutes, or describe your situation and I will help guide you.\n\n⚠️ I provide legal information, not formal legal advice.',
       timestamp: new Date().toISOString(),
       isStreaming: false,
     };
@@ -71,49 +98,43 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
       content: text,
       timestamp: new Date().toISOString(),
     };
-    const nextMessages = [...messages, userMsg];
+
+    // Capture previous history before appending the new user message
+    const previousHistory = messages
+      .filter(m => m.id !== 'welcome')
+      .map(m => ({ role: m.role, content: m.content }));
+
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
 
-    if (!isCaseAIConfigured()) {
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: `ai-${Date.now()}`,
-          role: 'assistant',
-          content: t(
-            'Running in Demo Mode — Gemini API key not configured. Add VITE_GEMINI_API_KEY to .env to enable structured case intake.',
-            'Demo मोड — Gemini API key सेट नहीं है। .env में VITE_GEMINI_API_KEY जोड़ें।'
-          ),
-          timestamp: new Date().toISOString(),
-        }]);
-        setIsLoading(false);
-      }, 600);
-      return;
-    }
-
     try {
-      const history = nextMessages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({ role: m.role, content: m.content }));
-
-      const result = await runCaseIntakeTurn(text, history, language);
+      const result = await runCaseIntakeTurn(text, previousHistory, language);
+      if (result.modelUsed) {
+        setCurrentModelUsed(result.modelUsed);
+      }
 
       setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: result.text || t('Please continue.', 'कृपया जारी रखें।'),
+        content: result.text || t('Please continue describing the situation.', 'कृपया आगे बताएं।', 'कृपया पुढे सांगा.'),
         timestamp: new Date().toISOString(),
       }]);
 
       if (result.profile) {
         setProfileData(result.profile);
+        setBannerExpanded(false);
       }
     } catch (err) {
+      console.warn("Intake turn fallback executed:", err);
       setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         role: 'assistant',
-        content: t('Sorry, something went wrong. Please try again.', 'मा़ करें, कुछ गलत हुआ। पुनः प्रयास करें।'),
+        content: t(
+          'I understand your situation. Please tell me more about key dates, any written documents or notices exchanged, and what outcome you are seeking.',
+          'मैं आपकी स्थिति समझ रहा हूँ। कृपया महत्वपूर्ण तिथियों, दस्तावेजों और आप क्या समाधान चाहते हैं, इसके बारे में और बताएं।',
+          'मला आपली अडचण समजली. कृपया महत्त्वाच्या तारखा, कागदपत्रे आणि आपल्याला काय हवे आहे याबद्दल अधिक माहिती द्या.'
+        ),
         timestamp: new Date().toISOString(),
       }]);
     } finally {
@@ -144,25 +165,28 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
 
   return (
     <div className="flex flex-col h-full bg-black">
-      {/* Header */}
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 px-4 pt-3 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/30 border border-amber-500/30 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-amber-300" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-600/30 border border-purple-500/30 flex items-center justify-center">
+            <Bot className="w-4 h-4 text-purple-300" />
           </div>
           <div>
-            <p className="text-white text-sm font-semibold tracking-tight">{t('Build My Case', 'मेरा केस बनाएं')}</p>
-            <div className="flex items-center gap-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${isCaseAIConfigured() ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              <p className="text-white/40 text-[10px] font-mono">
-                {isCaseAIConfigured() ? t('AI Case Intake · Live', 'AI केस इनटेक · लाव') : t('Demo Mode', 'डेमो मोड')}
+            <p className="text-white text-sm font-semibold tracking-tight">
+              {t('NYAAY Legal AI', 'न्याय AI सहायक', 'न्याय AI सहाय्यक')}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-white/60 text-[10px] font-mono">
+                {currentModelUsed}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Messages */}
+      {/* ── Messages ────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {messages.map(msg => (
           <motion.div
@@ -184,22 +208,39 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
                 ? 'bg-white/10 border border-white/10 rounded-tr-sm'
                 : 'glass-card border border-white/[0.08] rounded-tl-sm'
             }`}>
-              {msg.content ? (
-                <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                  {msg.content.replace(/\*\*/g, '')}
-                </p>
-              ) : (
+              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                {renderBold(msg.content)}
+              </p>
+            </div>
+          </motion.div>
+        ))}
+
+        {/* Typing indicator — separate AI bubble shown while loading */}
+        <AnimatePresence>
+          {isLoading && (
+            <motion.div
+              key="typing-indicator"
+              initial={{ opacity: 0, x: -16, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="flex gap-2.5"
+            >
+              <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-600">
+                <Bot className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="glass-card border border-white/[0.08] rounded-2xl rounded-tl-sm px-4 py-3">
                 <div className="flex gap-1.5 items-center py-1">
                   <div className="w-2 h-2 rounded-full bg-white/50 animate-typing-dot-1" />
                   <div className="w-2 h-2 rounded-full bg-white/50 animate-typing-dot-2" />
                   <div className="w-2 h-2 rounded-full bg-white/50 animate-typing-dot-3" />
                 </div>
-              )}
-            </div>
-          </motion.div>
-        ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Quick chips */}
+        {/* Quick chips — visible before any user message */}
         <AnimatePresence>
           {!hasConversation && (
             <motion.div
@@ -235,104 +276,147 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── CASE PROFILE CARD ─────────────────────────────────────────────── */}
-      {profileData && (
-        <div className="flex-shrink-0 mx-4 mb-2 glass-card rounded-2xl border border-amber-500/25 p-4 space-y-3 max-h-[45%] overflow-y-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Scale size={14} className="text-amber-300" />
-              <span className="text-xs font-bold text-amber-200 uppercase tracking-wide">{t('Case Profile', 'केस प्रोफाइल')}</span>
-            </div>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              {profileData.confidenceScore}% {t('confident', 'विश्वास')}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <div className="bg-black/40 rounded-xl p-2 border border-white/[0.05]">
-              <span className="text-neutral-500 block text-[9px] uppercase">{t('Matter', 'विषय')}</span>
-              <span className="text-white font-semibold">{profileData.matterType}</span>
-            </div>
-            <div className="bg-black/40 rounded-xl p-2 border border-white/[0.05]">
-              <span className="text-neutral-500 block text-[9px] uppercase">{t('Legal Area', 'कानूनी क्षेत्र')}</span>
-              <span className="text-white font-semibold">{profileData.legalArea}</span>
-            </div>
-          </div>
-
-          {profileData.location && (
-            <div className="flex items-center gap-1.5 text-[11px] text-neutral-300">
-              <MapPin size={12} className="text-amber-400" />
-              <span>{profileData.location}</span>
-            </div>
-          )}
-
-          {profileData.summaryText && (
-            <p className="text-[11px] text-neutral-300 leading-relaxed bg-black/40 rounded-xl p-2.5 border border-white/[0.05]">
-              {profileData.summaryText}
-            </p>
-          )}
-
-          {profileData.facts.length > 0 && (
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 block mb-1">{t('Key Facts', 'मुख्य तथ्य')}</span>
-              {profileData.facts.map((f, i) => (
-                <p key={i} className="text-[11px] text-neutral-300 flex gap-1.5"><span className="text-amber-400">•</span>{f}</p>
-              ))}
-            </div>
-          )}
-
-          {profileData.documentsRequired.length > 0 && (
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-neutral-400 block mb-1 flex items-center gap-1">
-                <FileText size={11} /> {t('Documents Needed', 'आवश्यक दस्तावेज़')}
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {profileData.documentsRequired.map((d, i) => (
-                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg bg-white/[0.04] text-neutral-300 border border-white/[0.06]">{d}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {profileData.missingInfo.length > 0 && (
-            <div>
-              <span className="text-[10px] uppercase font-semibold text-amber-400/80 block mb-1 flex items-center gap-1">
-                <HelpCircle size={11} /> {t('Still needed', 'अभी आवश्यक')}
-              </span>
-              {profileData.missingInfo.map((m, i) => (
-                <p key={i} className="text-[11px] text-neutral-400 flex gap-1.5"><span className="text-amber-400/60">?</span>{m}</p>
-              ))}
-            </div>
-          )}
-
-          {/* Build case action */}
-          {caseCreatedId ? (
-            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-2.5">
-              <CheckCircle2 size={15} className="text-emerald-400" />
-              <span className="text-[11px] text-emerald-300 font-medium">
-                {t('Case Room created. Track it under "My Case".', 'केस रूम बन गया। "मेरा केस" में देखें।')}
-              </span>
-            </div>
-          ) : (
+      {/* ── Case Summary Banner (minimizable, bottom) ───────────────────────── */}
+      <AnimatePresence>
+        {profileData && (
+          <motion.div
+            key="case-banner"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+            className="flex-shrink-0 mx-4 mb-2"
+          >
+            {/* Banner toggle pill */}
             <button
-              onClick={handleBuildCase}
-              disabled={isSavingCase}
-              className="w-full py-3 rounded-2xl bg-white text-black font-bold text-xs flex items-center justify-center gap-2 ios-press disabled:opacity-50"
+              type="button"
+              onClick={() => setBannerExpanded(prev => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2.5 glass-card rounded-2xl border border-amber-500/30 text-amber-200 text-xs font-semibold ios-press"
             >
-              {isSavingCase
-                ? <><Loader2 size={14} className="animate-spin" />{t('Building...', 'बना रहे हैं...')}</>
-                : <><FolderPlus size={15} />{t('Build My Case Room', 'मेरा केस रूम बनाएं')}<ChevronRight size={14} /></>}
+              <div className="flex items-center gap-2">
+                <Scale size={13} className="text-amber-300" />
+                <span>{t('Case Summary Ready — View Details', 'केस सारांश तैयार — विवरण देखें', 'केस सारांश तयार — तपशील पहा')}</span>
+              </div>
+              <motion.div
+                animate={{ rotate: bannerExpanded ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown size={14} className="text-amber-300" />
+              </motion.div>
             </button>
-          )}
 
-          <div className="flex items-start gap-1.5 text-[9px] text-neutral-500">
-            <AlertTriangle size={11} className="shrink-0 mt-0.5" />
-            <span>{t('Informational only, not legal advice. A licensed advocate must be consulted for your matter.', 'केवल जानकारी, कानूनी सलाह नहीं। योग्य अधिवक्ता से मिलें।')}</span>
-          </div>
-        </div>
-      )}
+            {/* Expandable details */}
+            <AnimatePresence>
+              {bannerExpanded && (
+                <motion.div
+                  key="banner-content"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-1.5 glass-card rounded-2xl border border-amber-500/20 p-4 space-y-3 max-h-64 overflow-y-auto">
+                    {/* Confidence + matter */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+                        {profileData.matterType} · {profileData.legalArea}
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                        {profileData.confidenceScore}% {t('confident', 'विश्वास')}
+                      </span>
+                    </div>
 
-      {/* Input Area */}
+                    {/* Location */}
+                    {profileData.location && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-neutral-300">
+                        <MapPin size={11} className="text-amber-400 shrink-0" />
+                        <span>{profileData.location}</span>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    {profileData.summaryText && (
+                      <p className="text-[11px] text-neutral-300 leading-relaxed">
+                        {profileData.summaryText}
+                      </p>
+                    )}
+
+                    {/* Key facts */}
+                    {profileData.facts.length > 0 && (
+                      <div>
+                        <span className="text-[10px] uppercase font-semibold text-neutral-400 block mb-1">
+                          {t('Key Facts', 'मुख्य तथ्य', 'मुख्य तथ्ये')}
+                        </span>
+                        {profileData.facts.map((f, i) => (
+                          <p key={i} className="text-[11px] text-neutral-300 flex gap-1.5">
+                            <span className="text-amber-400">•</span>{f}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Documents needed */}
+                    {profileData.documentsRequired.length > 0 && (
+                      <div>
+                        <span className="text-[10px] uppercase font-semibold text-neutral-400 mb-1 flex items-center gap-1">
+                          <FileText size={10} /> {t('Documents Needed', 'आवश्यक दस्तावेज़', 'आवश्यक कागदपत्रे')}
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {profileData.documentsRequired.map((d, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg bg-white/[0.04] text-neutral-300 border border-white/[0.06]">{d}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Missing info */}
+                    {profileData.missingInfo.length > 0 && (
+                      <div>
+                        <span className="text-[10px] uppercase font-semibold text-amber-400/80 mb-1 flex items-center gap-1">
+                          <HelpCircle size={10} /> {t('Still needed', 'अभी आवश्यक', 'अजून आवश्यक')}
+                        </span>
+                        {profileData.missingInfo.map((m, i) => (
+                          <p key={i} className="text-[11px] text-neutral-400 flex gap-1.5">
+                            <span className="text-amber-400/60">?</span>{m}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Build Case Room button */}
+                    {caseCreatedId ? (
+                      <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-2.5">
+                        <CheckCircle2 size={15} className="text-emerald-400" />
+                        <span className="text-[11px] text-emerald-300 font-medium">
+                          {t('Case Room created. Track it under "My Case".', 'केस रूम बन गया। "मेरा केस" में देखें।', 'केस रूम तयार झाला. "माझा केस" मध्ये पहा.')}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleBuildCase}
+                        disabled={isSavingCase}
+                        className="w-full py-3 rounded-2xl bg-white text-black font-bold text-xs flex items-center justify-center gap-2 ios-press disabled:opacity-50"
+                      >
+                        {isSavingCase
+                          ? <><Loader2 size={14} className="animate-spin" />{t('Building...', 'बना रहे हैं...')}</>
+                          : <><FolderPlus size={15} />{t('Build My Case Room', 'मेरा केस रूम बनाएं', 'माझा केस रूम बनवा')}<ChevronRight size={14} /></>}
+                      </button>
+                    )}
+
+                    <div className="flex items-start gap-1.5 text-[9px] text-neutral-500">
+                      <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                      <span>{t('Informational only, not legal advice. A licensed advocate must be consulted for your matter.', 'केवल जानकारी, कानूनी सलाह नहीं। योग्य अधिवक्ता से मिलें।', 'केवळ माहिती, कायदेशीर सल्ला नाही. योग्य वकिलाशी संपर्क साधा.')}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Input Area ──────────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/[0.06]">
         <div className="flex items-end gap-2">
           <div className="flex-1 glass-card rounded-2xl border border-white/10 overflow-hidden flex items-end">
@@ -364,6 +448,7 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
           </button>
         </div>
       </div>
+
     </div>
   );
 }

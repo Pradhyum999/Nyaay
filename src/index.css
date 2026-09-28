@@ -284,3 +284,99 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* 21st.dev Inspired Border Beam & Keyframe Animations                         */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes border-beam {
+  0% {
+    offset-distance: 0%;
+  }
+  100% {
+    offset-distance: 100%;
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam var(--duration, 8s) infinite linear;
+  animation-delay: var(--delay, 0s);
+}
+
+/* 21st.dev Dot Matrix Background */
+.dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* 21st.dev Shimmer Button Sweep */
+@keyframes sweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+.animate-sweep {
+  animation: sweep 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Pure Black & White (Monochrome / 21st.dev Noir Theme)                       */
+/* ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="bnw"] {
+  --bg-main: #000000;
+  --bg-surface: #030303;
+  --bg-elevated: #0B0B0C;
+  --bg-card: rgba(255, 255, 255, 0.045);
+  --bg-card-hover: rgba(255, 255, 255, 0.09);
+  --border-subtle: rgba(255, 255, 255, 0.15);
+  --border-light: rgba(255, 255, 255, 0.25);
+  --border-rim: rgba(255, 255, 255, 0.35);
+  --accent-gold: #FFFFFF;
+  --accent-gold-dim: #E4E4E7;
+  --accent-gold-glow: rgba(255, 255, 255, 0.25);
+  --text-primary: #FFFFFF;
+  --text-secondary: #D4D4D8;
+  --text-tertiary: #A1A1AA;
+}
+
+[data-theme="bnw"] .text-amber-400,
+[data-theme="bnw"] .text-amber-300,
+[data-theme="bnw"] .text-amber-500 {
+  color: #FFFFFF !important;
+}
+
+[data-theme="bnw"] .bg-amber-400,
+[data-theme="bnw"] .bg-amber-500 {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+[data-theme="bnw"] .border-amber-400,
+[data-theme="bnw"] .border-amber-400\/30,
+[data-theme="bnw"] .border-amber-400\/40 {
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg-main: #FFFFFF;
+  --bg-surface: #F8F9FA;
+  --bg-elevated: #F1F3F5;
+  --bg-card: rgba(0, 0, 0, 0.03);
+  --bg-card-hover: rgba(0, 0, 0, 0.06);
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-light: rgba(0, 0, 0, 0.18);
+  --border-rim: rgba(0, 0, 0, 0.25);
+  --text-primary: #0A0A0C;
+  --text-secondary: #4A4D57;
+  --text-tertiary: #717482;
+}
+
+[data-theme="light"] body {
+  background-color: #F8F9FA;
+  color: #0A0A0C;
+}

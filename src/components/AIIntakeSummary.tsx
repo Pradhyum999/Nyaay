@@ -7,18 +7,29 @@ interface AIIntakeSummaryProps {
   briefs: AIIntakeBrief[];
   language: Language;
   onAcceptCase: (brief: AIIntakeBrief) => void;
+  onRejectCase?: (briefId: string, reason?: string) => void;
 }
 
-export const AIIntakeSummary: React.FC<AIIntakeSummaryProps> = ({ briefs, language, onAcceptCase }) => {
+export const AIIntakeSummary: React.FC<AIIntakeSummaryProps> = ({ briefs, language, onAcceptCase, onRejectCase }) => {
   const t = translations[language];
   const [selectedBrief, setSelectedBrief] = useState<AIIntakeBrief | null>(briefs[0] ?? null);
   const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
+  const [rejectedIds, setRejectedIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleAccept = (brief: AIIntakeBrief) => {
     setAcceptedIds(prev => [...prev, brief.id]);
     onAcceptCase(brief);
     setToastMessage(t.caseAcceptedNotice);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleReject = (brief: AIIntakeBrief) => {
+    setRejectedIds(prev => [...prev, brief.id]);
+    if (onRejectCase) {
+      onRejectCase(brief.id, 'Advocate schedule conflict or practice area mismatch');
+    }
+    setToastMessage(language === 'mr' ? 'परामर्श नाकारला' : language === 'hi' ? 'परामर्श अस्वीकार किया गया' : 'Consultation declined');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -176,28 +187,42 @@ export const AIIntakeSummary: React.FC<AIIntakeSummaryProps> = ({ briefs, langua
                 {t.bciDisclaimer}
               </div>
 
-              {/* Action */}
-              <button
-                onClick={() => handleAccept(selectedBrief)}
-                disabled={acceptedIds.includes(selectedBrief.id)}
-                className={`w-full py-3 rounded-2xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ios-press ${
-                  acceptedIds.includes(selectedBrief.id)
-                    ? 'bg-white/[0.06] text-neutral-400 border border-white/[0.08] cursor-default'
-                    : 'bg-white text-black hover:bg-neutral-200 shadow-lg'
-                }`}
-              >
-                {acceptedIds.includes(selectedBrief.id) ? (
-                  <>
-                    <CheckCircle size={15} className="text-emerald-500" />
-                    <span>Added to Case Diary</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{t.acceptCase}</span>
-                    <ArrowUpRight size={15} />
-                  </>
-                )}
-              </button>
+              {/* Action Buttons: Accept & Decline */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleReject(selectedBrief)}
+                  disabled={acceptedIds.includes(selectedBrief.id) || rejectedIds.includes(selectedBrief.id)}
+                  className="flex-1 py-3 rounded-2xl font-semibold text-xs border border-rose-500/30 text-rose-300 hover:bg-rose-500/10 transition ios-press disabled:opacity-40"
+                >
+                  {rejectedIds.includes(selectedBrief.id)
+                    ? (language === 'mr' ? 'नाकारले' : language === 'hi' ? 'अस्वीकृत' : 'Declined')
+                    : (language === 'mr' ? 'प्रकरण नाकारा' : language === 'hi' ? 'केस अस्वीकार करें' : 'Decline Matter')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleAccept(selectedBrief)}
+                  disabled={acceptedIds.includes(selectedBrief.id) || rejectedIds.includes(selectedBrief.id)}
+                  className={`flex-[2] py-3 rounded-2xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all ios-press ${
+                    acceptedIds.includes(selectedBrief.id)
+                      ? 'bg-white/[0.06] text-neutral-400 border border-white/[0.08] cursor-default'
+                      : 'bg-white text-black hover:bg-neutral-200 shadow-lg'
+                  }`}
+                >
+                  {acceptedIds.includes(selectedBrief.id) ? (
+                    <>
+                      <CheckCircle size={15} className="text-emerald-500" />
+                      <span>{language === 'mr' ? 'डायरीत जोडले' : language === 'hi' ? 'डायरी में जोड़ा गया' : 'Added to Case Diary'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{t.acceptCase}</span>
+                      <ArrowUpRight size={15} />
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </>

@@ -16,15 +16,18 @@ import {
   ExternalLink,
   Maximize2,
   Eye,
-  Trash2
+  Trash2,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import {
   getAllVerificationRequests,
   processVerificationRequest,
-  purgeAllCitizenData
+  purgeAllCitizenData,
+  subscribeToCitizenFeedback
 } from '../../services/firestoreService';
 import { generateAdminEmailContent } from '../../utils/masking';
-import { VerificationRequest, VerificationStatus, Language } from '../../types';
+import { VerificationRequest, VerificationStatus, Language, CitizenFeedback } from '../../types';
 
 interface AdminVerificationDashboardProps {
   isOpen: boolean;
@@ -38,8 +41,9 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
   language
 }) => {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
+  const [feedbackList, setFeedbackList] = useState<CitizenFeedback[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<'pending' | 'lawyer' | 'client' | 'history'>('pending');
+  const [filterTab, setFilterTab] = useState<'pending' | 'lawyer' | 'client' | 'history' | 'feedback'>('pending');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedDocPhotoForModal, setSelectedDocPhotoForModal] = useState<{ url: string; title: string } | null>(null);
 
@@ -83,6 +87,10 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
   useEffect(() => {
     if (isOpen) {
       loadRequests();
+      const unsub = subscribeToCitizenFeedback((list) => {
+        setFeedbackList(list);
+      });
+      return () => unsub();
     }
   }, [isOpen]);
 
@@ -197,17 +205,18 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-black/50 border border-white/[0.08] rounded-2xl">
+        <div className="flex items-center gap-1.5 p-1 bg-black/50 border border-white/[0.08] rounded-2xl overflow-x-auto no-scrollbar">
           {[
-            { id: 'pending', label: 'Pending Queue', count: requests.filter(r => r.status === 'pending').length },
+            { id: 'pending', label: 'Pending', count: requests.filter(r => r.status === 'pending').length },
             { id: 'lawyer', label: 'Advocates', count: requests.filter(r => r.role === 'lawyer').length },
             { id: 'client', label: 'Citizens', count: requests.filter(r => r.role === 'client').length },
+            { id: 'feedback', label: 'Feedback Forms', count: feedbackList.length },
             { id: 'history', label: 'Audit History', count: requests.filter(r => r.status !== 'pending').length },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setFilterTab(tab.id as any)}
-              className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold transition ios-press flex items-center justify-center gap-1.5 ${
+              className={`py-1.5 px-2.5 rounded-xl text-xs font-semibold transition ios-press flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 filterTab === tab.id
                   ? 'bg-white text-black shadow-md'
                   : 'text-neutral-400 hover:text-white'
@@ -223,21 +232,74 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
           ))}
         </div>
 
-        {/* Requests List */}
-        <div className="space-y-3">
-          {loading ? (
-            <div className="py-12 text-center space-y-2">
-              <div className="w-7 h-7 rounded-full border-2 border-amber-400/40 border-t-amber-400 animate-spin mx-auto" />
-              <p className="text-xs text-neutral-500 font-mono">Loading verification requests...</p>
-            </div>
-          ) : filteredRequests.length === 0 ? (
-            <div className="py-12 text-center space-y-2 bg-black/30 rounded-2xl border border-white/[0.06]">
-              <CheckCircle2 size={24} className="text-emerald-400 mx-auto" />
-              <p className="text-xs font-semibold text-white">No requests in this category</p>
-              <p className="text-[11px] text-neutral-500">All submissions are reviewed and up to date.</p>
-            </div>
-          ) : (
-            filteredRequests.map(req => (
+        {/* Feedback List Tab */}
+        {filterTab === 'feedback' ? (
+          <div className="space-y-3">
+            {feedbackList.length === 0 ? (
+              <div className="py-12 text-center space-y-2 bg-black/30 rounded-2xl border border-white/[0.06]">
+                <MessageSquare size={24} className="text-neutral-500 mx-auto" />
+                <p className="text-xs font-semibold text-white">No Citizen Feedback Submitted Yet</p>
+                <p className="text-[11px] text-neutral-500">Submissions from citizens via text and voice dictation will arrive here in real time.</p>
+              </div>
+            ) : (
+              feedbackList.map((fb) => (
+                <div
+                  key={fb.id}
+                  className="p-4 rounded-2xl bg-black/50 border border-white/[0.08] hover:border-emerald-500/30 transition space-y-2 text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <User size={15} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white">{fb.userName}</span>
+                        <span className="text-[10px] text-neutral-400 block font-mono">Citizen ID: {fb.userId}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-amber-400">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={12}
+                          className={s <= fb.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-600'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-neutral-200 bg-white/[0.03] p-3 rounded-xl border border-white/[0.05] leading-relaxed">
+                    "{fb.feedbackText}"
+                  </p>
+
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <CheckCircle2 size={10} />
+                      <span>Verified Citizen Review</span>
+                    </span>
+                    <span>{fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Recent'}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Requests List */
+          <div className="space-y-3">
+            {loading ? (
+              <div className="py-12 text-center space-y-2">
+                <div className="w-7 h-7 rounded-full border-2 border-amber-400/40 border-t-amber-400 animate-spin mx-auto" />
+                <p className="text-xs text-neutral-500 font-mono">Loading verification requests...</p>
+              </div>
+            ) : filteredRequests.length === 0 ? (
+              <div className="py-12 text-center space-y-2 bg-black/30 rounded-2xl border border-white/[0.06]">
+                <CheckCircle2 size={24} className="text-emerald-400 mx-auto" />
+                <p className="text-xs font-semibold text-white">No requests in this category</p>
+                <p className="text-[11px] text-neutral-500">All submissions are reviewed and up to date.</p>
+              </div>
+            ) : (
+              filteredRequests.map(req => (
               <div
                 key={req.id}
                 className="p-4 rounded-2xl bg-black/50 border border-white/[0.08] hover:border-white/20 transition space-y-3 text-left"
@@ -411,6 +473,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
             ))
           )}
         </div>
+      )}
 
         {/* Reason Modal */}
         {activeReasonModal && (

@@ -19,6 +19,10 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    setDocList(documents);
+  }, [documents]);
+
   const handleUpload = (id: string) => {
     setUploadingId(id);
     setTimeout(() => {
@@ -28,7 +32,7 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
             ...d,
             status: 'Verified',
             uploadedAt: 'Just now',
-            fileSize: '3.4 MB PDF',
+            fileSize: '2.8 MB PDF',
             validationNoteEn: undefined,
             validationNoteHi: undefined
           };
@@ -37,9 +41,15 @@ export const ClientDocumentUpload: React.FC<ClientDocumentUploadProps> = ({
       }));
       setUploadingId(null);
       onUploadDocument(id);
-      setToastMessage("Document verified & forwarded to Adv. Rajesh Mehta!");
+      setToastMessage(
+        language === 'mr'
+          ? 'कागदपत्र सत्यापित करून वकिलांकडे पाठवले गेले!'
+          : language === 'hi'
+          ? 'दस्तावेज़ सत्यापित कर अधिवक्ता को प्रेषित किया गया!'
+          : 'Document verified & forwarded to advocate!'
+      );
       setTimeout(() => setToastMessage(null), 3000);
-    }, 1200);
+    }, 800);
   };
 
   return (

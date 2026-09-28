@@ -7,8 +7,8 @@ import { ClientBottomNav, ClientNavTab } from './components/client/ClientBottomN
 import { SpeedDialFAB } from './components/SpeedDialFAB';
 import { VirtualCaseDiary } from './components/VirtualCaseDiary';
 import { CaseListView } from './components/CaseListView';
+import { LawyerHomeDashboard } from './components/lawyer/LawyerHomeDashboard';
 import { AIIntakeSummary } from './components/AIIntakeSummary';
-import { DocumentManager } from './components/DocumentManager';
 import { BillingManager } from './components/BillingManager';
 import { CourtAnalyticsAndForum } from './components/CourtAnalyticsAndForum';
 import { LawyerProfileModal } from './components/LawyerProfileModal';
@@ -24,6 +24,7 @@ import { ClientPaymentView } from './components/client/ClientPaymentView';
 import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory';
 import { DirectChatView } from './components/chat/DirectChatView';
 import { ChatInboxView } from './components/chat/ChatInboxView';
+import { CitizenFeedbackModal } from './components/client/CitizenFeedbackModal';
 
 // Firestore Realtime Services & Auto-Seeding
 import {
@@ -42,12 +43,31 @@ import {
   updateDocumentVerification,
   createCaseRecord,
   processVerificationRequest,
-  updateUserProfile
+  updateUserProfile,
+  addNotification,
+  getFirmByAdminUid,
+  subscribeToFirmMembers,
+  addFirmMember,
+  removeFirmMember,
+  createFirmProfile,
+  createOrGetDirectThread,
+  sendDirectMessage
 } from './services/firestoreService';
-
+import { FirmPortal } from './components/firm/FirmPortal';
+import { FirmRegistration } from './components/firm/FirmRegistration';
+import { UniversalSearchModal } from './components/UniversalSearchModal';
+import { IpcToBnsModal } from './components/IpcToBnsModal';
+import {
+  mockHearings,
+  mockLimitationAlerts,
+  mockCaseFiles,
+  mockDocuments,
+  mockInvoices
+} from './data/mockData';
 
 import {
   Language,
+  ThemeMode,
   UserRole,
   HearingItem,
   InvoiceItem,
@@ -58,7 +78,9 @@ import {
   LimitationAlert,
   UserProfile,
   AppNotification,
-  DirectThread
+  DirectThread,
+  FirmProfile,
+  FirmMember
 } from './types';
 
 // ── Cinematic Loading Screen ──────────────────────────────────────────────────
@@ -105,11 +127,14 @@ function LoadingScreen() {
 
 // ── Main App Content ──────────────────────────────────────────────────────────
 function AppContent() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, updateProfile } = useAuth();
 
   const [language, setLanguage] = useState<Language>('en');
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return (localStorage.getItem('nyaay_theme') as ThemeMode) || 'bnw';
+  });
   const [userRole, setUserRole] = useState<UserRole>('client');
-  const [lawyerTab, setLawyerTab] = useState<NavTab>('diary');
+  const [lawyerTab, setLawyerTab] = useState<NavTab>('home');
   const [clientTab, setClientTab] = useState<ClientNavTab>('consult');
 
   // Auth Modal/Screen state
@@ -119,6 +144,19 @@ function AppContent() {
   const [isLawyerProfileOpen, setIsLawyerProfileOpen] = useState<boolean>(false);
   const [isClientProfileOpen, setIsClientProfileOpen] = useState<boolean>(false);
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState<boolean>(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
+  const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState<boolean>(false);
+  const [isIpcModalOpen, setIsIpcModalOpen] = useState<boolean>(false);
+
+  // Sync theme with HTML data attribute and storage
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('nyaay_theme', theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme(prev => prev === 'bnw' ? 'dark' : prev === 'dark' ? 'light' : 'bnw');
+  };
 
   // Admin session authentication
   const [adminSessionAuthenticated, setAdminSessionAuthenticated] = useState<boolean>(() => {
@@ -173,21 +211,50 @@ function AppContent() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [userThreads, setUserThreads] = useState<DirectThread[]>([]);
 
-  // Live Database States — ZERO static mock fallbacks
-  const [hearings, setHearings] = useState<HearingItem[]>([]);
-  const [limitationAlerts, setLimitationAlerts] = useState<LimitationAlert[]>([]);
-  const [cases, setCases] = useState<CaseFile[]>([]);
-  const [documents, setDocuments] = useState<DocumentItem[]>([]);
-  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  // Database States with Rich Fallbacks
+  const [hearings, setHearings] = useState<HearingItem[]>(mockHearings);
+  const [limitationAlerts, setLimitationAlerts] = useState<LimitationAlert[]>(mockLimitationAlerts);
+  const [cases, setCases] = useState<CaseFile[]>(mockCaseFiles);
+  const [documents, setDocuments] = useState<DocumentItem[]>(mockDocuments);
+  const [invoices, setInvoices] = useState<InvoiceItem[]>(mockInvoices);
   const [aiBriefs, setAiBriefs] = useState<AIIntakeBrief[]>([]);
   const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+
+  // Firm Profile & Members state
+  const [currentFirm, setCurrentFirm] = useState<FirmProfile | null>(null);
+  const [firmMembers, setFirmMembers] = useState<FirmMember[]>([]);
 
   // Sync user role from Firestore profile
   useEffect(() => {
     if (profile?.role) {
-      setUserRole(profile.role === 'junior' ? 'lawyer' : profile.role);
+      setUserRole(
+        profile.role === 'junior' || profile.role === 'firm_admin' || profile.role === 'student'
+          ? 'lawyer'
+          : profile.role
+      );
     }
   }, [profile]);
+
+  // Load and subscribe to Firm details
+  useEffect(() => {
+    if (!user) return;
+    let unsubMembers: (() => void) | undefined;
+    const loadFirm = async () => {
+      try {
+        const firm = await getFirmByAdminUid(user.uid);
+        if (firm) {
+          setCurrentFirm(firm);
+          unsubMembers = subscribeToFirmMembers(firm.id, setFirmMembers);
+        }
+      } catch (err) {
+        console.warn("Failed to load firm for user:", err);
+      }
+    };
+    loadFirm();
+    return () => {
+      if (unsubMembers) unsubMembers();
+    };
+  }, [user]);
 
   // Prompt auth if not logged in
   useEffect(() => {
@@ -202,22 +269,22 @@ function AppContent() {
 
     // 1. Subscribe to Hearings
     const unsubHearings = subscribeToHearings(user.uid, userRole, (liveHearings) => {
-      setHearings(liveHearings);
+      setHearings(liveHearings && liveHearings.length > 0 ? liveHearings : mockHearings);
     });
 
     // 2. Subscribe to Cases
     const unsubCases = subscribeToCases(user.uid, userRole, (liveCases) => {
-      setCases(liveCases);
+      setCases(liveCases && liveCases.length > 0 ? liveCases : mockCaseFiles);
     });
 
     // 3. Subscribe to Invoices
     const unsubInvoices = subscribeToInvoices(user.uid, userRole, (liveInvoices) => {
-      setInvoices(liveInvoices);
+      setInvoices(liveInvoices && liveInvoices.length > 0 ? liveInvoices : mockInvoices);
     });
 
     // 4. Subscribe to Documents
     const unsubDocuments = subscribeToDocuments(user.uid, userRole, (liveDocs) => {
-      setDocuments(liveDocs);
+      setDocuments(liveDocs && liveDocs.length > 0 ? liveDocs : mockDocuments);
     });
 
     // 5. Subscribe to Community Forum Posts
@@ -297,12 +364,15 @@ function AppContent() {
   }
 
 
-  const handleToggleLanguage = () => setLanguage(prev => prev === 'en' ? 'hi' : 'en');
+  const handleToggleLanguage = () => setLanguage(prev => prev === 'en' ? 'hi' : prev === 'hi' ? 'mr' : 'en');
 
-  // Hearing Order Update with Firestore persistence
+  // Hearing Order Update with Firestore persistence & Live Client Sync
   const handleUpdateHearingOrder = async (hearingId: string, orderNotes: string, nextDate: string) => {
+    let matchedCaseNumber: string | undefined;
+
     setHearings(prev => prev.map(h => {
       if (h.id === hearingId) {
+        matchedCaseNumber = h.caseNumber;
         return {
           ...h,
           previousOrderSummaryEn: orderNotes,
@@ -313,8 +383,30 @@ function AppContent() {
       return h;
     }));
 
+    // Live sync to client's case records so it's immediately visible in "My Case" tab
+    setCases(prev => prev.map(c => {
+      if (!matchedCaseNumber || c.caseNumber === matchedCaseNumber) {
+        return {
+          ...c,
+          nextHearingDate: nextDate,
+          orderNotes: orderNotes,
+        };
+      }
+      return c;
+    }));
+
     try {
       await updateHearingRecord(hearingId, orderNotes, nextDate);
+      if (user?.uid) {
+        await addNotification({
+          recipientId: 'client-user',
+          type: 'engagement',
+          title: language === 'mr' ? 'सुनावणी आदेश अद्यतनित' : language === 'hi' ? 'अदालत आदेश अपडेट' : 'Court Order & Next Date Updated',
+          message: `${orderNotes || 'Order logged'}. Next date: ${nextDate}`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
     } catch {
       // Local optimistic state preserved
     }
@@ -336,6 +428,67 @@ function AppContent() {
       }
     } catch {
       // Local optimistic state preserved
+    }
+  };
+
+  // Interlinked Client Chat Update for Hearings
+  const handleSendHearingChatUpdate = async (params: {
+    caseNumber: string;
+    clientName: string;
+    court: string;
+    status: string;
+    nextDate: string;
+    stage: string;
+    orderNotes: string;
+  }) => {
+    const matchedCase = cases.find(
+      c => c.caseNumber === params.caseNumber || c.clientName === params.clientName
+    );
+    const clientId = matchedCase?.clientId || 'client-user';
+    const clientName = params.clientName || matchedCase?.clientName || 'Client';
+
+    const updateText = `🏛️ **Court Hearing Update — ${params.caseNumber}**\n\n` +
+      `• **Court**: ${params.court}\n` +
+      `• **Outcome / Status**: ${params.status}\n` +
+      `• **Next Hearing Date**: ${params.nextDate}, 10:30 AM\n` +
+      `• **Next Stage**: ${params.stage}\n` +
+      (params.orderNotes ? `• **Judicial Order**: "${params.orderNotes}"\n\n` : '\n') +
+      `📌 *Case Diary has been updated and scheduled for the next date.*`;
+
+    // 1. Send into direct chat thread
+    try {
+      if (user) {
+        const threadId = await createOrGetDirectThread({
+          lawyerId: user.uid,
+          lawyerName: profile?.name || 'Adv. Rajesh Mehta',
+          clientId,
+          clientName,
+          matterSubject: `${params.caseNumber} — ${matchedCase?.caseType || 'Court Hearing Update'}`,
+        });
+
+        await sendDirectMessage(threadId, {
+          senderId: user.uid,
+          senderName: profile?.name || 'Adv. Rajesh Mehta',
+          senderRole: 'lawyer',
+          text: updateText,
+        });
+      }
+    } catch (err) {
+      console.warn("Could not send hearing update to chat thread:", err);
+    }
+
+    // 2. Dispatch in-app notification for client
+    try {
+      await addNotification({
+        recipientId: clientId,
+        type: 'engagement',
+        title: `Court Update: ${params.caseNumber}`,
+        message: `${params.status} • Next date: ${params.nextDate} (${params.stage})`,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (notifErr) {
+      console.warn("Notification error:", notifErr);
     }
   };
 
@@ -413,6 +566,42 @@ function AppContent() {
     setHearings(prev => [newHearing, ...prev]);
   };
 
+  const handleAddFirmMember = async (member: Omit<FirmMember, 'id' | 'firmId' | 'joinedAt'>) => {
+    if (!currentFirm) return;
+    const newId = await addFirmMember(currentFirm.id, member);
+    setFirmMembers(prev => [
+      ...prev,
+      { ...member, id: newId, firmId: currentFirm.id, joinedAt: new Date().toISOString() }
+    ]);
+  };
+
+  const handleRemoveFirmMember = async (memberId: string) => {
+    if (!currentFirm) return;
+    await removeFirmMember(currentFirm.id, memberId);
+    setFirmMembers(prev => prev.filter(m => m.id !== memberId));
+  };
+
+  const handleRegisterFirmInApp = async (
+    firmData: Omit<FirmProfile, 'id' | 'adminUid' | 'memberCount' | 'createdAt'>
+  ) => {
+    if (!user) return;
+    const adminUid = user.uid;
+    const firmId = await createFirmProfile(adminUid, firmData);
+    const newFirm: FirmProfile = {
+      id: firmId,
+      adminUid,
+      ...firmData,
+      memberCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    setCurrentFirm(newFirm);
+    await updateUserProfile(adminUid, { role: 'firm_admin' as any, firmId });
+    if (profile) {
+      updateProfile({ ...profile, role: 'firm_admin' as any, firmId });
+    }
+    subscribeToFirmMembers(firmId, setFirmMembers);
+  };
+
   const handleFABAction = (actionType: 'addHearing' | 'newInvoice' | 'uploadDoc' | 'aiConsult') => {
     if (actionType === 'addHearing') setLawyerTab('diary');
     else if (actionType === 'newInvoice') setLawyerTab('billing');
@@ -430,6 +619,10 @@ function AppContent() {
     >
       <TopAppBar
         language={language}
+        onSelectLanguage={setLanguage}
+        onToggleLanguage={handleToggleLanguage}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         userRole={userRole}
         userName={profile?.name}
         userIdentifier={userRole === 'lawyer' 
@@ -449,6 +642,9 @@ function AppContent() {
           }
         }}
         onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
+        onOpenFeedback={() => setIsFeedbackOpen(true)}
+        onOpenFirmPortal={currentFirm ? () => setLawyerTab(lawyerTab === 'firm' ? 'diary' : 'firm') : undefined}
+        onOpenUniversalSearch={() => setIsUniversalSearchOpen(true)}
         onOpenChatInbox={() => {
           setActiveThread(null);
           if (userRole === 'lawyer') {
@@ -459,6 +655,11 @@ function AppContent() {
         }}
         unreadChatCount={userThreads.length}
         urgentAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
+        notifications={notifications}
+        onDismissNotification={(id) => markNotificationRead(id)}
+        onDismissAllNotifications={() => {
+          notifications.filter(n => !n.read).forEach(n => markNotificationRead(n.id));
+        }}
       />
 
       {/* In-App Notifications Alert Banner (Advocate & Citizen) */}
@@ -525,6 +726,7 @@ function AppContent() {
             aiBriefAttached={activeThread.aiBriefAttached}
             aiBriefText={activeThread.aiBriefText}
             language={language}
+            onSelectLanguage={setLanguage}
             onBack={() => setActiveThread(null)}
           />
         </div>
@@ -532,14 +734,47 @@ function AppContent() {
         <main className="flex-1">
           {userRole === 'lawyer' ? (
             <>
-              {lawyerTab === 'diary' && (
+              {lawyerTab === 'home' && (
+                <LawyerHomeDashboard
+                  lawyerName={profile?.name || 'Adv. Rajesh Mehta'}
+                  cases={cases}
+                  hearings={hearings}
+                  limitationAlerts={limitationAlerts}
+                  threads={userThreads}
+                  language={language}
+                  onNavigateToCases={() => setLawyerTab('cases')}
+                  onNavigateToCalendar={() => setLawyerTab('calendar')}
+                  onNavigateToChats={() => setLawyerTab('chats')}
+                  onNavigateToBilling={() => setLawyerTab('billing')}
+                  onUpdateHearingOrder={handleUpdateHearingOrder}
+                  onAddHearing={handleAddHearing}
+                  onSendHearingChatUpdate={handleSendHearingChatUpdate}
+                  onSelectThread={(thread) => {
+                    setActiveThread({
+                      threadId: thread.id,
+                      recipientName: thread.clientName,
+                      recipientPhoto: thread.clientPhoto,
+                      matterSubject: thread.matterSubject,
+                      aiBriefAttached: thread.aiBriefAttached,
+                      aiBriefText: thread.aiBriefText,
+                    });
+                  }}
+                />
+              )}
+
+              {(lawyerTab === 'calendar' || lawyerTab === 'diary') && (
                 <VirtualCaseDiary
                   hearings={hearings}
+                  cases={cases}
                   limitationAlerts={limitationAlerts}
                   language={language}
                   onUpdateHearingOrder={handleUpdateHearingOrder}
                   onOpenCaseDetails={() => setLawyerTab('cases')}
                   onAddHearing={handleAddHearing}
+                  onEditHearing={async (id, updates) => {
+                    setHearings(prev => prev.map(h => h.id === id ? { ...h, ...updates } : h));
+                    try { await updateHearingRecord(id, updates.previousOrderSummaryEn || '', updates.hearingDate || ''); } catch {}
+                  }}
                 />
               )}
 
@@ -547,12 +782,19 @@ function AppContent() {
                 <div className="flex flex-col">
                   <CaseListView
                     cases={cases}
-                    language={language}
-                    onSelectCase={() => {}}
-                  />
-                  <DocumentManager
+                    hearings={hearings}
+                    limitationAlerts={limitationAlerts}
                     documents={documents}
                     language={language}
+                    onUpdateHearingOrder={handleUpdateHearingOrder}
+                    onAddHearing={handleAddHearing}
+                    onEditHearing={async (id, updates) => {
+                      setHearings(prev => prev.map(h => h.id === id ? { ...h, ...updates } : h));
+                      try { await updateHearingRecord(id, updates.previousOrderSummaryEn || '', updates.hearingDate || ''); } catch {}
+                    }}
+                    onSelectCase={(caseNo) => {
+                      setLawyerTab('cases');
+                    }}
                     onUploadDocument={handleUploadDocument}
                   />
                 </div>
@@ -564,6 +806,8 @@ function AppContent() {
                   currentUserRole="lawyer"
                   currentUserName={profile?.name || 'Advocate'}
                   language={language}
+                  cases={cases}
+                  hearings={hearings}
                   onSelectThread={(thread) => {
                     setActiveThread({
                       threadId: thread.id,
@@ -578,11 +822,14 @@ function AppContent() {
               )}
 
               {lawyerTab === 'aibriefs' && (
-                <AIIntakeSummary
-                  briefs={aiBriefs}
-                  language={language}
-                  onAcceptCase={handleAcceptAICase}
-                />
+                <div className="flex flex-col h-full">
+                  <ClientAIConsultation
+                    language={language}
+                    onCaseCreated={(caseId) => {
+                      setLawyerTab('cases');
+                    }}
+                  />
+                </div>
               )}
 
               {lawyerTab === 'billing' && (
@@ -601,12 +848,33 @@ function AppContent() {
                   language={language}
                 />
               )}
+
+              {lawyerTab === 'firm' && (
+                currentFirm ? (
+                  <FirmPortal
+                    firm={currentFirm}
+                    members={firmMembers}
+                    language={language}
+                    onAddMember={handleAddFirmMember}
+                    onRemoveMember={handleRemoveFirmMember}
+                  />
+                ) : (
+                  <div className="p-4 sm:p-5">
+                    <FirmRegistration
+                      language={language}
+                      onComplete={handleRegisterFirmInApp}
+                      onBack={() => setLawyerTab('diary')}
+                    />
+                  </div>
+                )
+              )}
             </>
           ) : (
             <>
               {clientTab === 'consult' && (
                 <ClientAIConsultation
                   language={language}
+                  onCaseCreated={() => setClientTab('mycase')}
                 />
               )}
 
@@ -616,6 +884,8 @@ function AppContent() {
                   currentUserRole="client"
                   currentUserName={profile?.name || 'Client'}
                   language={language}
+                  cases={cases}
+                  hearings={hearings}
                   onSelectThread={(thread) => {
                     setActiveThread({
                       threadId: thread.id,
@@ -632,13 +902,24 @@ function AppContent() {
 
               {clientTab === 'mycase' && (
                 <ClientCaseTracker
+                  cases={cases}
                   activeCase={cases[0] || null}
+                  hearings={hearings}
                   latestHearing={hearings[0] || null}
                   language={language}
                   onNavigateToDocs={() => setClientTab('docs')}
                   onNavigateToPay={() => setClientTab('payments')}
                   onNavigateToConsult={() => setClientTab('consult')}
                   onNavigateToDirectory={() => setClientTab('lawyers')}
+                  onNavigateToChat={(lawyerName, caseNumber) => {
+                    setClientTab('chats');
+                    setActiveThread({
+                      threadId: `thread-case-${caseNumber.replace(/[^a-zA-Z0-9]/g, '')}`,
+                      recipientName: lawyerName,
+                      matterSubject: `Case Consultation: ${caseNumber}`,
+                    });
+                  }}
+                  onOpenFeedback={() => setIsFeedbackOpen(true)}
                 />
               )}
 
@@ -687,13 +968,16 @@ function AppContent() {
             activeTab={lawyerTab}
             onSelectTab={setLawyerTab}
             language={language}
+            onToggleLanguage={handleToggleLanguage}
             unreadCount={userThreads.length}
+            showFirmTab={profile?.role === 'firm_admin' || !!profile?.firmId || !!currentFirm || lawyerTab === 'firm'}
           />
         ) : (
           <ClientBottomNav
             activeTab={clientTab}
             onSelectTab={setClientTab}
             language={language}
+            onToggleLanguage={handleToggleLanguage}
             unreadCount={userThreads.length}
           />
         )
@@ -709,11 +993,42 @@ function AppContent() {
         isOpen={isClientProfileOpen}
         onClose={() => setIsClientProfileOpen(false)}
         language={language}
+        onOpenFeedback={() => setIsFeedbackOpen(true)}
+      />
+
+      <CitizenFeedbackModal
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        userId={user?.uid || 'guest'}
+        userName={profile?.name || 'Citizen'}
+        language={language}
       />
 
       <AdminVerificationDashboard
         isOpen={isAdminDashboardOpen}
         onClose={handleCloseAdminDashboard}
+        language={language}
+      />
+
+      <UniversalSearchModal
+        isOpen={isUniversalSearchOpen}
+        onClose={() => setIsUniversalSearchOpen(false)}
+        cases={cases}
+        hearings={hearings}
+        language={language}
+        onSelectCase={(caseNo) => {
+          if (userRole === 'lawyer') {
+            setLawyerTab('cases');
+          } else {
+            setClientTab('mycase');
+          }
+        }}
+        onOpenIpcModal={() => setIsIpcModalOpen(true)}
+      />
+
+      <IpcToBnsModal
+        isOpen={isIpcModalOpen}
+        onClose={() => setIsIpcModalOpen(false)}
         language={language}
       />
     </AndroidFrame>

@@ -15,8 +15,12 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ documents, lan
   const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    setDocList(documents);
+  }, [documents]);
+
   const verifiedCount = docList.filter(d => d.status === 'Verified').length;
-  const progressPercent = Math.round((verifiedCount / docList.length) * 100);
+  const progressPercent = docList.length > 0 ? Math.round((verifiedCount / docList.length) * 100) : 0;
 
   const handleSimulateUpload = (id: string) => {
     setUploadingId(id);
@@ -27,7 +31,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ documents, lan
             ...d,
             status: 'Verified',
             uploadedAt: 'Just now',
-            fileSize: '3.4 MB PDF',
+            fileSize: '2.4 MB PDF',
             validationNoteEn: undefined,
             validationNoteHi: undefined
           };
@@ -36,7 +40,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({ documents, lan
       }));
       setUploadingId(null);
       onUploadDocument(id);
-    }, 1200);
+    }, 800);
   };
 
   return (

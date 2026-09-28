@@ -104,6 +104,23 @@ export const mockHearings: HearingItem[] = [
     purposeHi: "धारा 7 आईबीसी आवेदन - वित्तीय चूक का सत्यापन",
     previousOrderSummaryEn: "Corporate debtor sought 1 week to present OTS proposal to financial creditor.",
     previousOrderSummaryHi: "कॉर्पोरेट देनदार ने ओटीएस प्रस्ताव प्रस्तुत करने के लिए 1 सप्ताह का समय मांगा।"
+  },
+  {
+    id: "hr-5",
+    caseNumber: "CC/123/2026",
+    clientName: "Rajesh Sharma",
+    courtName: "Patiala House Courts (MM-02)",
+    itemNumber: 5,
+    courtRoom: "Court Room 12",
+    judgeName: "Sh. R. K. Meena, MM",
+    stage: "Evidence",
+    hearingDate: "Tomorrow, 10:30 AM",
+    hearingTime: "10:30 AM",
+    purposeEn: "Cross-examination of Prosecution Witness & Section 69 BNS inquiry",
+    purposeHi: "अभियोजन पक्ष के गवाह से जिरह एवं धारा 69 बीएनएस जांच",
+    previousOrderSummaryEn: "Status report filed by investigating officer. Matter listed for prosecution evidence.",
+    previousOrderSummaryHi: "जांच अधिकारी द्वारा स्थिति रिपोर्ट दाखिल।",
+    isUrgent: true
   }
 ];
 
@@ -161,6 +178,24 @@ export const mockCaseFiles: CaseFile[] = [
     pendingChecklistItems: 2,
     totalBilled: 70000,
     totalCollected: 50000
+  },
+  {
+    id: "case-5",
+    caseNumber: "CC/123/2026",
+    clientName: "Rajesh Sharma",
+    clientPhone: "+91 98110 12345",
+    opponentName: "State (NCT of Delhi) & Complainant",
+    court: "District Court",
+    courtLocation: "Patiala House Courts (MM-02)",
+    actSections: ["Section 69 BNS", "Section 318 BNS", "Section 420 IPC"],
+    caseType: "Criminal Trial (BNS Special)",
+    filingDate: "05 Jul 2026",
+    nextHearingDate: "Tomorrow, 10:30 AM",
+    status: "Active",
+    unreadDocuments: 1,
+    pendingChecklistItems: 1,
+    totalBilled: 60000,
+    totalCollected: 40000
   }
 ];
 

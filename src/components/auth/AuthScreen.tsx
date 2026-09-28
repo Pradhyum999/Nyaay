@@ -4,7 +4,7 @@ import {
   Scale, Phone, Mail, ChevronRight, Shield, Gavel, User,
   ArrowLeft, CheckCircle, AlertCircle, Camera, FileText,
   CheckCircle2, Upload, Trash2, Image as ImageIcon, Lock, Clock,
-  ShieldAlert
+  ShieldAlert, Building2, GraduationCap, Key
 } from 'lucide-react';
 import { auth, User as FirebaseUser } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,11 +15,17 @@ import {
   updateUserProfile,
   submitVerificationRequest,
   fetchPublicCourtCases,
-  syncLawyerPublicCases
+  syncLawyerPublicCases,
+  createFirmProfile,
+  updateMemberPasswordStatus,
+  findFirmMemberByEmail,
+  updateMemberPassword
 } from '../../services/firestoreService';
 import { maskIdNumber } from '../../utils/masking';
 import { compressImageFile } from '../../utils/imageUtils';
-import { Language, UserProfile } from '../../types';
+import { Language, UserProfile, FirmProfile, FirmMember } from '../../types';
+import { FirmRegistration } from '../firm/FirmRegistration';
+import { MemberPasswordChange } from '../firm/MemberPasswordChange';
 
 interface AuthScreenProps {
   language: Language;
@@ -60,6 +66,9 @@ type AuthStep =
   | 'lawyer_registration'
   | 'client_profile'
   | 'admin_login'
+  | 'firm_register'
+  | 'member_login'
+  | 'member_password_change'
   | 'success';
 
 export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenProps) {
@@ -77,6 +86,15 @@ export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenPr
     existingRole: 'lawyer' | 'client';
     attemptedRole: 'lawyer' | 'client';
   } | null>(null);
+
+  // Member / Student login state
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberPassword, setMemberPassword] = useState('');
+  const [memberError, setMemberError] = useState('');
+  const [pendingMemberName, setPendingMemberName] = useState('Firm Member');
+  const [pendingMemberFirm, setPendingMemberFirm] = useState('');
+  const [pendingMember, setPendingMember] = useState<FirmMember | null>(null);
+  const [pendingFirmId, setPendingFirmId] = useState<string>('');
 
   // Admin Login state
   const [adminEmail, setAdminEmail] = useState('pradhumb1998@gmail.com');
@@ -133,7 +151,8 @@ export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenPr
     }
   }, [user]);
 
-  const t = (en: string, hi: string) => language === 'hi' ? hi : en;
+  const t = (en: string, hi: string, mr?: string) =>
+    language === 'mr' && mr ? mr : language === 'hi' ? hi : en;
 
   const isLawyerCompleted = (p: UserProfile | null | undefined): boolean => {
     if (!p) return false;
@@ -332,6 +351,158 @@ export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenPr
       onAdminSuccess();
     }
   };
+
+  const handleFirmRegistrationComplete = async (
+    firmData: Omit<FirmProfile, 'id' | 'adminUid' | 'memberCount' | 'createdAt'>
+  ) => {
+    setLoading(true);
+    setError('');
+    try {
+      let activeUser = auth.currentUser || user;
+      if (!activeUser) {
+        await signInWithGoogle();
+        activeUser = auth.currentUser;
+      }
+      const adminUid = activeUser?.uid || `firm-admin-${Date.now()}`;
+      const firmId = await createFirmProfile(adminUid, firmData);
+
+      const profileData: Partial<UserProfile> = {
+        uid: adminUid,
+        role: 'firm_admin' as any,
+        name: firmData.firmName,
+        email: firmData.adminEmail || activeUser?.email || '',
+        verificationStatus: 'verified',
+        onboardingCompleted: true,
+        firmId,
+      };
+
+      if (activeUser) {
+        await updateUserProfile(adminUid, profileData);
+      } else {
+        await createUserProfile(adminUid, profileData as any);
+      }
+
+      updateProfile(profileData as any);
+      setSelectedRole('lawyer');
+      setStep('success');
+      setTimeout(() => onSuccess('lawyer'), 1600);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Firm registration failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMemberLoginSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setMemberError('');
+    const email = memberEmail.trim().toLowerCase();
+    const pass = memberPassword.trim();
+    if (!email || !pass) {
+      setMemberError(t('Please enter both email and password.', 'कृपया ईमेल और पासवर्ड दोनों दर्ज करें।'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await findFirmMemberByEmail(email);
+      if (!result) {
+        // Fast-path demo student account for rapid trial
+        if (email === 'student@nyaay.in' && pass === 'Welcome@2026') {
+          setPendingMemberName('Aarav Sharma (Student)');
+          setPendingMemberFirm('National Law School Legal Clinic');
+          setPendingFirmId('demo-college-01');
+          setPendingMember({
+            id: 'demo-student-01',
+            name: 'Aarav Sharma',
+            email: 'student@nyaay.in',
+            role: 'student',
+            mustChangePassword: true,
+          } as FirmMember);
+          setStep('member_password_change');
+          return;
+        }
+
+        setMemberError(t('No registered member found with this email. Please check with your institution administrator.', 'इस ईमेल के साथ कोई सदस्य पंजीकृत नहीं मिला। कृपया अपने व्यवस्थापक से संपर्क करें।'));
+        return;
+      }
+
+      const { member, firmId, firmName } = result;
+
+      // Check temporary password or updated password
+      const valid =
+        member.tempPassword === pass ||
+        (member as any).passwordHash === pass;
+
+      if (!valid) {
+        setMemberError(t('Invalid password. Please check your temporary credentials.', 'गलत पासवर्ड। कृपया अपनी क्रेडेंशियल जांचें।'));
+        return;
+      }
+
+      if (member.mustChangePassword) {
+        setPendingMember(member);
+        setPendingFirmId(firmId);
+        setPendingMemberName(member.name);
+        setPendingMemberFirm(firmName || 'Law Chamber / College');
+        setStep('member_password_change');
+        return;
+      }
+
+      // Already changed password previously -> Log in directly
+      const uid = member.id || `member-${Date.now()}`;
+      const profileData: Partial<UserProfile> = {
+        uid,
+        role: (member.role === 'student' ? 'student' : 'junior') as any,
+        name: member.name,
+        email: member.email,
+        firmId,
+        verificationStatus: 'verified',
+        onboardingCompleted: true,
+      };
+
+      updateProfile(profileData as any);
+      setSelectedRole('lawyer');
+      setStep('success');
+      setTimeout(() => onSuccess('lawyer'), 1600);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Member login failed';
+      setMemberError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMemberPasswordChanged = async (newPassword: string) => {
+    if (!pendingMember || !pendingFirmId) return;
+    setLoading(true);
+    try {
+      await updateMemberPassword(pendingFirmId, pendingMember.id, newPassword);
+
+      const uid = pendingMember.id || `member-${Date.now()}`;
+      const profileData: Partial<UserProfile> = {
+        uid,
+        role: (pendingMember.role === 'student' ? 'student' : 'junior') as any,
+        name: pendingMember.name,
+        email: pendingMember.email,
+        firmId: pendingFirmId,
+        verificationStatus: 'verified',
+        onboardingCompleted: true,
+      };
+
+      await updateUserProfile(uid, profileData).catch(() => {});
+      updateProfile(profileData as any);
+      setSelectedRole('lawyer');
+      setStep('success');
+      setTimeout(() => onSuccess('lawyer'), 1600);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Password update failed';
+      setMemberError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handlePhoneSubmit = async () => {
     if (!phone || phone.length < 10) {
@@ -768,6 +939,53 @@ export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenPr
               </button>
             </motion.div>
 
+            {/* Register as Firm / College Card */}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 20, scale: 0.96 }, visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 360, damping: 26 } } }}
+            >
+              <button
+                type="button"
+                onClick={() => setStep('firm_register')}
+                disabled={loading}
+                className="w-full glass-card rounded-2xl p-5 flex items-center gap-4 border-2 border-transparent hover:border-violet-500/40 transition-all disabled:opacity-50 text-left ios-press cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center flex-shrink-0 text-violet-300">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="text-white font-semibold">{t('Register as Firm / College', 'फर्म या कॉलेज के रूप में पंजीकृत हों', 'फर्म किंवा कॉलेज म्हणून नोंदणी करा')}</p>
+                  <p className="text-white/50 text-xs mt-0.5">{t('Multi-associate chambers, student internship registry & portal', 'फर्म प्रबंधन, छात्र इंटर्नशिप व सहयोगी वकील प्रबंधन')}</p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-white/30" />
+              </button>
+            </motion.div>
+
+            {/* Student & Member Login Card */}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 20, scale: 0.96 }, visible: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 360, damping: 26 } } }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setMemberError('');
+                  setMemberEmail('');
+                  setMemberPassword('');
+                  setStep('member_login');
+                }}
+                disabled={loading}
+                className="w-full glass-card rounded-2xl p-4 flex items-center gap-3.5 border border-white/[0.08] hover:border-violet-400/40 transition-all disabled:opacity-50 text-left ios-press cursor-pointer bg-white/[0.02]"
+              >
+                <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center flex-shrink-0 text-violet-300">
+                  <Key size={16} />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="text-white text-xs font-semibold">{t('Student & Associate Member Login', 'छात्र एवं सहयोगी सदस्य लॉगिन', 'विद्यार्थी व सहकारी सदस्य लॉगिन')}</p>
+                  <p className="text-neutral-400 text-[10px]">{t('Sign in with institution credentials & temporary password', 'संस्थान क्रेडेंशियल व पहले पासवर्ड से लॉगिन करें')}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/30" />
+              </button>
+            </motion.div>
+
             {!user && (
               <motion.div
                 variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
@@ -890,6 +1108,128 @@ export function AuthScreen({ language, onSuccess, onAdminSuccess }: AuthScreenPr
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Step: Firm / College Registration */}
+        {step === 'firm_register' && (
+          <div className="animate-fadeIn">
+            <FirmRegistration
+              language={language}
+              onComplete={handleFirmRegistrationComplete}
+              onBack={() => setStep('role_select')}
+            />
+          </div>
+        )}
+
+        {/* Step: Student & Member Login */}
+        {step === 'member_login' && (
+          <div className="space-y-4 animate-fadeIn max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setMemberError('');
+                setStep('role_select');
+              }}
+              className="flex items-center gap-2 text-white/50 text-sm ios-press mb-1"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{t('Back to Sign In', 'वापस जाएं')}</span>
+            </button>
+
+            <div className="glass-card rounded-3xl p-5 sm:p-6 border border-violet-500/30 space-y-4 shadow-2xl bg-[#0d0e14]/90">
+              <div className="flex items-center gap-3 border-b border-white/[0.08] pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-300">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-tight">
+                    {t('Student & Associate Sign In', 'छात्र एवं सहयोगी लॉगिन')}
+                  </h3>
+                  <p className="text-[11px] text-neutral-400">
+                    {t('Multi-associate chambers & law college clinics', 'फर्म एवं लॉ कॉलेज क्लिनिक सदस्य पोर्टल')}
+                  </p>
+                </div>
+              </div>
+
+              {memberError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{memberError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleMemberLoginSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-neutral-400 mb-1 font-mono">
+                    {t('Institutional / Registered Email', 'पंजीकृत ईमेल')}
+                  </label>
+                  <input
+                    type="email"
+                    value={memberEmail}
+                    onChange={(e) => setMemberEmail(e.target.value)}
+                    className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-violet-400 font-mono"
+                    placeholder="student@lawschool.edu / associate@lexchambers.in"
+                    autoFocus
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-semibold text-neutral-400 mb-1 font-mono">
+                    {t('Assigned / Temporary Password', 'प्रदत्त पासवर्ड')}
+                  </label>
+                  <input
+                    type="password"
+                    value={memberPassword}
+                    onChange={(e) => setMemberPassword(e.target.value)}
+                    className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-violet-400 font-mono"
+                    placeholder="Enter initial assigned password"
+                    required
+                  />
+                  <p className="text-[10px] text-neutral-500 mt-1">
+                    {t('First-time login will prompt mandatory password reset.', 'पहले लॉगिन पर सुरक्षा पासवर्ड बदलना अनिवार्य होगा।')}
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-lg shadow-violet-600/30 transition ios-press flex items-center justify-center gap-2 mt-3 disabled:opacity-50"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>{loading ? t('Authenticating...', 'प्रमाणीकरण जारी...') : t('Sign In & Verify Account', 'साइन इन करें')}</span>
+                </button>
+              </form>
+
+              {/* Demo Hint */}
+              <div className="pt-2 border-t border-white/[0.06] text-[11px] text-neutral-400 flex items-center justify-between font-mono">
+                <span>Demo Student:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberEmail('student@nyaay.in');
+                    setMemberPassword('Welcome@2026');
+                  }}
+                  className="text-violet-400 hover:text-violet-300 underline underline-offset-2"
+                >
+                  Auto-fill demo credentials
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step: Mandatory First-Time Password Reset */}
+        {step === 'member_password_change' && (
+          <div className="animate-fadeIn">
+            <MemberPasswordChange
+              memberName={pendingMemberName}
+              memberEmail={memberEmail}
+              firmName={pendingMemberFirm}
+              language={language}
+              onPasswordChanged={handleMemberPasswordChanged}
+            />
           </div>
         )}
 

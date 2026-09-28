@@ -88,7 +88,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
             onClick={onToggleLanguage}
             className="px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-xs text-neutral-300 font-medium transition ios-press"
           >
-            {activeLanguage === 'en' ? 'हिन्दी' : 'EN'}
+            {activeLanguage === 'en' ? 'हिन्दी' : activeLanguage === 'hi' ? 'मराठी' : 'EN'}
           </button>
 
           <button

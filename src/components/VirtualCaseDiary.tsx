@@ -1,25 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Calendar, ChevronRight, CheckCircle2, Gavel, Mic, MicOff, Sparkles, Clock, MapPin, User, Plus } from 'lucide-react';
-import { HearingItem, LimitationAlert, Language } from '../types';
+import { Calendar, ChevronRight, CheckCircle2, Gavel, Mic, MicOff, Sparkles, Clock, MapPin, User, Plus, Scale, Share2, List } from 'lucide-react';
+import { HearingItem, LimitationAlert, Language, CaseFile } from '../types';
 import { translations } from '../i18n/translations';
+import { HearingCalendar } from './HearingCalendar';
+import { IpcToBnsModal } from './IpcToBnsModal';
+import { ShareCaseModal } from './ShareCaseModal';
+import { TaskTimelineCalendar } from './TaskTimelineCalendar';
 
 interface VirtualCaseDiaryProps {
   hearings: HearingItem[];
   limitationAlerts: LimitationAlert[];
   language: Language;
+  cases?: CaseFile[]; // NEW: for autocomplete
   onUpdateHearingOrder: (hearingId: string, orderNotes: string, nextDate: string) => void;
   onOpenCaseDetails: (caseNumber: string) => void;
   onAddHearing?: (newHearing: Omit<HearingItem, 'id'>) => void;
+  onEditHearing?: (id: string, updates: Partial<HearingItem>) => void; // NEW
 }
 
 export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
   hearings,
   limitationAlerts,
   language,
+  cases,
   onUpdateHearingOrder,
   onOpenCaseDetails,
-  onAddHearing
+  onAddHearing,
+  onEditHearing
 }) => {
   const t = translations[language];
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string>('All');
@@ -35,7 +43,25 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
   const [newClientName, setNewClientName] = useState('');
   const [newCourtName, setNewCourtName] = useState('Delhi High Court');
   const [newPurpose, setNewPurpose] = useState('');
+  const [newHearingDate, setNewHearingDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [newHearingTime, setNewHearingTime] = useState('10:30 AM');
+
+  // Edit hearing state
+  const [editingHearing, setEditingHearing] = useState<HearingItem | null>(null);
+
+  // Autocomplete state
+  const [caseNumberSuggestions, setCaseNumberSuggestions] = useState<CaseFile[]>([]);
+  const [clientNameSuggestions, setClientNameSuggestions] = useState<CaseFile[]>([]);
+  const [showCaseSuggestions, setShowCaseSuggestions] = useState(false);
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+
+  // Calendar & Tools View State
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [showIpcModal, setShowIpcModal] = useState<boolean>(false);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+
+  // Weekly diary date selection
+  const [selectedDiaryDate, setSelectedDiaryDate] = useState<Date>(new Date());
 
   const filteredHearings = hearings.filter(h => {
     if (selectedCourtFilter === 'All') return true;
@@ -97,32 +123,81 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
     }
   };
 
+  // Autocomplete handlers
+  const handleCaseNumberChange = (val: string) => {
+    setNewCaseNumber(val);
+    if (val.length >= 1 && cases && cases.length > 0) {
+      const filtered = cases.filter(c =>
+        c.caseNumber.toLowerCase().includes(val.toLowerCase()) ||
+        c.clientName.toLowerCase().includes(val.toLowerCase())
+      ).slice(0, 5);
+      setCaseNumberSuggestions(filtered);
+      setShowCaseSuggestions(filtered.length > 0);
+    } else {
+      setShowCaseSuggestions(false);
+    }
+  };
+
+  const handleClientNameChange = (val: string) => {
+    setNewClientName(val);
+    if (val.length >= 1 && cases && cases.length > 0) {
+      const filtered = cases.filter(c =>
+        c.clientName.toLowerCase().includes(val.toLowerCase()) ||
+        c.caseNumber.toLowerCase().includes(val.toLowerCase())
+      ).slice(0, 5);
+      setClientNameSuggestions(filtered);
+      setShowClientSuggestions(filtered.length > 0);
+    } else {
+      setShowClientSuggestions(false);
+    }
+  };
+
   const handleCreateHearing = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCaseNumber || !newClientName) return;
 
-    if (onAddHearing) {
-      onAddHearing({
-        caseNumber: newCaseNumber,
-        clientName: newClientName,
-        courtName: newCourtName,
-        itemNumber: hearings.length + 1,
-        courtRoom: "Court No. 04",
-        judgeName: "Hon'ble Presiding Officer",
-        stage: "Admission",
-        hearingDate: "Tomorrow, 10:30 AM",
-        hearingTime: newHearingTime,
-        purposeEn: newPurpose || "Preliminary Hearing & Arguments",
-        purposeHi: newPurpose || "प्रारंभिक सुनवाई एवं बहस",
-        isUrgent: false
-      });
-      setShowAddHearingModal(false);
-      setNewCaseNumber('');
-      setNewClientName('');
-      setNewPurpose('');
+    if (editingHearing) {
+      // Edit existing
+      if (onEditHearing) {
+        onEditHearing(editingHearing.id, {
+          caseNumber: newCaseNumber,
+          clientName: newClientName,
+          courtName: newCourtName,
+          hearingDate: newHearingDate ? `${newHearingDate}, ${newHearingTime || '10:30 AM'}` : editingHearing.hearingDate,
+          hearingTime: newHearingTime,
+          purposeEn: newPurpose || editingHearing.purposeEn,
+          purposeHi: newPurpose || editingHearing.purposeHi,
+        });
+      }
+      setToastMessage(language === 'en' ? 'Hearing updated!' : 'सुनवाई अपडेट की गई!');
+    } else {
+      // Create new
+      if (onAddHearing) {
+        onAddHearing({
+          caseNumber: newCaseNumber,
+          clientName: newClientName,
+          courtName: newCourtName,
+          itemNumber: hearings.length + 1,
+          courtRoom: 'Court No. 04',
+          judgeName: "Hon'ble Presiding Officer",
+          stage: 'Admission',
+          hearingDate: newHearingDate ? `${newHearingDate}, ${newHearingTime || '10:30 AM'}` : 'Tomorrow, 10:30 AM',
+          hearingTime: newHearingTime || '10:30 AM',
+          purposeEn: newPurpose || 'Preliminary Hearing & Arguments',
+          purposeHi: newPurpose || 'प्रारंभिक सुनवाई एवं बहस',
+          isUrgent: false
+        });
+      }
       setToastMessage(language === 'en' ? 'Hearing added to Cause List!' : 'वाद तालिका में सुनवाई जोड़ी गई!');
-      setTimeout(() => setToastMessage(null), 3000);
     }
+
+    setShowAddHearingModal(false);
+    setEditingHearing(null);
+    setNewCaseNumber('');
+    setNewClientName('');
+    setNewPurpose('');
+    setNewHearingDate(new Date().toISOString().split('T')[0]);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   return (
@@ -143,108 +218,137 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Hero Header: Linear-grade Typography with Live Court Pulse */}
-      <div className="flex items-start justify-between pt-1">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-radar" />
-              BENCH IN SESSION
-            </span>
+      {/* Hero Header & Action Toolbar: Diary */}
+      <div className="flex flex-col gap-3 pt-1">
+        {/* Row 1: Title, Listings status & Primary Add CTA */}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-radar" />
+                BENCH IN SESSION
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white font-display">
+              {language === 'hi' ? 'डायरी' : language === 'mr' ? 'डायरी' : 'Diary'}
+            </h1>
+            <p className="text-xs text-neutral-400 mt-0.5">
+              {filteredHearings.length} {language === 'mr' ? 'प्रकरणे आज सूचीबद्ध' : language === 'hi' ? 'मामले आज सूचीबद्ध हैं' : 'hearings scheduled'}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white font-display">
-            {t.todaysCauseList}
-          </h1>
-          <p className="text-xs text-neutral-400 mt-0.5">
-            {filteredHearings.length} {language === 'en' ? 'active listings scheduled' : 'मामले आज सूचीबद्ध हैं'}
-          </p>
-        </div>
 
-        <button
-          onClick={() => setShowAddHearingModal(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-black font-semibold text-xs transition-all hover:bg-neutral-200 ios-press shadow-[0_2px_12px_rgba(255,255,255,0.2)]"
-        >
-          <Plus size={14} strokeWidth={2.5} />
-          <span>{language === 'en' ? 'Add Hearing' : 'सुनवाई जोड़ें'}</span>
-        </button>
-      </div>
-
-      {/* Statutory Limitation Watch (Cinematic Urgency Card) */}
-      <section className="glass-card rounded-3xl p-4 border border-rose-500/25 bg-gradient-to-b from-rose-950/25 via-black to-black relative overflow-hidden">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
-              <AlertCircle size={15} />
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold tracking-tight text-neutral-100">
-                {t.limitationWatch}
-              </h3>
-              <p className="text-[10px] text-rose-300/80 font-mono">
-                {language === 'en' ? 'Statutory Deadlines (CPC / CrPC / NI Act)' : 'वैधानिक समय-सीमा अलर्ट'}
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-mono font-medium text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/25">
-            {limitationAlerts.length} Critical
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {limitationAlerts.map(alert => (
-            <div
-              key={alert.id}
-              onClick={() => onOpenCaseDetails(alert.caseNumber)}
-              className="bg-black/60 hover:bg-white/[0.04] rounded-2xl p-3 border border-white/[0.06] flex items-center justify-between cursor-pointer transition ios-press group"
-            >
-              <div className="pr-3 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-white tracking-tight font-mono group-hover:text-amber-300 transition">
-                    {alert.caseNumber}
-                  </span>
-                  <span className="text-[9px] text-neutral-400 font-mono">
-                    • {alert.statutoryAct}
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-300 font-medium mt-1 leading-snug">
-                  {language === 'en' ? alert.titleEn : alert.titleHi}
-                </p>
-                <p className="text-[11px] text-neutral-400 mt-1 line-clamp-1">
-                  {language === 'en' ? alert.descriptionEn : alert.descriptionHi}
-                </p>
-              </div>
-
-              <div className="text-right shrink-0">
-                <div className="inline-flex flex-col items-end">
-                  <span className="text-xs font-bold font-mono text-rose-400 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded-lg">
-                    {alert.daysRemaining}d left
-                  </span>
-                  <span className="text-[9px] text-neutral-500 font-mono mt-1">
-                    {alert.deadlineDate}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Court Filter Pills (Framer-style Segmented Filter) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        {['All', 'High Court', 'Tis Hazari', 'Patiala House', 'Saket'].map(court => (
+          {/* Primary CTA: + Add Hearing */}
           <button
-            key={court}
-            onClick={() => setSelectedCourtFilter(court)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ios-press ${
-              selectedCourtFilter === court
-                ? 'bg-white text-black font-semibold shadow-sm'
-                : 'bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 border border-white/[0.06]'
-            }`}
+            type="button"
+            onClick={() => {
+              setEditingHearing(null);
+              setNewCaseNumber('');
+              setNewClientName('');
+              setNewPurpose('');
+              setNewHearingDate(new Date().toISOString().split('T')[0]);
+              setNewHearingTime('10:30 AM');
+              setShowAddHearingModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl bg-white text-black font-bold text-xs transition-all hover:bg-neutral-200 ios-press shadow-[0_4px_16px_rgba(255,255,255,0.18)] shrink-0"
           >
-            {court === 'All' ? (language === 'en' ? 'All Benches' : 'सभी अदालतें') : court}
+            <Plus size={15} strokeWidth={2.5} />
+            <span>{language === 'mr' ? 'सुनावणी जोडा' : language === 'hi' ? 'सुनवाई जोड़ें' : 'Add Hearing'}</span>
           </button>
-        ))}
+        </div>
+
+        {/* Task & Timeline Calendar matching Image 2 */}
+        <TaskTimelineCalendar
+          language={language}
+          selectedDate={selectedDiaryDate}
+          onSelectDate={setSelectedDiaryDate}
+          hearings={hearings}
+          onOpenHearingOrder={handleOpenOrderModal}
+          onOpenCaseDetails={onOpenCaseDetails}
+        />
+
+        {/* Row 2: Clean Toolbar (List/Calendar switcher + IPC/BNS + Share) */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
+          {/* List vs Calendar Toggle */}
+          <div className="flex items-center bg-white/[0.05] border border-white/[0.08] rounded-xl p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ios-press ${
+                viewMode === 'list'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <List size={13} />
+              <span>{language === 'mr' ? 'यादी' : language === 'hi' ? 'सूची' : 'List'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ios-press ${
+                viewMode === 'calendar'
+                  ? 'bg-amber-400 text-black shadow-sm font-bold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Calendar size={13} />
+              <span>{language === 'mr' ? 'कॅलेंडर' : language === 'hi' ? 'कैलेंडर' : 'Calendar'}</span>
+            </button>
+          </div>
+
+          {/* Quick Utility Tools */}
+          <div className="flex items-center gap-1.5">
+            {/* IPC -> BNS Button */}
+            <button
+              type="button"
+              onClick={() => setShowIpcModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/25 transition ios-press"
+              title="IPC to BNS 2023 Conversion Table"
+            >
+              <Scale size={13} />
+              <span>IPC ⇄ BNS</span>
+            </button>
+
+            {/* Share Case / Diary Button */}
+            <button
+              type="button"
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-neutral-200 font-semibold text-xs border border-white/[0.08] transition ios-press"
+              title="Share case or diary with client"
+            >
+              <Share2 size={13} />
+              <span>{language === 'mr' ? 'शेअर' : language === 'hi' ? 'साझा' : 'Share'}</span>
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Calendar View vs List View */}
+      {viewMode === 'calendar' ? (
+        <HearingCalendar
+          hearings={hearings}
+          language={language}
+          onOpenHearingOrder={handleOpenOrderModal}
+          onOpenCaseDetails={onOpenCaseDetails}
+        />
+      ) : (
+        <>
+          {/* Court Filter Pills (Framer-style Segmented Filter) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {['All', 'High Court', 'Tis Hazari', 'Patiala House', 'Saket'].map(court => (
+              <button
+                key={court}
+                onClick={() => setSelectedCourtFilter(court)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ios-press ${
+                  selectedCourtFilter === court
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 border border-white/[0.06]'
+                }`}
+              >
+                {court === 'All' ? (language === 'mr' ? 'सर्व न्यायालये' : language === 'hi' ? 'सभी अदालतें' : 'All Benches') : court}
+              </button>
+            ))}
+          </div>
 
       {/* Cause List Schedule (Interactive Linear Cards) */}
       {filteredHearings.length === 0 ? (
@@ -341,6 +445,22 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                 <span>{t.updateOutcome}</span>
               </button>
               <button
+                onClick={() => {
+                  setEditingHearing(item);
+                  setNewCaseNumber(item.caseNumber);
+                  setNewClientName(item.clientName);
+                  setNewCourtName(item.courtName);
+                  setNewPurpose(item.purposeEn);
+                  setNewHearingTime(item.hearingTime || '10:30 AM');
+                  const datePart = item.hearingDate?.split(',')[0]?.trim();
+                  setNewHearingDate(datePart && /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : new Date().toISOString().split('T')[0]);
+                  setShowAddHearingModal(true);
+                }}
+                className="py-2.5 px-4 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium text-xs border border-amber-500/20 transition ios-press"
+              >
+                Edit
+              </button>
+              <button
                 onClick={() => onOpenCaseDetails(item.caseNumber)}
                 className="py-2.5 px-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-neutral-300 font-medium text-xs border border-white/[0.08] transition ios-press"
               >
@@ -351,6 +471,8 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
         ))}
         </motion.div>
     )}
+    </>
+  )}
 
       {/* Action Sheet Modal: Update Order with Voice Dictation */}
       <AnimatePresence>
@@ -447,7 +569,7 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Add New Hearing Modal */}
+      {/* Add / Edit Hearing Modal */}
       <AnimatePresence>
         {showAddHearingModal && (
           <motion.div
@@ -466,14 +588,16 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
                 <h3 className="text-sm font-semibold text-white tracking-tight">
-                  {language === 'en' ? 'Add Court Hearing' : 'नई सुनवाई जोड़ें'}
+                  {editingHearing
+                    ? (language === 'en' ? 'Edit Hearing' : 'सुनवाई संपादित करें')
+                    : (language === 'en' ? 'Add Court Hearing' : 'नई सुनवाई जोड़ें')}
                 </h3>
                 <span className="text-[10px] text-neutral-400">
                   {language === 'en' ? 'Add case to daily Cause List' : 'दैनिक वाद तालिका में शामिल करें'}
                 </span>
               </div>
               <button
-                onClick={() => setShowAddHearingModal(false)}
+                onClick={() => { setShowAddHearingModal(false); setEditingHearing(null); }}
                 className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-neutral-400 hover:text-white"
               >
                 ✕
@@ -481,7 +605,8 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
             </div>
 
             <form onSubmit={handleCreateHearing} className="space-y-3">
-              <div>
+              {/* Case Number with Autocomplete */}
+              <div className="relative">
                 <label className="text-[11px] font-medium text-neutral-400 block mb-1">
                   {language === 'en' ? 'Case Number *' : 'केस संख्या *'}
                 </label>
@@ -490,12 +615,34 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                   required
                   placeholder="e.g. CRL.A./102/2026"
                   value={newCaseNumber}
-                  onChange={e => setNewCaseNumber(e.target.value)}
+                  onChange={e => handleCaseNumberChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setShowCaseSuggestions(false), 150)}
+                  onFocus={() => newCaseNumber.length >= 1 && setShowCaseSuggestions(caseNumberSuggestions.length > 0)}
                   className="w-full bg-black/80 border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-400/40 font-mono"
                 />
+                {showCaseSuggestions && (
+                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-[#0E0F14] border border-white/[0.12] rounded-xl overflow-hidden shadow-xl">
+                    {caseNumberSuggestions.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setNewCaseNumber(c.caseNumber);
+                          setNewClientName(c.clientName);
+                          setShowCaseSuggestions(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-white/[0.06] transition flex flex-col border-b border-white/[0.04] last:border-0"
+                      >
+                        <span className="text-xs font-mono text-amber-300">{c.caseNumber}</span>
+                        <span className="text-[10px] text-neutral-400">{c.clientName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div>
+              {/* Client Name with Autocomplete */}
+              <div className="relative">
                 <label className="text-[11px] font-medium text-neutral-400 block mb-1">
                   {language === 'en' ? 'Client Name *' : 'मुवक्किल का नाम *'}
                 </label>
@@ -504,9 +651,30 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                   required
                   placeholder="e.g. Ramesh Kumar"
                   value={newClientName}
-                  onChange={e => setNewClientName(e.target.value)}
+                  onChange={e => handleClientNameChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setShowClientSuggestions(false), 150)}
+                  onFocus={() => newClientName.length >= 1 && setShowClientSuggestions(clientNameSuggestions.length > 0)}
                   className="w-full bg-black/80 border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-400/40"
                 />
+                {showClientSuggestions && (
+                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-[#0E0F14] border border-white/[0.12] rounded-xl overflow-hidden shadow-xl">
+                    {clientNameSuggestions.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setNewClientName(c.clientName);
+                          setNewCaseNumber(c.caseNumber);
+                          setShowClientSuggestions(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-white/[0.06] transition flex flex-col border-b border-white/[0.04] last:border-0"
+                      >
+                        <span className="text-xs text-white">{c.clientName}</span>
+                        <span className="text-[10px] text-amber-300 font-mono">{c.caseNumber}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -527,6 +695,33 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    {language === 'en' ? 'Hearing Date *' : 'सुनवाई की तारीख *'}
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newHearingDate}
+                    onChange={e => setNewHearingDate(e.target.value)}
+                    className="w-full bg-black/80 border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400/40 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    {language === 'en' ? 'Time' : 'समय'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="10:30 AM"
+                    value={newHearingTime}
+                    onChange={e => setNewHearingTime(e.target.value)}
+                    className="w-full bg-black/80 border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-amber-400/40 font-mono"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-[11px] font-medium text-neutral-400 block mb-1">
                   {language === 'en' ? 'Purpose / Stage' : 'सुनवाई का उद्देश्य'}
@@ -543,7 +738,7 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddHearingModal(false)}
+                  onClick={() => { setShowAddHearingModal(false); setEditingHearing(null); }}
                   className="flex-1 py-2.5 rounded-2xl bg-white/[0.06] text-neutral-300 font-medium text-xs hover:bg-white/[0.1] ios-press"
                 >
                   {t.cancel}
@@ -552,7 +747,9 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
                   type="submit"
                   className="flex-1 py-2.5 rounded-2xl bg-white text-black font-semibold text-xs hover:bg-neutral-200 ios-press shadow-md"
                 >
-                  {language === 'en' ? 'Save Hearing' : 'सुरक्षित करें'}
+                  {editingHearing
+                    ? (language === 'en' ? 'Update Hearing' : 'अपडेट करें')
+                    : (language === 'en' ? 'Save Hearing' : 'सुरक्षित करें')}
                 </button>
               </div>
             </form>
@@ -560,6 +757,22 @@ export const VirtualCaseDiary: React.FC<VirtualCaseDiaryProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* IPC to BNS Converter Modal */}
+      <IpcToBnsModal
+        isOpen={showIpcModal}
+        onClose={() => setShowIpcModal(false)}
+        language={language}
+      />
+
+      {/* Share Case / Diary Modal */}
+      <ShareCaseModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        cases={cases || []}
+        hearings={hearings}
+        language={language}
+      />
     </div>
   );
 };
