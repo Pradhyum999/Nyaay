@@ -3,7 +3,7 @@ export const translations = {
     // App Header & Branding
     appName: "NYAAYNEETI",
     appSubtitle: "Legal Operating System",
-    advocateTitle: "Adv. Rajesh Mehta",
+    advocateTitle: "Advocate Counsel",
     barCouncil: "Bar Council of Delhi (D/1482/2015)",
     verifiedAdvocate: "Verified Advocate",
     skillScore: "Skill Score: 94/100",
@@ -154,7 +154,7 @@ export const translations = {
     clientGreeting: "How can NYAAY AI assist you with your legal matter today?",
     chatPlaceholder: "Describe your situation in plain English or Hindi...",
     sendToAdvocate: "Share Structured Brief with Advocate",
-    briefSharedAlert: "Case brief successfully sent to Adv. Rajesh Mehta!",
+    briefSharedAlert: "Case brief successfully sent to retained advocate!",
     activeCaseTitle: "Your Ongoing Matter",
     representedBy: "Represented by",
     lastCourtUpdate: "Latest Hearing Update from Advocate",

@@ -1,0 +1,19 @@
+/* NYAAY Design Tokens (Section 6) */
+:root {
+  /* Type scale — nothing below 12px */
+  --text-caption: 0.75rem;   /* 12px */
+  --text-body-sm: 0.875rem;  /* 14px */
+  --text-body: 1rem;         /* 16px */
+  --text-title: 1.25rem;     /* 20px */
+  --text-display: 1.5rem;    /* 24px */
+
+  /* Semantic colour roles (each colour = one meaning) */
+  --color-primary:  #F5C563;  /* gold: the ONE primary action per screen */
+  --color-danger:   #EF4444;  /* deadlines, destructive, overdue */
+  --color-success:  #10B981;  /* completed, paid, verified */
+  --color-warning:  #F59E0B;  /* attention, pending */
+  --color-info:     #60A5FA;  /* neutral info, links */
+
+  --radius-card: 1rem;
+  --tap-min: 44px;
+}

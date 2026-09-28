@@ -13,6 +13,8 @@ import { useAuth } from '../../contexts/AuthContext';
 interface ClientAIConsultationProps {
   language: Language;
   onCaseCreated?: (caseId: string) => void;
+  onCaseProfileReady?: (profile: CaseProfile) => void;
+  onDirectToDirectory?: () => void;
 }
 
 const QUICK_CHIPS = {
@@ -53,7 +55,12 @@ function renderBold(text: string): React.ReactNode {
   });
 }
 
-export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsultationProps) {
+export function ClientAIConsultation({
+  language,
+  onCaseCreated,
+  onCaseProfileReady,
+  onDirectToDirectory,
+}: ClientAIConsultationProps) {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -124,6 +131,7 @@ export function ClientAIConsultation({ language, onCaseCreated }: ClientAIConsul
       if (result.profile) {
         setProfileData(result.profile);
         setBannerExpanded(false);
+        onCaseProfileReady?.(result.profile);
       }
     } catch (err) {
       console.warn("Intake turn fallback executed:", err);
