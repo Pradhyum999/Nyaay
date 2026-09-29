@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Bell, Search, Scale, X, Check, ExternalLink } from 'lucide-react';
+import { Bell, Search, Scale, X, Check, ExternalLink, ShieldAlert } from 'lucide-react';
 import { Sheet } from '../../design/ui/Sheet';
 import { AppNotification, Language, UserRole } from '../../types';
 
 interface UnifiedTopBarProps {
   userRole: UserRole;
   language: Language;
+  userTag?: string;
   notifications?: AppNotification[];
   unreadAlertCount?: number;
   onOpenSearch?: () => void;
+  onOpenEmergency?: () => void;
   onDismissNotification?: (id: string) => void;
   onDismissAllNotifications?: () => void;
   onNotificationClick?: (notification: AppNotification) => void;
@@ -17,9 +19,11 @@ interface UnifiedTopBarProps {
 export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
   userRole,
   language,
+  userTag,
   notifications = [],
   unreadAlertCount = 0,
   onOpenSearch,
+  onOpenEmergency,
   onDismissNotification,
   onDismissAllNotifications,
   onNotificationClick,
@@ -40,13 +44,26 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 NYAAYNEETI
               </span>
               <span className="text-[10px] font-mono text-neutral-400 ml-1.5 uppercase tracking-wider">
-                {userRole === 'lawyer' ? 'Counsel' : 'Legal'}
+                {userTag || (userRole === 'lawyer' ? 'Counsel' : 'Legal')}
               </span>
             </div>
           </div>
 
-          {/* Action Icons: Search (for lawyer) + Bell */}
+          {/* Action Icons: Emergency SOS + Search (for lawyer) + Bell */}
           <div className="flex items-center gap-1.5">
+            {onOpenEmergency && (
+              <button
+                type="button"
+                onClick={onOpenEmergency}
+                aria-label="Emergency Help"
+                className="h-9 px-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 flex items-center gap-1.5 transition ios-press text-xs font-semibold"
+                title="Emergency & Legal Aid Helplines (112, 100, 15100)"
+              >
+                <ShieldAlert size={15} />
+                <span className="hidden sm:inline">SOS</span>
+              </button>
+            )}
+
             {onOpenSearch && (
               <button
                 type="button"

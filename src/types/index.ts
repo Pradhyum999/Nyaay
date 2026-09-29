@@ -44,6 +44,39 @@ export interface UserProfile {
   bio?: string;
   publicCases?: PublicCourtCase[];
   firmId?: string;
+  firmName?: string;
+  practiceType?: 'independent' | 'firm' | 'chambers_group';
+  chambersAddress?: string;
+  chamberGeo?: GeoPoint;
+}
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  geohash: string;
+  city: string;
+  state: string;
+  formattedAddress: string;
+  updatedAt: string;
+}
+
+export interface DirectoryEntry {
+  uid: string;
+  name: string;
+  verified: boolean;
+  city: string;
+  state: string;
+  approxGeo?: { lat: number; lng: number; geohash: string };
+  practiceAreas: string[];
+  experience: number;
+  languages: string[];
+  feeRange?: { min: number; max: number };
+  photoURL?: string;
+  firmName?: string;
+  barCouncilId?: string;
+  phone?: string;
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface PublicCourtCase {

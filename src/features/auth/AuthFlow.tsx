@@ -35,7 +35,7 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
   onSelectLanguage,
   onSuccess,
 }) => {
-  const { user, profile, signInWithGoogle, signInWithPhone, verifyOTP, updateProfile } = useAuth();
+  const { user, profile, signInWithGoogle, signInWithPhone, verifyOTP, loginAsDemo, updateProfile } = useAuth();
   const [currentStep, setCurrentStep] = useState<AuthStep>('language');
   const [language, setLanguage] = useState<Language>(() => {
     const saved = localStorage.getItem('nyaay_language') as Language;
@@ -79,11 +79,12 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
   };
 
   const handleGoogleSignIn = async () => {
+    localStorage.removeItem('nyaay_demo_account');
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
       await signInWithGoogle();
-      const currentUser = auth.currentUser;
+      const currentUser = auth.currentUser || user;
       if (!currentUser) {
         setIsSubmitting(false);
         return;
@@ -116,13 +117,20 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
       setCurrentStep('profile');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
-      setErrorMsg(err.message || 'Failed to sign in with Google');
+      if (err.code === 'auth/popup-closed-by-user') {
+        setErrorMsg(language === 'hi' ? 'साइन-इन रद्द कर दिया गया। पुनः प्रयास करें या फ़ोन/डेमो लॉगिन का उपयोग करें।' : 'Sign-in cancelled. Please try again or use Phone / Demo login.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setErrorMsg(language === 'hi' ? 'ब्राउज़र ने पॉपअप ब्लॉक कर दिया। कृपया पॉपअप की अनुमति दें या फ़ोन लॉगिन का उपयोग करें।' : 'Browser blocked the popup window. Please allow popups or use Phone login.');
+      } else {
+        setErrorMsg(err.message || 'Failed to sign in with Google');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSendOtp = async (cleanPhone: string) => {
+    localStorage.removeItem('nyaay_demo_account');
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
@@ -140,11 +148,12 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
   };
 
   const handleVerifyOtp = async (otpString: string) => {
+    localStorage.removeItem('nyaay_demo_account');
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
       await verifyOTP(verificationId, otpString);
-      const currentUser = auth.currentUser;
+      const currentUser = auth.currentUser || user;
       if (currentUser) {
         const existingProfile = await getUserProfile(currentUser.uid);
 
@@ -186,27 +195,44 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      setDisplayName(data.name);
+      const rawName = data.name.trim();
+      const formattedName = /^adv\.?\s*/i.test(rawName)
+        ? rawName.replace(/^adv\.?\s*/i, 'Adv. ')
+        : /^advocate\s+/i.test(rawName)
+        ? rawName.replace(/^advocate\s+/i, 'Adv. ')
+        : `Adv. ${rawName}`;
+
+      setDisplayName(formattedName);
+
+      const currentUser = auth.currentUser || user;
+      const finalEmail = currentUser?.email || profile?.email || '';
+      const finalPhone = currentUser?.phoneNumber || phoneNumber || profile?.phone || '';
+      const finalUid = currentUser?.uid || profile?.uid || `lawyer-${Date.now()}`;
+
       const profileData: any = {
-        name: data.name,
+        uid: finalUid,
+        name: formattedName,
         state: data.state,
         barCouncilId: data.barCouncilId,
         role: 'lawyer',
+        email: finalEmail,
+        phone: finalPhone,
         language,
         onboardingCompleted: true,
       };
 
-      const currentUser = auth.currentUser;
+      localStorage.removeItem('nyaay_demo_account');
+
       if (profile && currentUser) {
         await updateUserProfile(currentUser.uid, profileData);
         updateProfile(profileData);
       } else if (currentUser) {
         await createUserProfile(currentUser.uid, {
           id: currentUser.uid,
-          phone: currentUser.phoneNumber || phoneNumber,
-          email: currentUser.email || '',
           ...profileData,
         });
+        updateProfile(profileData);
+      } else {
         updateProfile(profileData);
       }
 
@@ -226,26 +252,37 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      setDisplayName(data.name);
+      const trimmedName = data.name.trim();
+      setDisplayName(trimmedName);
+
+      const currentUser = auth.currentUser || user;
+      const finalEmail = currentUser?.email || profile?.email || '';
+      const finalPhone = currentUser?.phoneNumber || phoneNumber || profile?.phone || '';
+      const finalUid = currentUser?.uid || profile?.uid || `client-${Date.now()}`;
+
       const profileData: any = {
-        name: data.name,
+        uid: finalUid,
+        name: trimmedName,
         city: data.city || '',
         role: 'client',
+        email: finalEmail,
+        phone: finalPhone,
         language,
         onboardingCompleted: true,
       };
 
-      const currentUser = auth.currentUser;
+      localStorage.removeItem('nyaay_demo_account');
+
       if (profile && currentUser) {
         await updateUserProfile(currentUser.uid, profileData);
         updateProfile(profileData);
       } else if (currentUser) {
         await createUserProfile(currentUser.uid, {
           id: currentUser.uid,
-          phone: currentUser.phoneNumber || phoneNumber,
-          email: currentUser.email || '',
           ...profileData,
         });
+        updateProfile(profileData);
+      } else {
         updateProfile(profileData);
       }
 
@@ -381,6 +418,10 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
                 selectedRole={chosenRole}
                 onGoogleSignIn={handleGoogleSignIn}
                 onPhoneSignIn={() => setCurrentStep('phone_input')}
+                onDemoLogin={(type) => {
+                  loginAsDemo(type);
+                  onSuccess('lawyer');
+                }}
                 onBack={() => setCurrentStep('role_select')}
                 loading={isSubmitting}
                 error={errorMsg || undefined}

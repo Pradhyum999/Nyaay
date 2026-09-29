@@ -6,6 +6,7 @@ import { Building2, GraduationCap, Lock, Mail, Loader2, ArrowLeft } from 'lucide
 import { FirmRegistration } from '../../components/firm/FirmRegistration';
 import { MemberPasswordChange } from '../../components/firm/MemberPasswordChange';
 import { findFirmMemberByEmail, updateMemberPasswordStatus, updateMemberPassword } from '../../services/firestoreService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface OtherSignInSheetProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const OtherSignInSheet: React.FC<OtherSignInSheetProps> = ({
   language,
   onSuccess,
 }) => {
+  const { loginAsDemo } = useAuth();
   const [tab, setTab] = useState<'member' | 'firm' | 'password_change'>('member');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -142,6 +144,39 @@ export const OtherSignInSheet: React.FC<OtherSignInSheetProps> = ({
                 ? 'अपने वरिष्ठ अधिवक्ता या कॉलेज द्वारा प्रदान किया गया आधिकारिक ईमेल और अस्थायी पासवर्ड दर्ज करें।'
                 : 'Sign in with credentials assigned by your law firm chambers or university.'}
             </p>
+
+            {/* Quick Demo Selector */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2">
+              <span className="text-[10px] font-mono text-amber-400 uppercase font-bold tracking-wider block">
+                {language === 'mr' ? 'त्वरित डेमो प्रवेश' : language === 'hi' ? 'त्वरित डेमो प्रवेश' : '1-Click Demo Portals'}
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    loginAsDemo('firm');
+                    onSuccess('lawyer');
+                    onClose();
+                  }}
+                  className="p-2 rounded-xl bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/25 text-left text-xs font-semibold text-main transition flex items-center gap-2"
+                >
+                  <Building2 size={14} className="text-amber-300 shrink-0" />
+                  <span className="truncate">Firm Chambers</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    loginAsDemo('student');
+                    onSuccess('lawyer');
+                    onClose();
+                  }}
+                  className="p-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/25 text-left text-xs font-semibold text-main transition flex items-center gap-2"
+                >
+                  <GraduationCap size={14} className="text-purple-300 shrink-0" />
+                  <span className="truncate">Student Intern</span>
+                </button>
+              </div>
+            </div>
 
             {error && (
               <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">

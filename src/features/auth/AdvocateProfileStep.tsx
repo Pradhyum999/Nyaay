@@ -17,6 +17,19 @@ const INDIAN_STATES = [
   'Madhya Pradesh', 'Telangana', 'Andhra Pradesh', 'Bihar', 'Haryana'
 ];
 
+// Format Advocate name to always have "Adv. " prefix
+export const formatAdvocateName = (raw: string): string => {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return 'Adv. ';
+  if (/^adv\.?\s*/i.test(trimmed)) {
+    return trimmed.replace(/^adv\.?\s*/i, 'Adv. ');
+  }
+  if (/^advocate\s+/i.test(trimmed)) {
+    return trimmed.replace(/^advocate\s+/i, 'Adv. ');
+  }
+  return `Adv. ${trimmed}`;
+};
+
 export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
   language,
   initialName = '',
@@ -24,7 +37,12 @@ export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
   loading,
   error,
 }) => {
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState(() => {
+    if (initialName && initialName.trim()) {
+      return formatAdvocateName(initialName);
+    }
+    return 'Adv. ';
+  });
   const [state, setState] = useState('Maharashtra');
   const [barCouncilId, setBarCouncilId] = useState('');
 
@@ -38,15 +56,18 @@ export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !barCouncilId.trim() || loading) return;
+    const finalName = formatAdvocateName(name);
+    const bare = finalName.replace(/^Adv\.\s*/i, '').trim();
+    if (bare.length < 2 || !barCouncilId.trim() || loading) return;
     await onSaveProfile({
-      name: name.trim(),
+      name: finalName,
       state,
       barCouncilId: normaliseBarId(barCouncilId),
     });
   };
 
-  const isValid = name.trim().length >= 2 && barCouncilId.trim().length >= 3;
+  const bareName = name.replace(/^adv\.?\s*/i, '').replace(/^advocate\s+/i, '').trim();
+  const isValid = bareName.length >= 2 && barCouncilId.trim().length >= 3;
 
   return (
     <div className="space-y-5 animate-in fade-in">

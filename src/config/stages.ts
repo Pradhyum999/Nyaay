@@ -48,3 +48,39 @@ export function getStagesForMatter(matterType?: string): StageDefinition[] {
   }
   return MATTER_STAGES.default;
 }
+
+export const STAGE_KEYWORDS: Record<string, string[]> = {
+  'Admission': ['admission', 'admitted', 'preliminary', 'fresh', 'institution'],
+  'Notice/Summons': ['notice', 'summons', 'service', 'served', 'dasti', 'process'],
+  'Written Statement': ['written statement', 'reply', 'rejoinder', 'counter', 'ws'],
+  'Framing of Issues': ['framing', 'issues', 'charge', 'framing of issues', 'charge framing'],
+  'Evidence': ['evidence', 'witness', 'cross', 'pw', 'dw', 'affidavit of evidence'],
+  'Final Arguments': ['argument', 'arguments', 'final argument', 'hearing', 'final hearing', 'submissions'],
+  'Judgment/Order': ['judgment', 'order', 'verdict', 'disposed', 'decree', 'sentencing'],
+  'Execution': ['execution', 'warrant', 'attachment', 'decree holder'],
+};
+
+export function getStarterTasksForStage(stage?: string): string[] {
+  if (!stage) return ['Initial review of case brief', 'Verify court filing documents'];
+  const s = stage.toLowerCase();
+  if (s.includes('bail')) {
+    return ['Draft bail petition under Sec 480 BNSS', 'Obtain certified copy of FIR / remand order', 'Verify surety and local solvency certificate'];
+  }
+  if (s.includes('notice') || s.includes('summons')) {
+    return ['Verify tracking status of speed post summons', 'Prepare process fee and dasti service notice'];
+  }
+  if (s.includes('written') || s.includes('reply') || s.includes('ws')) {
+    return ['Compile para-wise response facts from client', 'Draft Written Statement / Reply affidavit', 'Gather counter-evidence annexures'];
+  }
+  if (s.includes('issue') || s.includes('charge')) {
+    return ['Draft proposed issues / defense discharge grounds', 'Legal research on statutory ingredients'];
+  }
+  if (s.includes('evidence')) {
+    return ['Prepare examination-in-chief affidavit', 'Draft cross-examination questionnaire', 'Collate supporting original documents'];
+  }
+  if (s.includes('argument')) {
+    return ['Prepare synopsis and chronological list of dates', 'Compile supporting High Court & Supreme Court precedents', 'Draft written submissions'];
+  }
+  return ['Review case status on eCourts', 'Prepare next hearing checklist', 'Notify client of hearing proceedings'];
+}
+

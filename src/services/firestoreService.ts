@@ -14,6 +14,7 @@ import {
   Timestamp,
   setDoc,
   collectionGroup,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
@@ -156,6 +157,7 @@ export function subscribeToCases(
     callback(list);
   }, error => {
     console.warn("Firestore cases subscription fallback:", error);
+    callback([]);
   });
 }
 
@@ -201,6 +203,7 @@ export function subscribeToHearings(
     callback(list);
   }, error => {
     console.warn("Firestore hearings subscription fallback:", error);
+    callback([]);
   });
 }
 
@@ -242,6 +245,7 @@ export function subscribeToInvoices(
     callback(list);
   }, error => {
     console.warn("Firestore invoices subscription fallback:", error);
+    callback([]);
   });
 }
 
@@ -282,6 +286,7 @@ export function subscribeToDocuments(
     callback(list);
   }, error => {
     console.warn("Firestore documents subscription fallback:", error);
+    callback([]);
   });
 }
 
@@ -460,6 +465,8 @@ export async function createCaseTask(
   });
   return ref.id;
 }
+
+export const addCaseTask = createCaseTask;
 
 export async function updateCaseTask(
   taskId: string,
@@ -1267,5 +1274,74 @@ export function subscribeToCitizenFeedback(
     }
   );
 }
+
+// ─── Chambers Geo & Public Directory Mirror (Part C) ────────────────────────
+
+export async function updateAdvocateChamberLocation(
+  uid: string,
+  geo: import('../types').GeoPoint,
+  chambersAddress: string,
+  profile: Partial<UserProfile>
+): Promise<void> {
+  const batch = writeBatch(db);
+  const userRef = doc(db, 'users', uid);
+  batch.update(userRef, {
+    chamberGeo: geo,
+    chambersAddress,
+    city: geo.city,
+    state: geo.state,
+    updatedAt: serverTimestamp(),
+  });
+
+  const dirRef = doc(db, 'directory', uid);
+  const approxGeo = {
+    lat: Math.round(geo.lat * 100) / 100,
+    lng: Math.round(geo.lng * 100) / 100,
+    geohash: geo.geohash.slice(0, 5),
+  };
+
+  batch.set(
+    dirRef,
+    {
+      uid,
+      name: profile.name || 'Advocate',
+      verified: profile.verificationStatus === 'verified',
+      city: geo.city,
+      state: geo.state,
+      approxGeo,
+      practiceAreas: profile.practiceAreas || [],
+      experience: profile.experience || 0,
+      languages: profile.languages || ['English'],
+      feeRange: profile.feeRange || null,
+      photoURL: profile.photoURL || null,
+      firmName: profile.firmName || null,
+      barCouncilId: profile.barCouncilId || null,
+      phone: profile.phone || null,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
+}
+
+export function subscribeToDirectory(
+  callback: (entries: import('../types').DirectoryEntry[]) => void
+): () => void {
+  const q = query(collection(db, 'directory'));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list = snap.docs.map(
+        (d) => ({ uid: d.id, ...d.data() } as import('../types').DirectoryEntry)
+      );
+      callback(list);
+    },
+    (err) => {
+      console.warn("Directory subscription error:", err);
+    }
+  );
+}
+
 
 

@@ -1,13 +1,14 @@
 import React from 'react';
 import { Button } from '../../design/ui/Button';
 import { Language, UserRole } from '../../types';
-import { Phone, ArrowLeft, Shield } from 'lucide-react';
+import { Phone, ArrowLeft, Shield, Building2, GraduationCap } from 'lucide-react';
 
 interface SignInStepProps {
   language: Language;
   selectedRole: UserRole;
   onGoogleSignIn: () => void;
   onPhoneSignIn: () => void;
+  onDemoLogin?: (type: 'firm' | 'student') => void;
   onBack: () => void;
   loading: boolean;
   error?: string;
@@ -18,6 +19,7 @@ export const SignInStep: React.FC<SignInStepProps> = ({
   selectedRole,
   onGoogleSignIn,
   onPhoneSignIn,
+  onDemoLogin,
   onBack,
   loading,
   error,
@@ -122,6 +124,61 @@ export const SignInStep: React.FC<SignInStepProps> = ({
               : 'Continue with Phone'}
           </span>
         </button>
+
+        {/* Quick Demo Accounts */}
+        {onDemoLogin && (
+          <div className="pt-3 space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/[0.08]" />
+              <span className="text-[10px] text-amber-400 uppercase font-mono font-bold tracking-wider">
+                {language === 'mr' ? 'डेमो खात्यांनी एक्सप्लोर करा' : language === 'hi' ? 'त्वरित डेमो खाते' : 'Quick Demo Portals'}
+              </span>
+              <div className="flex-1 h-px bg-white/[0.08]" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              {/* Firm Chambers Demo */}
+              <button
+                type="button"
+                onClick={() => onDemoLogin('firm')}
+                disabled={loading}
+                className="p-3 rounded-2xl bg-amber-400/10 hover:bg-amber-400/15 border border-amber-400/30 text-left transition ios-press flex items-start gap-2.5"
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+                  <Building2 size={16} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-main truncate">
+                    {language === 'mr' ? 'लॉ फर्म चेंबर' : language === 'hi' ? 'लॉ फर्म चैम्बर्स' : 'Law Firm Chambers'}
+                  </div>
+                  <div className="text-[10px] text-sub truncate">
+                    Sharma & Associates · Partner
+                  </div>
+                </div>
+              </button>
+
+              {/* Student Intern Demo */}
+              <button
+                type="button"
+                onClick={() => onDemoLogin('student')}
+                disabled={loading}
+                className="p-3 rounded-2xl bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/30 text-left transition ios-press flex items-start gap-2.5"
+              >
+                <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                  <GraduationCap size={16} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-main truncate">
+                    {language === 'mr' ? 'विधी विद्यार्थी / इन्टर्न' : language === 'hi' ? 'विधि छात्र / इंटर्न' : 'Law Student / Intern'}
+                  </div>
+                  <div className="text-[10px] text-sub truncate">
+                    Aarav Patel · CLC Delhi
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="pt-4 text-center">

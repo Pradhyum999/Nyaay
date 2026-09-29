@@ -23,7 +23,17 @@ export const SuccessStep: React.FC<SuccessStepProps> = ({
     return () => clearTimeout(timer);
   }, [onFinish]);
 
-  const firstName = userName ? userName.split(' ')[0] : 'there';
+  const getGreetingName = () => {
+    if (!userName || !userName.trim()) return 'there';
+    const trimmed = userName.trim();
+    if (trimmed.startsWith('Adv.')) {
+      const parts = trimmed.split(' ').filter(Boolean);
+      return parts.length >= 2 ? `Adv. ${parts[1]}` : trimmed;
+    }
+    return trimmed.split(' ')[0] || 'there';
+  };
+
+  const firstName = getGreetingName();
 
   return (
     <div className="space-y-6 text-center py-6 animate-in fade-in zoom-in-95">

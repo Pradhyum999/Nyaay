@@ -8,6 +8,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="NYAAYNEETI" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>NYAAYNEETI (न्यायनीति) — Legal Operating System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,5 +19,15 @@
   <body class="bg-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(
+            (reg) => console.log('PWA ServiceWorker registered:', reg.scope),
+            (err) => console.warn('PWA ServiceWorker registration failed:', err)
+          );
+        });
+      }
+    </script>
   </body>
 </html>

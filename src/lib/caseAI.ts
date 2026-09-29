@@ -11,6 +11,8 @@ import {
 } from '../types';
 import { callNvidiaGLM5, ChatMessagePayload } from './nvidiaNIM';
 import { searchLegalSections } from './ipcToBns';
+import { normaliseCaseNumber } from './caseNumber';
+import { STAGE_KEYWORDS } from '../config/stages';
 
 export function getGeminiApiKey(): string {
   if (import.meta.env.DEV && typeof window !== 'undefined') {
@@ -697,4 +699,171 @@ export function renderPreparedClientPacket(ctx: CaseRoomContext): string {
     c.profile.missingInfo.forEach(m => parts.push(`• ${m}`));
   }
   return parts.join('\n');
+}
+
+/**
+ * Rate limit check for client-side AI usage (20 calls/day limit)
+ */
+export function checkAIRateLimit(): { allowed: boolean; remaining: number } {
+  if (typeof window === 'undefined') return { allowed: true, remaining: 20 };
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `nyaay_ai_calls_${today}`;
+  const count = parseInt(localStorage.getItem(key) || '0', 10);
+  if (count >= 20) {
+    return { allowed: false, remaining: 0 };
+  }
+  localStorage.setItem(key, (count + 1).toString());
+  return { allowed: true, remaining: 20 - (count + 1) };
+}
+
+/**
+ * Deterministic regex extractor fallback when AI service is offline
+ */
+function extractCaseDetailsDeterministic(text: string): Partial<CaseFile> {
+  const result: Partial<CaseFile> = {};
+  
+  // Extract case number pattern
+  const cnMatch = text.match(/\b([A-Z]{2,6}[.\s/-]*\d{1,6}[.\s/-]*\d{2,4})\b/i);
+  if (cnMatch) {
+    result.caseNumber = normaliseCaseNumber(cnMatch[1]);
+  }
+
+  // Extract vs / v. pattern for parties
+  const vsMatch = text.match(/([A-Z][a-zA-Z\s.,]+)\s+(?:vs\.?|v\/s|versus)\s+([A-Z][a-zA-Z\s.,]+)/i);
+  if (vsMatch) {
+    result.clientName = vsMatch[1].trim();
+    result.opponentName = vsMatch[2].trim();
+  }
+
+  // Extract court location
+  const courtMatch = text.match(/\b(Supreme Court|High Court|District Court|Sessions Court|City Civil Court|Pune Court|Bombay High Court|Delhi High Court|Saket|Rohini|Patiala House|Dwarka)\b/i);
+  if (courtMatch) {
+    result.courtLocation = courtMatch[1];
+    result.court = courtMatch[1].includes('High Court') ? 'High Court' : 'District Court';
+  }
+
+  // Extract sections
+  const secMatches = text.match(/(?:u\/s|section|sec\.?)\s*([\d\w\s,]+(?:IPC|BNS|NI Act|CrPC|CPC))/gi);
+  if (secMatches) {
+    result.actSections = secMatches.map(s => s.trim());
+  }
+
+  // Detect stage
+  const lower = text.toLowerCase();
+  for (const [stageName, keywords] of Object.entries(STAGE_KEYWORDS)) {
+    if ((keywords as string[]).some((kw: string) => lower.includes(kw))) {
+      result.stage = stageName as any;
+      break;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Smart Case Intake (B-1): Parses unstructured Indian legal text (WhatsApp forward, cause list, eCourts summary)
+ * into structured CaseFile fields.
+ */
+export async function parseCaseText(rawText: string, language?: Language): Promise<Partial<CaseFile> | null> {
+  if (!rawText || !rawText.trim()) return null;
+
+  const rate = checkAIRateLimit();
+  if (!rate.allowed) {
+    throw new Error('Daily AI rate limit of 20 calls reached. Please enter details manually.');
+  }
+
+  const prompt = `You are an expert Indian judicial docket data extraction system.
+Extract structured legal case details from the following arbitrary text (WhatsApp forward, court cause list, advocate note, or petition snippet).
+
+Extract ONLY factual information present in the text into this exact JSON structure:
+{
+  "caseNumber": string or null,
+  "clientName": string or null,
+  "opponentName": string or null,
+  "court": string or null,
+  "courtLocation": string or null,
+  "caseType": string or null,
+  "actSections": string[],
+  "stage": string or null,
+  "filingDate": string or null,
+  "nextHearingDate": string or null
+}
+
+Guidelines:
+- If a field is not explicitly mentioned or clearly implied, return null (or [] for actSections). NEVER fabricate or hallucinate names, courts, or dates.
+- Detect Indian statutes/sections if present (e.g., "420 IPC", "138 NI Act", "302 BNS", "Sec 9 CPC").
+- Format dates as YYYY-MM-DD if discernable.
+- Respond with ONLY the raw JSON object enclosed in \`\`\`json ... \`\`\` or as pure JSON. No markdown commentary.
+
+Text to analyze:
+"""
+${rawText}
+"""`;
+
+  let responseText = '';
+  try {
+    const res = await callNvidiaGLM5([
+      { role: 'system', content: 'You are an Indian legal entity extraction parser. Output pure JSON only.' },
+      { role: 'user', content: prompt }
+    ], { max_tokens: 1024, temperature: 0.1, timeoutMs: 9000 });
+    responseText = res.content || '';
+  } catch (err) {
+    const geminiKey = getGeminiApiKey();
+    if (geminiKey) {
+      try {
+        const ai = getClient();
+        const interaction = await ai.interactions.create({
+          model: 'gemini-2.5-flash',
+          input: prompt,
+        });
+        responseText = interaction.output_text || '';
+      } catch (gErr) {
+        console.warn("Gemini parseCaseText fallback failed:", gErr);
+      }
+    }
+  }
+
+  // Parse JSON response
+  try {
+    let cleaned = responseText.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return extractCaseDetailsDeterministic(rawText);
+    }
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Post-process with domain utilities
+    const caseNumber = parsed.caseNumber ? normaliseCaseNumber(parsed.caseNumber) : '';
+    let stage = parsed.stage || '';
+    if (!stage) {
+      const lowerText = rawText.toLowerCase();
+      for (const [stName, keywords] of Object.entries(STAGE_KEYWORDS)) {
+        if ((keywords as string[]).some((kw: string) => lowerText.includes(kw))) {
+          stage = stName;
+          break;
+        }
+      }
+    }
+
+    return {
+      caseNumber: caseNumber || undefined,
+      clientName: parsed.clientName || undefined,
+      opponentName: parsed.opponentName || undefined,
+      court: parsed.court || undefined,
+      courtLocation: parsed.courtLocation || undefined,
+      caseType: parsed.caseType || undefined,
+      actSections: Array.isArray(parsed.actSections) ? parsed.actSections : [],
+      stage: stage || undefined,
+      filingDate: parsed.filingDate || undefined,
+      nextHearingDate: parsed.nextHearingDate || undefined,
+    };
+  } catch (parseErr) {
+    console.warn("Failed to parse JSON from AI response, using deterministic fallback:", parseErr);
+    return extractCaseDetailsDeterministic(rawText);
+  }
 }

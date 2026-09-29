@@ -28,9 +28,12 @@ import { UnifiedTopBar } from './components/navigation/UnifiedTopBar';
 import { ToastProvider } from './design/ui/Toast';
 import { ContextFab } from './components/navigation/ContextFab';
 import { HearingFormSheet } from './features/hearings/HearingFormSheet';
+import { EmergencySheet } from './components/emergency/EmergencySheet';
 import { flags } from './config/flags';
 import { lawyerTabs, clientTabs } from './config/nav';
 import { normaliseCaseNumber } from './lib/caseNumber';
+import { DEMO_ACCOUNTS } from './config/demoAccounts';
+import { X } from 'lucide-react';
 
 // Firestore Realtime Services
 import {
@@ -128,7 +131,7 @@ function LoadingScreen() {
 
 // ── Main App Content ──────────────────────────────────────────────────────────
 function AppContent() {
-  const { user, profile, loading, updateProfile, logout } = useAuth();
+  const { user, profile, loading, updateProfile, logout, loginAsDemo } = useAuth();
 
   const [language, setLanguage] = useState<Language>(() => {
     return (localStorage.getItem('nyaay_language') as Language) || 'en';
@@ -240,6 +243,8 @@ function AppContent() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
   const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState<boolean>(false);
   const [isIpcModalOpen, setIsIpcModalOpen] = useState<boolean>(false);
+  const [isFirmPortalOpen, setIsFirmPortalOpen] = useState<boolean>(false);
+  const [showEmergencySheet, setShowEmergencySheet] = useState<boolean>(false);
 
   // Sync theme with HTML data attribute and storage
   useEffect(() => {
@@ -309,9 +314,44 @@ function AppContent() {
     }
   }, [profile]);
 
+  // Demo Account Detection & Hydration
+  const isDemoUser = Boolean(user?.uid?.startsWith('demo-'));
+  const demoType: 'firm' | 'student' | null = user?.uid === DEMO_ACCOUNTS.firm.user.uid
+    ? 'firm'
+    : user?.uid === DEMO_ACCOUNTS.student.user.uid
+      ? 'student'
+      : null;
+
+  useEffect(() => {
+    if (isDemoUser && demoType) {
+      const demoData = DEMO_ACCOUNTS[demoType];
+      setHearings(demoData.hearings);
+      setCases(demoData.cases);
+      setInvoices(demoData.invoices);
+      if (demoData.firm) {
+        setCurrentFirm(demoData.firm);
+      } else {
+        setCurrentFirm(null);
+      }
+      if (demoData.firmMembers) {
+        setFirmMembers(demoData.firmMembers);
+      } else {
+        setFirmMembers([]);
+      }
+    } else if (!isDemoUser) {
+      // Clear demo firm data when not in demo mode
+      if (currentFirm?.id?.startsWith('firm-sharma')) {
+        setCurrentFirm(null);
+      }
+      if (firmMembers.some(m => m.id?.startsWith('mem-'))) {
+        setFirmMembers([]);
+      }
+    }
+  }, [user?.uid, isDemoUser, demoType]);
+
   // Load and subscribe to Firm details
   useEffect(() => {
-    if (!user) return;
+    if (!user || isDemoUser) return;
     let unsubMembers: (() => void) | undefined;
     const loadFirm = async () => {
       try {
@@ -328,7 +368,7 @@ function AppContent() {
     return () => {
       if (unsubMembers) unsubMembers();
     };
-  }, [user]);
+  }, [user, isDemoUser]);
 
   // Prompt auth if not logged in
   useEffect(() => {
@@ -339,7 +379,13 @@ function AppContent() {
 
   // ── Firestore Realtime Subscriptions ────────────────────────────────────────
   useEffect(() => {
-    if (!user) return;
+    if (!user || isDemoUser) return;
+
+    // Reset records immediately so non-demo users start with a clean slate
+    setHearings([]);
+    setCases([]);
+    setInvoices([]);
+    setDocuments([]);
 
     // 1. Subscribe to Hearings
     const unsubHearings = subscribeToHearings(user.uid, userRole, (liveHearings) => {
@@ -394,7 +440,7 @@ function AppContent() {
       unsubThreads();
       if (unsubInquiries) unsubInquiries();
     };
-  }, [user, userRole]);
+  }, [user, userRole, isDemoUser]);
 
   if (loading) return <LoadingScreen />;
 
@@ -404,8 +450,10 @@ function AppContent() {
 
   // ── Mandatory Authentication & Onboarding Gate ──────────────────────────────
   const isAlreadySignedUp = Boolean(
-    (profile?.role === 'lawyer' && profile?.email && profile?.barCouncilId && profile.barCouncilId.trim().length > 0) ||
-    (profile?.role === 'client' && profile?.email && profile?.onboardingCompleted === true)
+    isDemoUser ||
+    (profile?.role === 'firm_admin' || profile?.role === 'student' || profile?.role === 'junior') ||
+    (profile?.role === 'lawyer' && (profile?.onboardingCompleted === true || ((profile?.email || profile?.phone || user?.email || user?.phoneNumber) && profile?.barCouncilId && profile.barCouncilId.trim().length > 0))) ||
+    (profile?.role === 'client' && (profile?.onboardingCompleted === true || (profile?.email || profile?.phone || user?.email || user?.phoneNumber)))
   );
 
   const needsAuthOrOnboarding = !user || !isAlreadySignedUp;
@@ -614,6 +662,14 @@ function AppContent() {
 
   const handleAddFirmMember = async (member: Omit<FirmMember, 'id' | 'firmId' | 'joinedAt'>) => {
     if (!currentFirm) return;
+    if (isDemoUser) {
+      const newId = `mem-${Date.now()}`;
+      setFirmMembers(prev => [
+        ...prev,
+        { ...member, id: newId, firmId: currentFirm.id, joinedAt: new Date().toISOString().split('T')[0] }
+      ]);
+      return;
+    }
     const newId = await addFirmMember(currentFirm.id, member);
     setFirmMembers(prev => [
       ...prev,
@@ -623,6 +679,10 @@ function AppContent() {
 
   const handleRemoveFirmMember = async (memberId: string) => {
     if (!currentFirm) return;
+    if (isDemoUser) {
+      setFirmMembers(prev => prev.filter(m => m.id !== memberId));
+      return;
+    }
     await removeFirmMember(currentFirm.id, memberId);
     setFirmMembers(prev => prev.filter(m => m.id !== memberId));
   };
@@ -664,8 +724,18 @@ function AppContent() {
       <UnifiedTopBar
         userRole={userRole}
         language={language}
+        userTag={
+          profile?.role === 'firm_admin'
+            ? 'Chambers'
+            : profile?.role === 'student'
+              ? 'Intern'
+              : userRole === 'lawyer'
+                ? 'Counsel'
+                : 'Citizen'
+        }
         notifications={notifications}
         unreadAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
+        onOpenEmergency={() => setShowEmergencySheet(true)}
         onOpenSearch={userRole === 'lawyer' ? () => setIsUniversalSearchOpen(true) : undefined}
         onDismissNotification={(id) => markNotificationRead(id)}
         onDismissAllNotifications={() => {
@@ -838,10 +908,12 @@ function AppContent() {
                   onSelectLanguage={setLanguage}
                   theme={theme}
                   onToggleTheme={handleToggleTheme}
-                  onOpenFirmPortal={currentFirm ? () => setIsLawyerProfileOpen(true) : undefined}
+                  onOpenFirmPortal={currentFirm ? () => setIsFirmPortalOpen(true) : undefined}
                   onOpenIpcToBns={() => setIsIpcModalOpen(true)}
                   onOpenUniversalSearch={() => setIsUniversalSearchOpen(true)}
                   onOpenProfile={() => setIsLawyerProfileOpen(true)}
+                  onOpenEmergency={() => setShowEmergencySheet(true)}
+                  onSwitchDemo={isDemoUser ? (type: 'firm' | 'student') => loginAsDemo(type) : undefined}
                   onOpenFeedback={() => setIsFeedbackOpen(true)}
                   onSignOut={() => logout()}
                 />
@@ -1092,6 +1164,40 @@ function AppContent() {
           language={language}
         />
       )}
+
+      {/* Firm Portal Modal */}
+      {isFirmPortalOpen && currentFirm && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-white/10 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative p-6">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+              <h2 className="text-lg font-bold text-white font-display">
+                {language === 'mr' ? 'लॉ फर्म / चेंबर्स पोर्टल' : language === 'hi' ? 'लॉ फर्म / चैम्बर्स पोर्टल' : 'Law Firm / Chambers Portal'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsFirmPortalOpen(false)}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <FirmPortal
+              firm={currentFirm}
+              members={firmMembers}
+              language={language}
+              onAddMember={handleAddFirmMember}
+              onRemoveMember={handleRemoveFirmMember}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Emergency & Legal Aid Sheet */}
+      <EmergencySheet
+        open={showEmergencySheet}
+        onOpenChange={setShowEmergencySheet}
+        language={language}
+      />
     </AndroidFrame>
   );
 }
