@@ -143,7 +143,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
 
   const status: VerificationStatus = profile?.verificationStatus || 'not_submitted';
   const isVerified = status === 'verified';
-  const isAdmin = user?.email === 'pradhumb1998@gmail.com';
+  const isAdmin = false;
 
   const handleDocFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -848,7 +848,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
               className="w-full py-2.5 rounded-2xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 ios-press transition"
             >
               <ShieldAlert size={14} />
-              <span>Open Admin Verification Console (pradhumb1998@gmail.com)</span>
+              <span>Open Admin Verification Console</span>
             </button>
           </div>
         )}
@@ -1114,7 +1114,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
                           <option value="Allahabad High Court">Allahabad High Court</option>
                           <option value="Supreme Court of India">Supreme Court of India</option>
                           <option value="Saket District Court">Saket District Court</option>
-                          <option value="Tis Hazari District Court">Tis Hazari District Court</option>
+                          <option value="Patiala House District Court">Patiala House District Court</option>
                         </select>
                       </div>
 

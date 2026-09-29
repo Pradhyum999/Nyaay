@@ -46,18 +46,11 @@ Document Type: ${params.documentType}
 ${params.maskedIdNumber ? `ID Number (Masked): ${params.maskedIdNumber}\n` : ''}${params.barCouncilId ? `Bar Council Enrollment: ${params.barCouncilId}\n` : ''}Request ID: ${params.requestId}
 Submitted At: ${new Date().toLocaleString()}
 
-Direct Decision Actions:
-------------------------------------------
-Approve:
-https://nyaay-legal-app-f6e99.web.app/?adminAction=approve&reqId=${params.requestId}
-
-Reject / Request Resubmission:
-https://nyaay-legal-app-f6e99.web.app/?adminAction=reject&reqId=${params.requestId}
-
-Or review inside the NYAAYNEETI Admin Dashboard at https://nyaay-legal-app-f6e99.web.app
+Review inside the NYAAYNEETI Admin Portal:
+https://nyaay-legal-app-f6e99.web.app
 
 --
-NYAAYNEETI Legal Operating System (Autonomous Verification Pipeline)`;
+NYAAYNEETI Legal Operating System (Administrative Verification Pipeline)`;
 
   return {
     subject: encodeURIComponent(subject),

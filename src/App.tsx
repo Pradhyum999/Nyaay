@@ -1,25 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AndroidFrame } from './components/AndroidFrame';
-import { TopAppBar } from './components/TopAppBar';
-import { BottomNavBar, NavTab } from './components/BottomNavBar';
-import { ClientBottomNav, ClientNavTab } from './components/client/ClientBottomNav';
-import { SpeedDialFAB } from './components/SpeedDialFAB';
-import { VirtualCaseDiary } from './components/VirtualCaseDiary';
-import { CaseListView } from './components/CaseListView';
-import { LawyerHomeDashboard } from './components/lawyer/LawyerHomeDashboard';
-import { AIIntakeSummary } from './components/AIIntakeSummary';
-import { BillingManager } from './components/BillingManager';
 import { CourtAnalyticsAndForum } from './components/CourtAnalyticsAndForum';
 import { LawyerProfileModal } from './components/LawyerProfileModal';
 import { ClientProfileModal } from './components/client/ClientProfileModal';
 import { AdminVerificationDashboard } from './components/admin/AdminVerificationDashboard';
 import { AuthScreen } from './components/auth/AuthScreen';
 
-import { ClientAIConsultation } from './components/client/ClientAIConsultation';
-import { ClientCaseTracker } from './components/client/ClientCaseTracker';
-import { ClientDocumentUpload } from './components/client/ClientDocumentUpload';
-import { ClientPaymentView } from './components/client/ClientPaymentView';
 import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory';
 import { DirectChatView } from './components/chat/DirectChatView';
 import { ChatInboxView } from './components/chat/ChatInboxView';
@@ -45,8 +32,7 @@ import { flags } from './config/flags';
 import { lawyerTabs, clientTabs } from './config/nav';
 import { normaliseCaseNumber } from './lib/caseNumber';
 
-
-// Firestore Realtime Services & Auto-Seeding
+// Firestore Realtime Services
 import {
   subscribeToCases,
   subscribeToHearings,
@@ -55,6 +41,8 @@ import {
   subscribeToForumPosts,
   subscribeToUserNotifications,
   subscribeToUserThreads,
+  subscribeToLawyerInquiries,
+  updateInquiryStatus,
   markNotificationRead,
   updateHearingRecord,
   addHearingRecord,
@@ -78,13 +66,6 @@ import { FirmPortal } from './components/firm/FirmPortal';
 import { FirmRegistration } from './components/firm/FirmRegistration';
 import { UniversalSearchModal } from './components/UniversalSearchModal';
 import { IpcToBnsModal } from './components/IpcToBnsModal';
-import {
-  mockHearings,
-  mockLimitationAlerts,
-  mockCaseFiles,
-  mockDocuments,
-  mockInvoices
-} from './data/mockData';
 
 import {
   Language,
@@ -92,7 +73,6 @@ import {
   UserRole,
   HearingItem,
   InvoiceItem,
-  AIIntakeBrief,
   CaseFile,
   DocumentItem,
   ForumPost,
@@ -101,7 +81,8 @@ import {
   AppNotification,
   DirectThread,
   FirmProfile,
-  FirmMember
+  FirmMember,
+  AIInquiryBrief
 } from './types';
 
 // ── Cinematic Loading Screen ──────────────────────────────────────────────────
@@ -125,19 +106,18 @@ function LoadingScreen() {
           <p className="text-white text-xl font-bold tracking-wider font-display">NYAAYNEETI</p>
           <p className="text-amber-400/80 text-[11px] font-mono uppercase tracking-widest mt-0.5">Legal Operating System</p>
         </div>
-        <div className="flex gap-1.5 justify-center pt-2">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="w-2 h-2 rounded-full bg-amber-400/60 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
-          ))}
+        <div className="flex items-center justify-center gap-1.5 pt-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:-0.3s]" />
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce [animation-delay:-0.15s]" />
+          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" />
         </div>
-
         {showRetry && (
-          <div className="pt-3 animate-in fade-in">
+          <div className="pt-2 animate-in fade-in duration-500">
             <button
               onClick={() => window.location.reload()}
-              className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-semibold transition ios-press"
+              className="text-xs text-neutral-400 hover:text-white underline underline-offset-2 transition"
             >
-              Taking a moment? Tap to Refresh
+              Taking longer than usual? Tap to retry
             </button>
           </div>
         )}
@@ -150,13 +130,14 @@ function LoadingScreen() {
 function AppContent() {
   const { user, profile, loading, updateProfile, logout } = useAuth();
 
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>(() => {
+    return (localStorage.getItem('nyaay_language') as Language) || 'en';
+  });
   const [theme, setTheme] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('nyaay_theme') as ThemeMode) || 'bnw';
+    const saved = localStorage.getItem('nyaay_theme');
+    return (saved === 'light' ? 'light' : 'dark') as ThemeMode;
   });
   const [userRole, setUserRole] = useState<UserRole>('client');
-  const [lawyerTab, setLawyerTab] = useState<NavTab>('home');
-  const [clientTab, setClientTab] = useState<ClientNavTab>('consult');
 
   // New UX Refactor State
   const [lawyerActiveTab, setLawyerActiveTab] = useState<string>('today');
@@ -166,6 +147,9 @@ function AppContent() {
   const [showGlobalAddHearing, setShowGlobalAddHearing] = useState<boolean>(false);
   const [verifiedLawyers, setVerifiedLawyers] = useState<UserProfile[]>([]);
   const [showFullDirectory, setShowFullDirectory] = useState<boolean>(false);
+
+  // Inquiries for Lawyer Inbox (§2.5)
+  const [inquiries, setInquiries] = useState<AIInquiryBrief[]>([]);
 
   useEffect(() => {
     const fetchVerifiedLawyers = async () => {
@@ -204,29 +188,47 @@ function AppContent() {
 
   const handleAcceptInquiry = async (inq: any) => {
     const newCaseNum = `CC/${Math.floor(2000 + Math.random() * 8000)}/2026`;
+    const court = inq.profile?.court || inq.profile?.courtLocation || 'District Court';
     const newCase: Omit<CaseFile, 'id'> = {
       caseNumber: newCaseNum,
-      clientName: inq.clientName,
-      clientPhone: inq.clientPhone || '',
-      opponentName: 'State / Respondent',
-      courtLocation: 'Tis Hazari District Court',
-      court: 'District Court',
-      caseType: inq.legalArea,
-      actSections: ['Relevant Legal Sections'],
+      clientName: inq.clientName || inq.profile?.clientName || 'Client',
+      clientPhone: inq.clientPhone || inq.profile?.clientPhone || '',
+      opponentName: inq.profile?.opponentName || 'State / Respondent',
+      courtLocation: court,
+      court,
+      caseType: inq.profile?.caseType || inq.legalArea || 'Legal Matter',
+      actSections: inq.profile?.actSections || ['Relevant Legal Sections'],
       status: 'Active',
-      stage: 'Admission',
+      stage: inq.profile?.stage || 'Admission',
       filingDate: new Date().toISOString().split('T')[0],
       nextHearingDate: 'TBD',
       unreadDocuments: 0,
       pendingChecklistItems: 0,
-      totalBilled: 25000,
+      totalBilled: 0,
       totalCollected: 0,
+      clientId: inq.clientId,
     };
     await handleCreateCase(newCase);
+    if (inq.id) {
+      try {
+        await updateInquiryStatus(inq.id, 'accepted');
+      } catch (e) {
+        console.warn("Could not update inquiry status:", e);
+      }
+    }
+    setInquiries(prev => prev.filter(i => i.id !== inq.id));
     setLawyerActiveTab('cases');
     setSelectedCaseNumber(newCaseNum);
   };
 
+  const handleDeclineInquiry = async (inquiryId: string) => {
+    try {
+      await updateInquiryStatus(inquiryId, 'declined');
+    } catch (e) {
+      console.warn("Could not decline inquiry:", e);
+    }
+    setInquiries(prev => prev.filter(i => i.id !== inquiryId));
+  };
 
   // Auth Modal/Screen state
   const [showAuth, setShowAuth] = useState(false);
@@ -246,47 +248,11 @@ function AppContent() {
   }, [theme]);
 
   const handleToggleTheme = () => {
-    setTheme(prev => prev === 'bnw' ? 'dark' : prev === 'dark' ? 'light' : 'bnw');
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Admin session authentication
-  const [adminSessionAuthenticated, setAdminSessionAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('nyaay_admin_authenticated') === 'true';
-  });
-
-  // Admin authorization: designated admin email pradhumb1998@gmail.com, or ?admin=true override, or authenticated admin portal session
-  const isAdmin = user?.email === 'pradhumb1998@gmail.com' || 
-                  profile?.email === 'pradhumb1998@gmail.com' || 
-                  adminSessionAuthenticated ||
-                  window.location.search.includes('admin=true');
-
-  // Handle URL query parameters for Admin One-Click Actions (e.g. from verification email)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const adminAction = params.get('adminAction');
-    const reqId = params.get('reqId');
-
-    if (adminAction && reqId) {
-      const runAdminUrlAction = async () => {
-        try {
-          if (adminAction === 'approve') {
-            await processVerificationRequest(reqId, 'verified', 'Approved via Direct Admin Email Action');
-            alert(`✅ Verification request #${reqId} has been successfully APPROVED.`);
-          } else if (adminAction === 'reject') {
-            const reason = prompt('Please provide a reason for rejecting this verification request:', 'Document details did not match official registry.') || 'Document rejected by administrator';
-            await processVerificationRequest(reqId, 'rejected', reason);
-            alert(`❌ Verification request #${reqId} has been REJECTED.`);
-          }
-          // Clean URL params without page reload
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        } catch (err) {
-          console.error("Error processing admin action from URL:", err);
-        }
-      };
-      runAdminUrlAction();
-    }
-  }, []);
+  // Admin authorization: strictly checked via role or custom claim (S4/S5/§12.2)
+  const isAdmin = (profile as any)?.role === 'admin' || (profile as any)?.admin === true;
 
   // Active Direct Chat state
   const [activeThread, setActiveThread] = useState<{
@@ -302,18 +268,35 @@ function AppContent() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [userThreads, setUserThreads] = useState<DirectThread[]>([]);
 
-  // Database States (no fake mock fallbacks for authenticated users)
+  // Database States
   const [hearings, setHearings] = useState<HearingItem[]>([]);
-  const [limitationAlerts, setLimitationAlerts] = useState<LimitationAlert[]>([]);
   const [cases, setCases] = useState<CaseFile[]>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
-  const [aiBriefs, setAiBriefs] = useState<AIIntakeBrief[]>([]);
   const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
 
-  // Firm Profile & Members state
+  // Firm Portal State
   const [currentFirm, setCurrentFirm] = useState<FirmProfile | null>(null);
   const [firmMembers, setFirmMembers] = useState<FirmMember[]>([]);
+
+  // Limitation alerts derived directly from active cases with limitation dates (W6)
+  const limitationAlerts: LimitationAlert[] = cases
+    .filter(c => Boolean(c.limitationDate))
+    .map(c => {
+      const diffDays = Math.ceil((new Date(c.limitationDate!).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      return {
+        id: `limit-${c.id}`,
+        caseNumber: c.caseNumber,
+        titleEn: `Limitation: ${c.caseNumber}`,
+        titleHi: `समय सीमा: ${c.caseNumber}`,
+        statutoryAct: c.actSections?.[0] || 'Limitation Act',
+        daysRemaining: diffDays,
+        deadlineDate: c.limitationDate!,
+        severity: diffDays <= 7 ? 'critical' : diffDays <= 15 ? 'warning' : 'normal',
+        descriptionEn: `Statutory filing deadline approaching for ${c.clientName}.`,
+        descriptionHi: `${c.clientName} के लिए दाखिल करने की अंतिम तिथि निकट है।`,
+      };
+    });
 
   // Sync user role from Firestore profile
   useEffect(() => {
@@ -383,7 +366,7 @@ function AppContent() {
       setForumPosts(livePosts);
     });
 
-    // 6. Subscribe to In-App Notifications
+    // 6. Subscribe to In-App Notifications (user-only, no admin leak — §12.0)
     const unsubNotifs = subscribeToUserNotifications(user.uid, (liveNotifs) => {
       setNotifications(liveNotifs);
     });
@@ -393,6 +376,14 @@ function AppContent() {
       setUserThreads(liveThreads);
     });
 
+    // 8. Subscribe to AI Brief Inquiries for Lawyer (§2.5)
+    let unsubInquiries: (() => void) | undefined;
+    if (userRole === 'lawyer') {
+      unsubInquiries = subscribeToLawyerInquiries(user.uid, (liveInquiries) => {
+        setInquiries(liveInquiries || []);
+      });
+    }
+
     return () => {
       unsubHearings();
       unsubCases();
@@ -401,6 +392,7 @@ function AppContent() {
       unsubForum();
       unsubNotifs();
       unsubThreads();
+      if (unsubInquiries) unsubInquiries();
     };
   }, [user, userRole]);
 
@@ -408,14 +400,9 @@ function AppContent() {
 
   const handleCloseAdminDashboard = () => {
     setIsAdminDashboardOpen(false);
-    setAdminSessionAuthenticated(false);
-    sessionStorage.removeItem('nyaay_admin_authenticated');
   };
 
   // ── Mandatory Authentication & Onboarding Gate ──────────────────────────────
-  // Signup details should ONLY be asked once:
-  // - For advocate: verified with email AND bar council ID!
-  // - For citizen: verified with email AND completed onboarding!
   const isAlreadySignedUp = Boolean(
     (profile?.role === 'lawyer' && profile?.email && profile?.barCouncilId && profile.barCouncilId.trim().length > 0) ||
     (profile?.role === 'client' && profile?.email && profile?.onboardingCompleted === true)
@@ -427,7 +414,7 @@ function AppContent() {
     return (
       <AndroidFrame
         activeLanguage={language}
-        onToggleLanguage={() => setLanguage(prev => prev === 'en' ? 'hi' : 'en')}
+        onToggleLanguage={() => setLanguage(prev => prev === 'en' ? 'hi' : prev === 'hi' ? 'mr' : 'en')}
         userRole={userRole}
         onToggleRole={() => {}}
         hideRoleToggle
@@ -438,22 +425,18 @@ function AppContent() {
             setUserRole(role);
             setShowAuth(false);
           }}
-          onAdminSuccess={() => {
-            setAdminSessionAuthenticated(true);
-            sessionStorage.setItem('nyaay_admin_authenticated', 'true');
-            setIsAdminDashboardOpen(true);
-          }}
         />
 
-        <AdminVerificationDashboard
-          isOpen={isAdminDashboardOpen}
-          onClose={handleCloseAdminDashboard}
-          language={language}
-        />
+        {isAdmin && (
+          <AdminVerificationDashboard
+            isOpen={isAdminDashboardOpen}
+            onClose={handleCloseAdminDashboard}
+            language={language}
+          />
+        )}
       </AndroidFrame>
     );
   }
-
 
   const handleToggleLanguage = () => setLanguage(prev => prev === 'en' ? 'hi' : prev === 'hi' ? 'mr' : 'en');
 
@@ -468,57 +451,54 @@ function AppContent() {
           ...h,
           previousOrderSummaryEn: orderNotes,
           previousOrderSummaryHi: orderNotes,
-          hearingDate: `${nextDate}, 10:30 AM`
+          hearingDate: nextDate,
         };
       }
       return h;
     }));
 
-    // Live sync to client's case records so it's immediately visible in "My Case" tab
-    setCases(prev => prev.map(c => {
-      if (!matchedCaseNumber || c.caseNumber === matchedCaseNumber) {
-        return {
-          ...c,
-          nextHearingDate: nextDate,
-          orderNotes: orderNotes,
-        };
-      }
-      return c;
-    }));
-
     try {
       await updateHearingRecord(hearingId, orderNotes, nextDate);
-      if (user?.uid) {
-        const matchedCase = cases.find(c => c.caseNumber === matchedCaseNumber);
-        await addNotification({
-          recipientId: matchedCase?.clientId || user.uid,
-          type: 'engagement',
-          title: language === 'mr' ? 'सुनावणी आदेश अद्यतनित' : language === 'hi' ? 'अदालत आदेश अपडेट' : 'Court Order & Next Date Updated',
-          message: `${orderNotes || 'Order logged'}. Next date: ${nextDate}`,
-          read: false,
-          createdAt: new Date().toISOString(),
-        });
+
+      if (matchedCaseNumber) {
+        const normalisedTarget = normaliseCaseNumber(matchedCaseNumber);
+        const matchedCase = cases.find(c => normaliseCaseNumber(c.caseNumber) === normalisedTarget);
+
+        if (matchedCase) {
+          setCases(prev => prev.map(c =>
+            c.id === matchedCase.id ? { ...c, nextHearingDate: nextDate } : c
+          ));
+
+          if (user) {
+            handleSendHearingChatUpdate({
+              caseNumber: matchedCaseNumber,
+              clientName: matchedCase.clientName,
+              court: `${matchedCase.courtLocation || 'Court'}, ${matchedCase.court || ''}`,
+              status: 'Adjourned / Order Recorded',
+              nextDate,
+              stage: matchedCase.stage || 'Ongoing Hearing',
+              orderNotes,
+            });
+          }
+        }
       }
     } catch {
       // Local optimistic state preserved
     }
   };
 
-  // Add Hearing to Daily Cause List
-  const handleAddHearing = async (newHearingData: Omit<HearingItem, 'id'>) => {
-    const tempId = `hr-${Date.now()}`;
-    const newHearing: HearingItem = {
-      id: tempId,
-      ...newHearingData,
-      caseNumber: normaliseCaseNumber(newHearingData.caseNumber),
-    };
-    setHearings(prev => [newHearing, ...prev]);
+  // Add new Hearing Record with Firestore persistence
+  const handleAddHearing = async (newHearing: Omit<HearingItem, 'id'>) => {
+    const hearingId = `hr-${Date.now()}`;
+    const fullHearing: HearingItem = { ...newHearing, id: hearingId };
+
+    setHearings(prev => [fullHearing, ...prev]);
 
     try {
       if (user) {
         await addHearingRecord({
-          ...newHearingData,
-          caseNumber: normaliseCaseNumber(newHearingData.caseNumber),
+          ...newHearing,
+          // @ts-ignore
           lawyerId: user.uid
         });
       }
@@ -527,7 +507,7 @@ function AppContent() {
     }
   };
 
-  // Interlinked Client Chat Update for Hearings
+  // Interlinked Client Chat Update for Hearings (F10: Skip notification if no clientId, never self-notify)
   const handleSendHearingChatUpdate = async (params: {
     caseNumber: string;
     clientName: string;
@@ -541,21 +521,21 @@ function AppContent() {
     const matchedCase = cases.find(
       c => normaliseCaseNumber(c.caseNumber) === normalisedTarget || c.clientName === params.clientName
     );
-    const clientId = matchedCase?.clientId || user?.uid || 'client';
+    const clientId = matchedCase?.clientId;
     const clientName = params.clientName || matchedCase?.clientName || 'Client';
     const advocateName = profile?.name || user?.displayName || 'Advocate Counsel';
 
     const updateText = `🏛️ **Court Hearing Update — ${normalisedTarget}**\n\n` +
       `• **Court**: ${params.court}\n` +
       `• **Outcome / Status**: ${params.status}\n` +
-      `• **Next Hearing Date**: ${params.nextDate}, 10:30 AM\n` +
+      `• **Next Hearing Date**: ${params.nextDate}\n` +
       `• **Next Stage**: ${params.stage}\n` +
       (params.orderNotes ? `• **Judicial Order**: "${params.orderNotes}"\n\n` : '\n') +
       `📌 *Case Diary has been updated and scheduled for the next date.*`;
 
     // 1. Send into direct chat thread
     try {
-      if (user) {
+      if (user && clientId) {
         const threadId = await createOrGetDirectThread({
           lawyerId: user.uid,
           lawyerName: advocateName,
@@ -575,18 +555,20 @@ function AppContent() {
       console.warn("Could not send hearing update to chat thread:", err);
     }
 
-    // 2. Dispatch in-app notification for client
-    try {
-      await addNotification({
-        recipientId: clientId,
-        type: 'engagement',
-        title: `Court Update: ${params.caseNumber}`,
-        message: `${params.status} • Next date: ${params.nextDate} (${params.stage})`,
-        read: false,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (notifErr) {
-      console.warn("Notification error:", notifErr);
+    // 2. Dispatch in-app notification for client (F10: only if client exists)
+    if (clientId) {
+      try {
+        await addNotification({
+          recipientId: clientId,
+          type: 'engagement',
+          title: `Court Update: ${params.caseNumber}`,
+          message: `${params.status} • Next date: ${params.nextDate} (${params.stage})`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (notifErr) {
+        console.warn("Notification error:", notifErr);
+      }
     }
   };
 
@@ -630,40 +612,6 @@ function AppContent() {
     }
   };
 
-  // Upload document with verification toggle
-  const handleUploadDocument = async (docId: string) => {
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === docId) {
-        return { ...doc, status: 'Verified', uploadedAt: 'Just now' };
-      }
-      return doc;
-    }));
-
-    try {
-      await updateDocumentVerification(docId, 'Verified');
-    } catch {
-      // Local optimistic state preserved
-    }
-  };
-
-  const handleAcceptAICase = (brief: AIIntakeBrief) => {
-    const newHearing: HearingItem = {
-      id: `hr-${Date.now()}`,
-      caseNumber: `CC/${Math.floor(2000 + Math.random() * 8000)}/2026`,
-      clientName: brief.clientName,
-      courtName: 'Tis Hazari District Court (MM-04)',
-      itemNumber: hearings.length + 1,
-      courtRoom: 'Court No. 102',
-      judgeName: 'Ld. Chief Metropolitan Magistrate',
-      stage: 'Admission',
-      hearingDate: '26 Sep 2026, 10:30 AM',
-      hearingTime: '10:30 AM',
-      purposeEn: brief.briefTitleEn,
-      purposeHi: brief.briefTitleHi
-    };
-    setHearings(prev => [newHearing, ...prev]);
-  };
-
   const handleAddFirmMember = async (member: Omit<FirmMember, 'id' | 'firmId' | 'joinedAt'>) => {
     if (!currentFirm) return;
     const newId = await addFirmMember(currentFirm.id, member);
@@ -700,12 +648,9 @@ function AppContent() {
     subscribeToFirmMembers(firmId, setFirmMembers);
   };
 
-  const handleFABAction = (actionType: 'addHearing' | 'newInvoice' | 'uploadDoc' | 'aiConsult') => {
-    if (actionType === 'addHearing') setLawyerTab('diary');
-    else if (actionType === 'newInvoice') setLawyerTab('billing');
-    else if (actionType === 'uploadDoc') setLawyerTab('cases');
-    else if (actionType === 'aiConsult') setLawyerTab('aibriefs');
-  };
+  const selectedCase = cases.find(
+    c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || '')
+  );
 
   return (
     <AndroidFrame
@@ -769,19 +714,24 @@ function AppContent() {
                   cases={cases}
                   limitationAlerts={limitationAlerts}
                   language={language}
-                  onNavigateToCases={() => {
-                    setLawyerActiveTab('cases');
-                    setSelectedCaseNumber(null);
-                  }}
+                  onNavigateToCases={() => setLawyerActiveTab('cases')}
                   onOpenCase={(caseNumber) => {
-                    setLawyerActiveTab('cases');
                     setSelectedCaseNumber(caseNumber);
+                    setLawyerActiveTab('cases');
                   }}
-                  onMessageClient={(caseNumber, clientName) => {
+                  onMessageClient={async (caseNumber, clientName) => {
+                    const matched = cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(caseNumber));
+                    const threadId = await createOrGetDirectThread({
+                      lawyerId: user?.uid || 'lawyer',
+                      lawyerName: profile?.name || 'Advocate',
+                      clientId: matched?.clientId || 'client',
+                      clientName,
+                      matterSubject: `Matter: ${caseNumber}`,
+                    });
                     setActiveThread({
-                      threadId: `thread-case-${caseNumber.replace(/[^a-zA-Z0-9]/g, '')}`,
+                      threadId,
                       recipientName: clientName,
-                      matterSubject: `Case: ${caseNumber}`,
+                      matterSubject: `Matter: ${caseNumber}`,
                     });
                   }}
                   onUpdateHearingOrder={handleUpdateHearingOrder}
@@ -791,16 +741,24 @@ function AppContent() {
               )}
 
               {lawyerActiveTab === 'cases' && (
-                selectedCaseNumber ? (
+                selectedCase ? (
                   <CaseDetailPage
-                    caseFile={cases.find(c => c.caseNumber === selectedCaseNumber) || cases[0]}
+                    caseFile={selectedCase}
                     hearings={hearings}
                     invoices={invoices}
+                    documents={documents}
                     language={language}
                     onBack={() => setSelectedCaseNumber(null)}
-                    onMessageClient={(caseNumber, clientName) => {
+                    onMessageClient={async (caseNumber, clientName) => {
+                      const threadId = await createOrGetDirectThread({
+                        lawyerId: user?.uid || 'lawyer',
+                        lawyerName: profile?.name || 'Advocate',
+                        clientId: selectedCase.clientId || 'client',
+                        clientName,
+                        matterSubject: `Case Dossier: ${caseNumber}`,
+                      });
                       setActiveThread({
-                        threadId: `thread-case-${caseNumber.replace(/[^a-zA-Z0-9]/g, '')}`,
+                        threadId,
                         recipientName: clientName,
                         matterSubject: `Case Dossier: ${caseNumber}`,
                       });
@@ -809,6 +767,18 @@ function AppContent() {
                     onAddHearing={handleAddHearing}
                     onSendHearingChatUpdate={handleSendHearingChatUpdate}
                     onNewInvoice={() => setLawyerActiveTab('fees')}
+                    onUploadDocument={async (caseNumber, file) => {
+                      const docId = `doc-${Date.now()}`;
+                      const newDoc: DocumentItem = {
+                        id: docId,
+                        caseNumber,
+                        title: file.name,
+                        size: `${(file.size / 1024).toFixed(1)} KB`,
+                        status: 'pending',
+                        uploadedAt: new Date().toISOString(),
+                      };
+                      setDocuments(prev => [newDoc, ...prev]);
+                    }}
                   />
                 ) : (
                   <CaseListPage
@@ -823,6 +793,7 @@ function AppContent() {
               {lawyerActiveTab === 'inbox' && (
                 <InboxPage
                   threads={userThreads}
+                  inquiries={inquiries}
                   language={language}
                   onSelectThread={(thread) => {
                     setActiveThread({
@@ -835,7 +806,7 @@ function AppContent() {
                     });
                   }}
                   onAcceptInquiry={handleAcceptInquiry}
-                  onDeclineInquiry={() => {}}
+                  onDeclineInquiry={handleDeclineInquiry}
                 />
               )}
 
@@ -881,16 +852,17 @@ function AppContent() {
               {clientActiveTab === 'case' && (
                 <CaseRoomPage
                   cases={cases}
-                  activeCase={cases[0]}
+                  activeCase={cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || '')) || cases[0]}
                   hearings={hearings}
                   invoices={invoices}
+                  documents={documents}
                   language={language}
-                  onSelectCase={() => {}}
+                  onSelectCase={(cn) => setSelectedCaseNumber(cn)}
                   onNavigateToHelp={() => setClientActiveTab('help')}
                   onMessageLawyer={() => {
                     setClientActiveTab('messages');
                   }}
-                  onUploadDocument={() => handleUploadDocument('doc-1')}
+                  onUploadDocument={() => {}}
                   onPayInvoice={handlePayInvoice}
                 />
               )}
@@ -923,9 +895,42 @@ function AppContent() {
                     lawyers={verifiedLawyers}
                     language={language}
                     onOpenDirectory={() => setShowFullDirectory(true)}
-                    onMessageLawyer={(lawyer, narrative) => {
+                    onSaveCase={async (profileData) => {
+                      const newCaseNum = `CR/${Math.floor(1000 + Math.random() * 9000)}/2026`;
+                      const newCase: Omit<CaseFile, 'id'> = {
+                        caseNumber: newCaseNum,
+                        clientName: profile?.name || 'Client',
+                        clientPhone: profile?.phone || '',
+                        opponentName: 'Opposing Party',
+                        courtLocation: profileData.location || 'Court of Jurisdiction',
+                        court: 'District Court',
+                        caseType: profileData.legalArea || profileData.matterType || 'Consultation Matter',
+                        actSections: ['Relevant Legal Sections'],
+                        status: 'Active',
+                        stage: 'Admission',
+                        filingDate: new Date().toISOString().split('T')[0],
+                        nextHearingDate: 'TBD',
+                        unreadDocuments: 0,
+                        pendingChecklistItems: 0,
+                        totalBilled: 0,
+                        totalCollected: 0,
+                        clientId: user?.uid,
+                      };
+                      await handleCreateCase(newCase);
+                      setSelectedCaseNumber(newCaseNum);
+                      setClientActiveTab('case');
+                    }}
+                    onMessageLawyer={async (lawyer, narrative) => {
                       setClientActiveTab('messages');
-                      const threadId = `thread-match-${Date.now()}`;
+                      const lawyerId = (lawyer as any).id || (lawyer as any).uid || 'lawyer';
+                      const threadId = await createOrGetDirectThread({
+                        lawyerId,
+                        lawyerName: lawyer.name,
+                        clientId: user?.uid || 'client',
+                        clientName: profile?.name || 'Client',
+                        matterSubject: `Case Consultation with ${lawyer.name}`,
+                        aiBriefText: narrative,
+                      });
                       setActiveThread({
                         threadId,
                         recipientName: lawyer.name,
@@ -966,7 +971,8 @@ function AppContent() {
                   userProfile={profile || undefined}
                   language={language}
                   onSelectLanguage={setLanguage}
-                  onOpenProfile={() => setIsClientProfileOpen(true)}
+                  theme={theme}
+                  onToggleTheme={handleToggleTheme}
                   onOpenFeedback={() => setIsFeedbackOpen(true)}
                   onSignOut={() => logout()}
                 />
@@ -976,8 +982,8 @@ function AppContent() {
         </main>
       )}
 
-      {/* Contextual Extended FAB per Section 9.7 (Fitts's Law) */}
-      {userRole === 'lawyer' && !activeThread && (
+      {/* Contextual Extended FAB (O2: hides on Case Detail view to eliminate overlap) */}
+      {userRole === 'lawyer' && !activeThread && !(lawyerActiveTab === 'cases' && selectedCaseNumber) && (
         <ContextFab
           activeTab={lawyerActiveTab}
           onAddHearing={() => setShowGlobalAddHearing(true)}
@@ -1001,7 +1007,7 @@ function AppContent() {
             }
           }}
           language={language}
-          unreadCount={userThreads.length}
+          unreadCount={userThreads.reduce((acc, t) => acc + (t.unreadCount || 0), 0)}
         />
       )}
 
@@ -1010,75 +1016,87 @@ function AppContent() {
         open={showNewCaseSheet}
         onOpenChange={setShowNewCaseSheet}
         language={language}
-        onSave={handleCreateCase}
+        onSave={async (caseData: Omit<CaseFile, 'id'>) => {
+          await handleCreateCase(caseData);
+          setShowNewCaseSheet(false);
+        }}
       />
 
-      {/* Global Add Hearing Sheet (opened via FAB or Today) */}
+      {/* Global Add Hearing Form Sheet */}
       <HearingFormSheet
         open={showGlobalAddHearing}
         onOpenChange={setShowGlobalAddHearing}
         cases={cases}
         language={language}
-        onSave={hearing => {
-          handleAddHearing(hearing);
+        onSave={async (hearingData) => {
+          await handleAddHearing(hearingData);
           setShowGlobalAddHearing(false);
         }}
       />
 
-      <LawyerProfileModal
-        isOpen={isLawyerProfileOpen}
-        onClose={() => setIsLawyerProfileOpen(false)}
-        language={language}
-      />
+      {/* Modals & Dialogs */}
+      {isLawyerProfileOpen && (
+        <LawyerProfileModal
+          isOpen={isLawyerProfileOpen}
+          onClose={() => setIsLawyerProfileOpen(false)}
+          language={language}
+        />
+      )}
 
-      <ClientProfileModal
-        isOpen={isClientProfileOpen}
-        onClose={() => setIsClientProfileOpen(false)}
-        language={language}
-        onOpenFeedback={() => setIsFeedbackOpen(true)}
-      />
+      {isClientProfileOpen && (
+        <ClientProfileModal
+          isOpen={isClientProfileOpen}
+          onClose={() => setIsClientProfileOpen(false)}
+          language={language}
+        />
+      )}
 
-      <CitizenFeedbackModal
-        isOpen={isFeedbackOpen}
-        onClose={() => setIsFeedbackOpen(false)}
-        userId={user?.uid || 'guest'}
-        userName={profile?.name || 'Citizen'}
-        language={language}
-      />
+      {isAdmin && (
+        <AdminVerificationDashboard
+          isOpen={isAdminDashboardOpen}
+          onClose={handleCloseAdminDashboard}
+          language={language}
+        />
+      )}
 
-      <AdminVerificationDashboard
-        isOpen={isAdminDashboardOpen}
-        onClose={handleCloseAdminDashboard}
-        language={language}
-      />
+      {isFeedbackOpen && (
+        <CitizenFeedbackModal
+          isOpen={isFeedbackOpen}
+          onClose={() => setIsFeedbackOpen(false)}
+          userId={user?.uid || 'guest'}
+          userName={profile?.name || 'Citizen'}
+          language={language}
+        />
+      )}
 
-      <UniversalSearchModal
-        isOpen={isUniversalSearchOpen}
-        onClose={() => setIsUniversalSearchOpen(false)}
-        cases={cases}
-        hearings={hearings}
-        language={language}
-        onSelectCase={(caseNo) => {
-          if (userRole === 'lawyer') {
-            setLawyerTab('cases');
-          } else {
-            setClientTab('mycase');
-          }
-        }}
-        onOpenIpcModal={() => setIsIpcModalOpen(true)}
-      />
+      {isUniversalSearchOpen && (
+        <UniversalSearchModal
+          isOpen={isUniversalSearchOpen}
+          onClose={() => setIsUniversalSearchOpen(false)}
+          onOpenIpcModal={() => setIsIpcModalOpen(true)}
+          language={language}
+          cases={cases}
+          hearings={hearings}
+          onSelectCase={(caseNumber) => {
+            setIsUniversalSearchOpen(false);
+            setSelectedCaseNumber(caseNumber);
+            setLawyerActiveTab('cases');
+          }}
+        />
+      )}
 
-      <IpcToBnsModal
-        isOpen={isIpcModalOpen}
-        onClose={() => setIsIpcModalOpen(false)}
-        language={language}
-      />
+      {isIpcModalOpen && (
+        <IpcToBnsModal
+          isOpen={isIpcModalOpen}
+          onClose={() => setIsIpcModalOpen(false)}
+          language={language}
+        />
+      )}
     </AndroidFrame>
   );
 }
 
-// ── Root Provider ─────────────────────────────────────────────────────────────
-export function App() {
+export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
@@ -1087,5 +1105,3 @@ export function App() {
     </AuthProvider>
   );
 }
-
-export default App;

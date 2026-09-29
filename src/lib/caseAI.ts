@@ -6,13 +6,14 @@ import {
   DocumentItem,
   HearingItem,
   CaseFile,
+  InvoiceItem,
   Language,
 } from '../types';
 import { callNvidiaGLM5, ChatMessagePayload } from './nvidiaNIM';
 import { searchLegalSections } from './ipcToBns';
 
 export function getGeminiApiKey(): string {
-  if (typeof window !== 'undefined') {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
     const customKey = localStorage.getItem('nyaay_gemini_key');
     if (customKey && customKey.trim()) return customKey.trim();
   }
@@ -42,7 +43,11 @@ function getClient(): GoogleGenAI {
 }
 
 export function isCaseAIConfigured(): boolean {
-  return true; // Always active: NVIDIA NIM GLM-5.3 + Multi-tier Autonomous Legal Engine
+  return Boolean(
+    import.meta.env.VITE_NVIDIA_API_KEY ||
+    import.meta.env.VITE_GEMINI_API_KEY ||
+    (import.meta.env.DEV && typeof window !== 'undefined' && localStorage.getItem('nyaay_gemini_key'))
+  );
 }
 
 const INTAKE_SYSTEM_PROMPT = `You are NYAAY INTAKE powered by GLM-5.3, a structured legal case-intake engine for Indian citizens.
@@ -485,6 +490,7 @@ export interface CaseRoomContext {
   hearings: HearingItem[];
   tasks: CaseTask[];
   timeline: CaseTimelineEvent[];
+  invoices?: InvoiceItem[];
 }
 
 function buildCaseContext(ctx: CaseRoomContext): string {
@@ -542,9 +548,16 @@ function buildCaseContext(ctx: CaseRoomContext): string {
 export async function askMyCase(
   question: string,
   ctx: CaseRoomContext,
-  language: 'en' | 'hi' = 'en'
+  language: Language = 'en'
 ): Promise<string> {
   const context = buildCaseContext(ctx);
+
+  const langInstruction =
+    language === 'mr'
+      ? '- Respond in clear, simple Marathi (मराठी). Keep legal citations in original script.'
+      : language === 'hi'
+      ? '- Respond in Hindi (हिन्दी).'
+      : '- Respond in English.';
 
   const systemInstruction = `You are NYAAY CASE AI powered by GLM-5.3. You answer ONLY from the user's own case workspace provided below.
 Rules:
@@ -553,7 +566,7 @@ Rules:
 - Be concise, clear, and use plain language.
 - When explaining orders, translate legal jargon into simple terms.
 - Keep a short disclaimer: informational, not legal advice.
-${language === 'hi' ? '- Respond in Hindi (हिन्दी).' : ''}
+${langInstruction}
 
 ${context}`;
 
@@ -605,11 +618,13 @@ ${context}`;
 
 export async function summarizeOrder(
   orderText: string,
-  language: 'en' | 'hi' = 'en',
+  language: Language = 'en',
   targetLanguageName?: string
 ): Promise<string> {
   const targetNote = targetLanguageName
     ? `Respond in ${targetLanguageName}.`
+    : language === 'mr'
+    ? 'Respond in clear, simple Marathi (मराठी).'
     : language === 'hi'
     ? 'Respond in Hindi (हिन्दी).'
     : 'Respond in English.';

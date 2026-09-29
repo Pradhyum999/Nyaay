@@ -1,5 +1,5 @@
 export type Language = 'en' | 'hi' | 'mr';
-export type ThemeMode = 'bnw' | 'dark' | 'light';
+export type ThemeMode = 'dark' | 'light';
 
 export type UserRole = 'lawyer' | 'client';
 export type ExtendedRole = 'lawyer' | 'client' | 'junior' | 'firm_admin' | 'student';
@@ -151,12 +151,12 @@ export interface HearingItem {
   clientId?: string;
   lawyerId?: string;
   courtName: string;
-  itemNumber: number;
-  courtRoom: string;
-  judgeName: string;
+  itemNumber?: number;
+  courtRoom?: string;
+  judgeName?: string;
   stage: CaseStage;
   hearingDate: string;
-  hearingTime: string;
+  hearingTime?: string;
   purposeEn: string;
   purposeHi: string;
   previousOrderSummaryEn?: string;
@@ -258,8 +258,22 @@ export interface CaseFile {
   lawyerName?: string;
   stage?: CaseStage;
   orderNotes?: string;
+  limitationDate?: string;
+  timeline?: CaseTimelineEvent[];
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface AIInquiryBrief {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone?: string;
+  lawyerId?: string;          // set when client messaged a specific advocate; null = unassigned pool
+  profile: CaseProfile;       // the AI intake output
+  preparedPacket: string;     // from renderPreparedClientPacket
+  status: 'new' | 'accepted' | 'declined';
+  createdAt: string;
 }
 
 export interface DocumentItem {
@@ -268,12 +282,15 @@ export interface DocumentItem {
   caseNumber: string;
   clientId?: string;
   lawyerId?: string;
-  titleEn: string;
-  titleHi: string;
-  requiredFormat: string;
-  status: 'Verified' | 'Pending Review' | 'Missing' | 'Format_Issue' | 'Pending';
+  titleEn?: string;
+  titleHi?: string;
+  title?: string;
+  name?: string;
+  requiredFormat?: string;
+  status: 'Verified' | 'Pending Review' | 'Missing' | 'Format_Issue' | 'Pending' | string;
   uploadedAt?: string;
   fileSize?: string;
+  size?: string;
   validationNoteEn?: string;
   validationNoteHi?: string;
 }

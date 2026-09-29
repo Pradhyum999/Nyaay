@@ -39,7 +39,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
   // ── ON REAL SMARTPHONES OR TABLETS: ALWAYS FULL-SCREEN ────────────────────
   if (!isWideScreen) {
     return (
-      <div className="min-h-screen w-full bg-black text-white flex flex-col relative">
+      <div className="min-h-screen w-full surface-page text-main flex flex-col relative">
         {/* Full-screen Content (Zero mock device borders or punch-holes) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {children}
@@ -50,7 +50,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
 
   // ── ON WIDE DESKTOP MONITORS: STUDIO PREVIEW MODE ─────────────────────────
   return (
-    <div className="min-h-screen bg-[#050507] text-white flex flex-col items-center justify-start p-4 sm:p-6 selection:bg-amber-400/20">
+    <div className="min-h-screen surface-page text-main flex flex-col items-center justify-start p-4 sm:p-6 selection:bg-amber-400/20">
       {/* Top Studio Control Bar */}
       <header className="w-full max-w-4xl flex items-center justify-between mb-4 px-4 py-2.5 rounded-2xl glass-panel text-xs">
         <div className="flex items-center gap-2.5">
@@ -103,7 +103,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
 
       {/* Main Preview Container */}
       <div
-        className={`w-full transition-all duration-300 bg-black flex flex-col overflow-hidden relative shadow-[0_25px_70px_rgba(0,0,0,0.8)] ${
+        className={`w-full transition-all duration-300 surface-page flex flex-col overflow-hidden relative shadow-[0_25px_70px_rgba(0,0,0,0.8)] ${
           showFrame
             ? 'max-w-[420px] h-[890px] max-h-[92vh] rounded-[48px] border-[9px] border-[#1C1D22] ring-1 ring-white/[0.12]'
             : 'max-w-4xl min-h-[88vh] rounded-3xl border border-white/[0.08]'
@@ -111,19 +111,19 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
       >
         {/* Dynamic Island bar only in desktop mockup mode */}
         {showFrame && (
-          <div className="w-full bg-transparent px-7 pt-3.5 pb-2 flex items-center justify-between text-[11px] text-neutral-300 font-medium select-none z-30 shrink-0">
+          <div className="w-full bg-transparent px-7 pt-3.5 pb-2 flex items-center justify-between text-[11px] text-sub font-medium select-none z-30 shrink-0">
             <span className="font-semibold tracking-tight">9:41</span>
-            <div className="w-24 h-4 bg-neutral-900 rounded-full flex items-center justify-center border border-white/[0.05]">
-              <div className="w-2 h-2 rounded-full bg-neutral-950 mr-2" />
+            <div className="w-24 h-4 bg-white/[0.08] rounded-full flex items-center justify-center border border-white/[0.05]">
+              <div className="w-2 h-2 rounded-full bg-black mr-2" />
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
             </div>
-            <div className="flex items-center gap-1.5 text-neutral-400 text-[10px]">
+            <div className="flex items-center gap-1.5 text-faint text-[10px]">
               ▲▲ WiFi 🔋
             </div>
           </div>
         )}
 
-        <div className="flex-1 flex flex-col overflow-y-auto bg-black text-white relative">
+        <div className="flex-1 flex flex-col overflow-y-auto surface-page text-main relative">
           {children}
         </div>
 

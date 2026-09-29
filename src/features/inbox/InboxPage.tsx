@@ -3,48 +3,22 @@ import { Card } from '../../design/ui/Card';
 import { Button } from '../../design/ui/Button';
 import { Segmented } from '../../design/ui/Segmented';
 import { EmptyState } from '../../design/ui/EmptyState';
-import { DirectThread, Language, CaseProfile } from '../../types';
-import { MessageSquare, Bot, User, Check, X, ChevronRight, Scale, Clock, AlertTriangle } from 'lucide-react';
-
-interface InquiryItem {
-  id: string;
-  clientName: string;
-  legalArea: string;
-  urgency: 'high' | 'medium' | 'low';
-  summary: string;
-  createdAt: string;
-  profile?: CaseProfile;
-}
+import { DirectThread, Language, AIInquiryBrief } from '../../types';
+import { MessageSquare, Bot, User, ChevronRight } from 'lucide-react';
+import { InquiryCard } from './InquiryCard';
 
 interface InboxPageProps {
   threads: DirectThread[];
-  inquiries?: InquiryItem[];
+  inquiries?: AIInquiryBrief[];
   language?: Language;
   onSelectThread: (thread: DirectThread) => void;
-  onAcceptInquiry?: (inquiry: InquiryItem) => void;
+  onAcceptInquiry?: (inquiry: AIInquiryBrief) => void;
   onDeclineInquiry?: (inquiryId: string) => void;
 }
 
 export const InboxPage: React.FC<InboxPageProps> = ({
   threads,
-  inquiries = [
-    {
-      id: 'inq-1',
-      clientName: 'Suresh Patil',
-      legalArea: 'Criminal / Cheque Bounce (S. 138 NI Act)',
-      urgency: 'high',
-      summary: 'Statutory demand notice period elapsed after cheque dishonour of ₹15 Lakhs for commercial supplier invoice. Seeking immediate filing of criminal complaint before MM court.',
-      createdAt: '1 hour ago',
-    },
-    {
-      id: 'inq-2',
-      clientName: 'Priya Mehra',
-      legalArea: 'Civil / Property Partition Suit',
-      urgency: 'medium',
-      summary: 'Ancestral residential property in Delhi facing unauthorized encumbrance by co-heir. Seeking interim stay order and preliminary decree of partition.',
-      createdAt: '3 hours ago',
-    }
-  ],
+  inquiries = [],
   language = 'en',
   onSelectThread,
   onAcceptInquiry,
@@ -149,49 +123,13 @@ export const InboxPage: React.FC<InboxPageProps> = ({
           ) : (
             <div className="space-y-3">
               {inquiries.map(inq => (
-                <Card key={inq.id} className="space-y-3 border-amber-400/20 bg-gradient-to-b from-white/[0.04] to-transparent">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
-                        <Bot size={18} />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white">{inq.clientName}</h3>
-                        <p className="text-[11px] text-amber-300 font-mono">{inq.legalArea}</p>
-                      </div>
-                    </div>
-
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 uppercase">
-                      {inq.urgency} Urgency
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-xs text-neutral-300 leading-relaxed">
-                    <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 font-mono">
-                      AI Structured Matter Brief:
-                    </p>
-                    {inq.summary}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/[0.06]">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<X size={13} />}
-                      onClick={() => onDeclineInquiry?.(inq.id)}
-                    >
-                      Decline
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<Check size={13} />}
-                      onClick={() => onAcceptInquiry?.(inq)}
-                    >
-                      Accept & Open Case
-                    </Button>
-                  </div>
-                </Card>
+                <InquiryCard
+                  key={inq.id}
+                  inquiry={inq}
+                  language={language}
+                  onAccept={(inquiry) => onAcceptInquiry?.(inquiry)}
+                  onDecline={(id) => onDeclineInquiry?.(id)}
+                />
               ))}
             </div>
           )}

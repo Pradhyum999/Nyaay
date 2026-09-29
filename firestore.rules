@@ -7,10 +7,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && (
-        request.auth.token.admin == true ||
-        request.auth.token.email == 'pradhumb1998@gmail.com'
-      );
+      return signedIn() && request.auth.token.admin == true;
     }
 
     function isParty() {
@@ -21,35 +18,39 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin() || (resource.data.role == 'lawyer' && resource.data.verificationStatus == 'verified'));
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','verificationStatus','barCouncilVerified']);
     }
 
     match /cases/{id} {
-      allow read: if signedIn() && (isParty() || isAdmin() || resource == null);
-      allow create: if signedIn();
+      allow read: if isParty() || isAdmin();
+      allow create: if signedIn() && (request.resource.data.lawyerId == request.auth.uid || request.resource.data.clientId == request.auth.uid);
       allow update, delete: if isParty() || isAdmin();
     }
 
     match /hearings/{id} {
-      allow read: if signedIn() && (isParty() || isAdmin() || resource == null);
-      allow create, update, delete: if signedIn();
+      allow read: if isParty() || isAdmin();
+      allow create, update, delete: if signedIn() && request.resource.data.lawyerId == request.auth.uid;
     }
 
     match /invoices/{id} {
-      allow read: if signedIn() && (isParty() || isAdmin() || resource == null);
-      allow create, update: if signedIn();
+      allow read: if isParty() || isAdmin();
+      allow create: if signedIn() && request.resource.data.lawyerId == request.auth.uid;
+      allow update: if isParty();
     }
 
     match /documents/{id} {
-      allow read: if signedIn() && (isParty() || isAdmin() || resource == null);
-      allow create, update, delete: if signedIn();
+      allow read: if isParty() || isAdmin();
+      allow create, update, delete: if signedIn() && (isParty() || request.resource.data.lawyerId == request.auth.uid || request.resource.data.clientId == request.auth.uid);
     }
 
     match /threads/{t} {
-      allow read, write: if signedIn();
+      allow read: if signedIn() && request.auth.uid in [resource.data.lawyerId, resource.data.clientId];
+      allow create: if signedIn() && (request.resource.data.lawyerId == request.auth.uid || request.resource.data.clientId == request.auth.uid);
+      allow update: if signedIn() && request.auth.uid in [resource.data.lawyerId, resource.data.clientId];
       match /messages/{m} {
-        allow read, write: if signedIn();
+        allow read, create: if signedIn() && request.auth.uid in [get(/databases/$(database)/documents/threads/$(t)).data.lawyerId, get(/databases/$(database)/documents/threads/$(t)).data.clientId];
       }
     }
 
@@ -65,10 +66,10 @@ service cloud.firestore {
     }
 
     match /forum/{p} {
-      allow read: if true;
+      allow read: if signedIn();
       allow write: if signedIn();
       match /replies/{r} {
-        allow read: if true;
+        allow read: if signedIn();
         allow write: if signedIn();
       }
     }
@@ -81,7 +82,9 @@ service cloud.firestore {
     }
 
     match /ai_briefs/{id} {
-      allow read, write: if signedIn();
+      allow read: if isParty() || isAdmin();
+      allow create: if signedIn() && request.resource.data.clientId == request.auth.uid;
+      allow update: if signedIn() && (resource.data.lawyerId == request.auth.uid || isAdmin());
     }
 
     match /tasks/{id} {

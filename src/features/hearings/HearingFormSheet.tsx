@@ -22,17 +22,17 @@ export const HearingFormSheet: React.FC<HearingFormSheetProps> = ({
 }) => {
   const [caseNumber, setCaseNumber] = useState(initialData?.caseNumber || '');
   const [clientName, setClientName] = useState(initialData?.clientName || '');
-  const [courtName, setCourtName] = useState(initialData?.courtName || 'District Court, Tis Hazari');
-  const [courtRoom, setCourtRoom] = useState(initialData?.courtRoom || 'Court Room No. 04');
+  const [courtName, setCourtName] = useState(initialData?.courtName || '');
+  const [courtRoom, setCourtRoom] = useState(initialData?.courtRoom || '');
   const [judgeName, setJudgeName] = useState(initialData?.judgeName || '');
   const [hearingDate, setHearingDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return d.toISOString().split('T')[0];
   });
-  const [hearingTime, setHearingTime] = useState(initialData?.hearingTime || '10:30 AM');
+  const [hearingTime, setHearingTime] = useState(initialData?.hearingTime || '');
   const [itemNumber, setItemNumber] = useState<number>(initialData?.itemNumber || 1);
-  const [stage, setStage] = useState(initialData?.stage || 'Final Arguments');
+  const [stage, setStage] = useState(initialData?.stage || '');
   const [saving, setSaving] = useState(false);
 
   // When a case is selected from existing cases, auto-fill details
@@ -125,7 +125,7 @@ export const HearingFormSheet: React.FC<HearingFormSheetProps> = ({
             required
             value={clientName}
             onChange={e => setClientName(e.target.value)}
-            placeholder="e.g. State vs. Vikram Malhotra"
+            placeholder="e.g. State vs. Accused"
             className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
           />
         </div>
@@ -152,7 +152,7 @@ export const HearingFormSheet: React.FC<HearingFormSheetProps> = ({
               type="text"
               value={hearingTime}
               onChange={e => setHearingTime(e.target.value)}
-              placeholder="10:30 AM"
+              placeholder="e.g. 10:30 AM"
               className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-mono"
             />
           </div>
@@ -168,7 +168,7 @@ export const HearingFormSheet: React.FC<HearingFormSheetProps> = ({
               type="text"
               value={courtRoom}
               onChange={e => setCourtRoom(e.target.value)}
-              placeholder="Court Room No. 04"
+              placeholder="e.g. Room 04 / Court Hall 2"
               className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
             />
           </div>
@@ -194,7 +194,7 @@ export const HearingFormSheet: React.FC<HearingFormSheetProps> = ({
             type="text"
             value={courtName}
             onChange={e => setCourtName(e.target.value)}
-            placeholder="Tis Hazari District Court"
+            placeholder="e.g. District & Sessions Court"
             className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
           />
         </div>

@@ -56,12 +56,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
       const saved = localStorage.getItem('nyaay_daily_tasks');
       if (saved) return JSON.parse(saved);
     } catch {}
-    const todayKey = new Date().toISOString().split('T')[0];
-    return [
-      { id: 't1', title: 'File Rejoinder affidavit in pending matter', time: 'Before 01:00 PM', date: todayKey, completed: false },
-      { id: 't2', title: 'Collect Certified Copy of Bail Order from Registry', time: 'By 04:00 PM', date: todayKey, completed: false },
-      { id: 't3', title: 'Prepare draft of Written Statement', time: 'Evening', date: todayKey, completed: true },
-    ];
+    return [];
   });
 
   const [showAddTaskInput, setShowAddTaskInput] = useState<boolean>(false);
@@ -170,8 +165,8 @@ export const TodayPage: React.FC<TodayPageProps> = ({
         clientName: activeLogOrderHearing.clientName,
         courtName: activeLogOrderHearing.courtName,
         courtRoom: activeLogOrderHearing.courtRoom,
-        hearingDate: `${data.nextDate}, 10:30 AM`,
-        hearingTime: '10:30 AM',
+        hearingDate: `${data.nextDate}`,
+        hearingTime: data.nextDate.includes(',') ? data.nextDate.split(',')[1]?.trim() : undefined,
         itemNumber: activeLogOrderHearing.itemNumber,
         judgeName: activeLogOrderHearing.judgeName,
         stage: data.nextStage as any,

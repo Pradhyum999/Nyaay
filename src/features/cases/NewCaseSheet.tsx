@@ -19,7 +19,7 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
   const [caseNumber, setCaseNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [opponentName, setOpponentName] = useState('');
-  const [courtLocation, setCourtLocation] = useState('Tis Hazari District Court');
+  const [courtLocation, setCourtLocation] = useState('District Court');
   const [caseType, setCaseType] = useState('Criminal (Bail & Trial)');
   const [actSections, setActSections] = useState('Section 420 IPC / 318 BNS');
   const [stage, setStage] = useState('Institution & Notice');
@@ -120,7 +120,7 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
             type="text"
             value={courtLocation}
             onChange={e => setCourtLocation(e.target.value)}
-            placeholder="Tis Hazari / Saket / High Court"
+            placeholder="e.g. City Civil & Sessions Court / High Court"
             className="w-full bg-white/[0.05] border border-white/[0.12] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
           />
         </div>

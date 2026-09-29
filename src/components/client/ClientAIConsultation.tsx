@@ -5,10 +5,10 @@ import {
   MapPin, Scale, AlertTriangle, FileText, HelpCircle, ChevronRight,
   ChevronDown
 } from 'lucide-react';
-import { Language, ChatMessage, CaseProfile } from '../../types';
-import { runCaseIntakeTurn, isCaseAIConfigured } from '../../lib/caseAI';
+import { runCaseIntakeTurn, isCaseAIConfigured } from '../../lib/ai';
 import { createCaseFromProfile } from '../../services/firestoreService';
 import { useAuth } from '../../contexts/AuthContext';
+import { Language, CaseProfile, ChatMessage } from '../../types';
 
 interface ClientAIConsultationProps {
   language: Language;
@@ -75,7 +75,7 @@ export function ClientAIConsultation({
 
   const t = (en: string, hi: string, mr?: string) =>
     language === 'mr' && mr ? mr : language === 'hi' ? hi : en;
-  const chips = QUICK_CHIPS[language] || QUICK_CHIPS.en;
+  const chips = QUICK_CHIPS[(language as 'en' | 'hi' | 'mr')] || QUICK_CHIPS.en;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -169,6 +169,39 @@ export function ClientAIConsultation({
     }
   };
 
+  const userMessageCount = messages.filter(m => m.role === 'user').length;
+  const progressPercent = Math.min(100, (userMessageCount / 5) * 100);
+
+  if (!isCaseAIConfigured()) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-4 bg-black text-white">
+        <div className="w-14 h-14 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
+          <Bot size={28} />
+        </div>
+        <div className="space-y-1.5 max-w-sm">
+          <h3 className="text-base font-bold text-white">
+            {t('AI Assistant is Offline', 'एआई सहायक ऑफ़लाइन है', 'एआय सहाय्यक ऑफलाइन आहे')}
+          </h3>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            {t(
+              'The automated consultation system is currently unreachable. You can browse and connect directly with verified advocates.',
+              'स्वचालित परामर्श प्रणाली वर्तमान में अनुपलब्ध है। आप सीधे सत्यापित वकीलों से जुड़ सकते हैं।',
+              'स्वयंचलित सल्ला प्रणाली सध्या उपलब्ध नाही. आपण थेट पडताळणी झालेल्या वकीलांशी संपर्क साधू शकता.'
+            )}
+          </p>
+        </div>
+        {onDirectToDirectory && (
+          <button
+            onClick={onDirectToDirectory}
+            className="px-5 py-2.5 rounded-2xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 transition"
+          >
+            {t('Browse Lawyers', 'वकील देखें', 'वकील पहा')}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const hasConversation = messages.some(m => m.role === 'user');
 
   return (
@@ -260,7 +293,7 @@ export function ClientAIConsultation({
             >
               <p className="text-white/30 text-xs mb-3 text-center">{t('Describe your problem', 'अपनी समस्या बताएं')}</p>
               <div className="flex flex-col gap-2">
-                {chips.map((chip, i) => (
+                {chips.map((chip: string, i: number) => (
                   <motion.div
                     key={chip}
                     initial={{ opacity: 0, x: -16 }}
@@ -356,7 +389,7 @@ export function ClientAIConsultation({
                         <span className="text-[10px] uppercase font-semibold text-neutral-400 block mb-1">
                           {t('Key Facts', 'मुख्य तथ्य', 'मुख्य तथ्ये')}
                         </span>
-                        {profileData.facts.map((f, i) => (
+                        {profileData.facts.map((f: string, i: number) => (
                           <p key={i} className="text-[11px] text-neutral-300 flex gap-1.5">
                             <span className="text-amber-400">•</span>{f}
                           </p>
@@ -371,7 +404,7 @@ export function ClientAIConsultation({
                           <FileText size={10} /> {t('Documents Needed', 'आवश्यक दस्तावेज़', 'आवश्यक कागदपत्रे')}
                         </span>
                         <div className="flex flex-wrap gap-1">
-                          {profileData.documentsRequired.map((d, i) => (
+                          {profileData.documentsRequired.map((d: string, i: number) => (
                             <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg bg-white/[0.04] text-neutral-300 border border-white/[0.06]">{d}</span>
                           ))}
                         </div>
@@ -384,7 +417,7 @@ export function ClientAIConsultation({
                         <span className="text-[10px] uppercase font-semibold text-amber-400/80 mb-1 flex items-center gap-1">
                           <HelpCircle size={10} /> {t('Still needed', 'अभी आवश्यक', 'अजून आवश्यक')}
                         </span>
-                        {profileData.missingInfo.map((m, i) => (
+                        {profileData.missingInfo.map((m: string, i: number) => (
                           <p key={i} className="text-[11px] text-neutral-400 flex gap-1.5">
                             <span className="text-amber-400/60">?</span>{m}
                           </p>
@@ -425,7 +458,24 @@ export function ClientAIConsultation({
       </AnimatePresence>
 
       {/* ── Input Area ──────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/[0.06]">
+      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-white/[0.06] space-y-2">
+        {userMessageCount > 0 && userMessageCount <= 5 && (
+          <div className="flex items-center justify-between text-[11px] text-neutral-400 px-1">
+            <span>
+              {t(
+                `Question ${Math.min(userMessageCount, 5)} of 5`,
+                `प्रश्न ${Math.min(userMessageCount, 5)}/5`,
+                `प्रश्न ${Math.min(userMessageCount, 5)}/5`
+              )}
+            </span>
+            <div className="w-24 bg-white/10 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-amber-400 h-full rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <div className="flex-1 glass-card rounded-2xl border border-white/10 overflow-hidden flex items-end">
             <textarea

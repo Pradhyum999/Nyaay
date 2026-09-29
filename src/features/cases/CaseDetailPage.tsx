@@ -6,7 +6,7 @@ import { StatusBadge } from '../../design/ui/StatusBadge';
 import { HearingCard } from '../hearings/HearingCard';
 import { LogOrderSheet, LogOrderData } from '../hearings/LogOrderSheet';
 import { HearingFormSheet } from '../hearings/HearingFormSheet';
-import { CaseFile, HearingItem, InvoiceItem, Language } from '../../types';
+import { CaseFile, HearingItem, InvoiceItem, DocumentItem, Language } from '../../types';
 import { getStagesForMatter } from '../../config/stages';
 import { normaliseCaseNumber } from '../../lib/caseNumber';
 import {
@@ -31,6 +31,7 @@ interface CaseDetailPageProps {
   caseFile: CaseFile;
   hearings: HearingItem[];
   invoices?: InvoiceItem[];
+  documents?: DocumentItem[];
   language?: Language;
   onBack: () => void;
   onMessageClient: (caseNumber: string, clientName: string) => void;
@@ -38,12 +39,14 @@ interface CaseDetailPageProps {
   onAddHearing?: (hearing: Omit<HearingItem, 'id'>) => void;
   onSendHearingChatUpdate?: (params: any) => void;
   onNewInvoice?: (caseNumber: string) => void;
+  onUploadDocument?: (caseNumber: string, file: File) => void;
 }
 
 export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
   caseFile,
   hearings,
   invoices = [],
+  documents = [],
   language = 'en',
   onBack,
   onMessageClient,
@@ -51,13 +54,18 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
   onAddHearing,
   onSendHearingChatUpdate,
   onNewInvoice,
+  onUploadDocument,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'hearings' | 'documents' | 'fees' | 'notes'>('overview');
   const [activeLogOrderHearing, setActiveLogOrderHearing] = useState<HearingItem | null>(null);
   const [showAddHearing, setShowAddHearing] = useState(false);
-  const [caseNotes, setCaseNotes] = useState(
-    'Key strategy: Cross-examine PW-1 regarding discrepancies in spot recovery memo. File certified copy of High Court precedent on Section 482 quashing.'
-  );
+  const [caseNotes, setCaseNotes] = useState('');
+
+  const t = (en: string, hi: string, mr: string) => {
+    if (language === 'mr') return mr;
+    if (language === 'hi') return hi;
+    return en;
+  };
 
   const normalisedCase = normaliseCaseNumber(caseFile.caseNumber);
 
@@ -71,12 +79,23 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
     inv => inv.caseNumber && normaliseCaseNumber(inv.caseNumber) === normalisedCase
   );
 
-  // Matter stages from config
+  // Documents for this case (O4 & F13)
+  const caseDocs = documents.filter(
+    d => d.caseNumber && normaliseCaseNumber(d.caseNumber) === normalisedCase
+  );
+  const pendingDocsCount = caseDocs.filter(
+    d => (d.status || '').toLowerCase() !== 'verified'
+  ).length;
+  const verifiedDocsCount = caseDocs.filter(
+    d => (d.status || '').toLowerCase() === 'verified'
+  ).length;
+
+  // Matter stages from config - show all without slicing (O5-1)
   const stages = getStagesForMatter(caseFile.caseType || caseFile.actSections?.join(', '));
   const currentStageIndex = stages.findIndex(
     s => s.name.toLowerCase() === (caseFile.stage || '').toLowerCase()
   );
-  const safeStageIdx = currentStageIndex >= 0 ? currentStageIndex : 2;
+  const safeStageIdx = currentStageIndex >= 0 ? currentStageIndex : 0;
 
   const handleSaveOrder = (data: LogOrderData) => {
     if (activeLogOrderHearing && onUpdateHearingOrder) {
@@ -88,8 +107,8 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         clientName: activeLogOrderHearing.clientName,
         courtName: activeLogOrderHearing.courtName,
         courtRoom: activeLogOrderHearing.courtRoom,
-        hearingDate: `${data.nextDate}, 10:30 AM`,
-        hearingTime: '10:30 AM',
+        hearingDate: `${data.nextDate}`,
+        hearingTime: data.nextDate.includes(',') ? data.nextDate.split(',')[1]?.trim() : undefined,
         itemNumber: activeLogOrderHearing.itemNumber,
         judgeName: activeLogOrderHearing.judgeName,
         stage: data.nextStage as any,
@@ -106,22 +125,22 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         status: data.outcome,
         nextDate: data.nextDate,
         stage: data.nextStage,
-        orderNotes: data.orderNotes,
+        orderNotes: data.orderNotes || '',
       });
     }
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-28 text-white max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-32 text-main max-w-4xl mx-auto w-full">
       {/* ── Top Bar ── */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 hover:text-white transition ios-press"
+          className="flex items-center gap-1.5 text-xs font-semibold text-neutral-400 hover:text-main transition ios-press"
         >
           <ArrowLeft size={16} />
-          <span>{language === 'hi' ? 'सभी मामले' : 'All Cases'}</span>
+          <span>{t('All Cases', 'सभी मामले', 'सर्व खटले')}</span>
         </button>
 
         <div className="flex items-center gap-2">
@@ -131,7 +150,7 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
             icon={<MessageSquare size={13} />}
             onClick={() => onMessageClient(caseFile.caseNumber, caseFile.clientName)}
           >
-            {language === 'hi' ? 'मुवक्किल से चैट' : 'Message Client'}
+            {t('Message Client', 'मुवक्किल से चैट', 'अशील चॅट')}
           </Button>
         </div>
       </div>
@@ -147,27 +166,29 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
                 </span>
                 <StatusBadge status={caseFile.status || 'active'} />
               </div>
-              <h1 className="text-lg sm:text-xl font-bold font-mono text-white mt-1.5">
+              <h1 className="text-lg sm:text-xl font-bold font-mono text-main mt-1.5">
                 {caseFile.caseNumber}
               </h1>
-              <p className="text-sm font-semibold text-neutral-200 mt-0.5">
+              <p className="text-sm font-semibold text-sub mt-0.5">
                 {caseFile.clientName} {caseFile.opponentName ? `vs. ${caseFile.opponentName}` : ''}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-3 border-t border-white/[0.08] text-xs">
-            <div className="flex items-center gap-1.5 text-neutral-300">
+            <div className="flex items-center gap-1.5 text-sub">
               <MapPin size={14} className="text-amber-400 shrink-0" />
-              <span className="truncate">{caseFile.courtLocation || 'District Court'}</span>
+              <span className="truncate">{caseFile.courtLocation || caseFile.court || 'Court'}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-neutral-300">
+            <div className="flex items-center gap-1.5 text-sub">
               <Calendar size={14} className="text-amber-400 shrink-0" />
-              <span className="truncate font-mono">Next: {caseFile.nextHearingDate || 'TBD'}</span>
+              <span className="truncate font-mono">
+                {t('Next', 'अगली', 'पुढील')}: {caseFile.nextHearingDate || t('TBD', 'निर्धारित नहीं', 'ठरवायचे आहे')}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5 text-neutral-300">
+            <div className="flex items-center gap-1.5 text-sub">
               <Scale size={14} className="text-amber-400 shrink-0" />
-              <span className="truncate">{caseFile.stage || 'Hearing Scheduled'}</span>
+              <span className="truncate">{caseFile.stage || t('Hearing Scheduled', 'सुनवाई निर्धारित', 'सुनावणी नियोजित')}</span>
             </div>
           </div>
         </div>
@@ -178,25 +199,25 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         value={activeTab}
         onChange={setActiveTab}
         items={[
-          { id: 'overview', label: language === 'hi' ? 'सिंहावलोकन' : 'Overview' },
-          { id: 'hearings', label: language === 'hi' ? 'सुनवाई' : 'Hearings', badge: caseHearings.length },
-          { id: 'documents', label: language === 'hi' ? 'दस्तावेज' : 'Documents', badge: 4 },
-          { id: 'fees', label: language === 'hi' ? 'शुल्क व बिल' : 'Fees', badge: caseInvoices.length },
-          { id: 'notes', label: language === 'hi' ? 'नोट्स' : 'Notes' },
+          { id: 'overview', label: t('Overview', 'सिंहावलोकन', 'आढावा') },
+          { id: 'hearings', label: t('Hearings', 'सुनवाई', 'सुनावणी'), badge: caseHearings.length },
+          { id: 'documents', label: t('Documents', 'दस्तावेज', 'कागदपत्रे'), badge: pendingDocsCount || undefined },
+          { id: 'fees', label: t('Fees', 'शुल्क व बिल', 'फी व बिले'), badge: caseInvoices.length },
+          { id: 'notes', label: t('Notes', 'नोट्स', 'टिपा') },
         ]}
       />
 
-      {/* ── Tab 1: Overview ── */}
+      {/* ── Tab 1: Overview (O1: ZERO buttons here, clean info only) ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-in fade-in">
-          {/* Stage Progression Stepper */}
+          {/* Stage Progression Stepper: Horizontal Scrolling Strip (O5-1, O5-2) */}
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
-                {language === 'hi' ? 'न्यायिक कार्यवाही का चरण' : 'Procedural Stage Progression'}
+                {t('Procedural Stage Progression', 'न्यायिक कार्यवाही का चरण', 'न्यायालयीन प्रक्रियेचे टप्पे')}
               </h3>
               <span className="text-xs font-mono font-bold text-amber-300">
-                Step {safeStageIdx + 1} of {stages.length}
+                {t('Stage', 'चरण', 'टप्पा')} {safeStageIdx + 1} / {stages.length}
               </span>
             </div>
 
@@ -204,19 +225,20 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
             <div className="w-full bg-white/[0.08] h-2 rounded-full overflow-hidden mb-4">
               <div
                 className="bg-amber-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${((safeStageIdx + 1) / stages.length) * 100}%` }}
+                style={{ width: `${((safeStageIdx + 1) / Math.max(stages.length, 1)) * 100}%` }}
               />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {stages.slice(0, 4).map((s, idx) => {
+            {/* Horizontally scrolling stages strip showing ALL stages */}
+            <div className="flex overflow-x-auto no-scrollbar gap-2 pb-2">
+              {stages.map((s, idx) => {
                 const isPassed = idx < safeStageIdx;
                 const isCurrent = idx === safeStageIdx;
 
                 return (
                   <div
                     key={s.id}
-                    className={`p-2.5 rounded-2xl border text-xs ${
+                    className={`min-w-[120px] max-w-[160px] flex-shrink-0 p-2.5 rounded-2xl border text-xs ${
                       isCurrent
                         ? 'bg-amber-400/10 border-amber-400/40 text-amber-300'
                         : isPassed
@@ -226,8 +248,8 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
                   >
                     <div className="flex items-center gap-1.5 font-bold mb-1">
                       {isPassed && <CheckCircle2 size={12} />}
-                      {isCurrent && <Clock size={12} className="animate-spin" />}
-                      <span>{s.name}</span>
+                      {isCurrent && <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+                      <span className="truncate">{s.name}</span>
                     </div>
                     <p className="text-[11px] text-neutral-400 line-clamp-1">{s.description}</p>
                   </div>
@@ -240,7 +262,7 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
           {caseFile.actSections && caseFile.actSections.length > 0 && (
             <Card>
               <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300 mb-2">
-                {language === 'hi' ? 'लागू कानूनी धाराएं एवं अधिनियम' : 'Applicable Sections & Statutes'}
+                {t('Applicable Sections & Statutes', 'लागू कानूनी धाराएं एवं अधिनियम', 'लागू कायदेशीर कलमे व कायदे')}
               </h3>
               <div className="flex flex-wrap gap-1.5">
                 {caseFile.actSections.map(sec => (
@@ -254,78 +276,34 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
               </div>
             </Card>
           )}
-
-          {/* Quick Actions Card */}
-          <Card className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h4 className="text-xs font-bold text-white">
-                {language === 'hi' ? 'अगली सुनवाई निर्धारित करें या आदेश दर्ज करें' : 'Court Hearing Operations'}
-              </h4>
-              <p className="text-xs text-neutral-400 mt-0.5">
-                Fast-track order notes, adjournments, and cause list scheduling.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Plus size={13} />}
-                onClick={() => setShowAddHearing(true)}
-              >
-                Add Hearing
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Gavel size={13} />}
-                onClick={() => {
-                  const latest = caseHearings[0] || {
-                    id: 'temp',
-                    caseNumber: caseFile.caseNumber,
-                    clientName: caseFile.clientName,
-                    courtName: caseFile.courtLocation || 'District Court',
-                    courtRoom: 'Court Room 04',
-                    stage: caseFile.stage as any,
-                  };
-                  setActiveLogOrderHearing(latest as any);
-                }}
-              >
-                Log Order
-              </Button>
-            </div>
-          </Card>
         </div>
       )}
 
-      {/* ── Tab 2: Hearings ── */}
+      {/* ── Tab 2: Hearings (O1: Header has the ONLY Add Hearing CTA; O3: min-w-0 + shrink-0) ── */}
       {activeTab === 'hearings' && (
         <div className="space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
-              {language === 'hi' ? 'सुनवाई इतिहास व आगामी तारीखें' : 'Hearing History & Listings'}
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+              {t('Hearing History & Listings', 'सुनवाई इतिहास व आगामी तारीखें', 'सुनावणी इतिहास व आगामी तारखा')}
             </h3>
             <Button
               variant="primary"
               size="sm"
+              className="shrink-0"
               icon={<Plus size={13} />}
               onClick={() => setShowAddHearing(true)}
             >
-              Add Hearing
+              {t('Add Hearing', 'सुनवाई जोड़ें', 'सुनावणी जोडा')}
             </Button>
           </div>
 
           {caseHearings.length === 0 ? (
             <Card className="text-center p-8 text-neutral-400 text-xs">
               <Calendar size={24} className="mx-auto mb-2 text-neutral-500" />
-              <p>No hearings listed for this case yet.</p>
-              <Button
-                variant="primary"
-                size="sm"
-                className="mt-3 mx-auto"
-                onClick={() => setShowAddHearing(true)}
-              >
-                Schedule First Hearing
-              </Button>
+              <p>{t('No hearings listed for this case yet.', 'इस केस के लिए कोई सुनवाई सूचीबद्ध नहीं है।', 'या खटल्यासाठी अद्याप कोणतीही सुनावणी नाही.')}</p>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                {t('Use the Add Hearing button above to schedule.', 'ऊपर दिए गए बटन से नई सुनवाई जोड़ें।', 'सुनावणी जोडण्यासाठी वरील बटण वापरा.')}
+              </p>
             </Card>
           ) : (
             caseHearings.map(hearing => (
@@ -334,86 +312,112 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
                 hearing={hearing}
                 language={language}
                 onLogOrder={h => setActiveLogOrderHearing(h)}
-                onMessageClient={onMessageClient}
               />
             ))
           )}
         </div>
       )}
 
-      {/* ── Tab 3: Documents ── */}
+      {/* ── Tab 3: Documents (O4 & F13: Real documents prop, no fake list) ── */}
       {activeTab === 'documents' && (
         <div className="space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
-                {language === 'hi' ? 'केस दस्तावेज एवं साक्ष्य' : 'Dossier Vault & Evidentiary Documents'}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 truncate">
+              <h3 className="truncate text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+                {t('Dossier Vault & Evidentiary Documents', 'केस दस्तावेज एवं साक्ष्य', 'खटल्याची कागदपत्रे व पुरावे')}
               </h3>
-              <p className="text-[11px] text-neutral-400">3 of 5 required documents verified</p>
+              <p className="text-xs text-neutral-400 truncate">
+                {caseDocs.length > 0
+                  ? `${verifiedDocsCount} ${t('of', 'में से', 'पैकी')} ${caseDocs.length} ${t('verified', 'सत्यापित', 'सत्यापित')}`
+                  : t('No documents uploaded yet', 'कोई दस्तावेज अपलोड नहीं', 'अद्याप कोणतेही कागदपत्र नाही')}
+              </p>
             </div>
-            <Button variant="secondary" size="sm" icon={<UploadCloud size={14} />}>
-              Upload Doc
-            </Button>
+            <label className="shrink-0 cursor-pointer">
+              <input
+                type="file"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file && onUploadDocument) {
+                    onUploadDocument(caseFile.caseNumber, file);
+                  }
+                }}
+              />
+              <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.12] text-white transition border border-white/[0.1]">
+                <UploadCloud size={14} />
+                <span>{t('Upload Doc', 'दस्तावेज जोड़ें', 'कागदपत्र जोडा')}</span>
+              </span>
+            </label>
           </div>
 
-          <div className="space-y-2">
-            {[
-              { title: 'Certified Copy of Impugned Order / FIR', status: 'verified', size: '2.4 MB' },
-              { title: 'Vakalatnama (Duly Signed by Client & Advocate)', status: 'verified', size: '1.1 MB' },
-              { title: 'Affidavit in support of Bail Application', status: 'verified', size: '850 KB' },
-              { title: 'Income & Property Tax Returns for Surety', status: 'pending', size: 'Missing' },
-              { title: 'Bank Account Statement (Last 6 Months)', status: 'pending', size: 'Missing' },
-            ].map(doc => (
-              <Card key={doc.title} className="flex items-center justify-between p-3.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-amber-300 shrink-0">
-                    <FileText size={16} />
+          {caseDocs.length === 0 ? (
+            <Card className="text-center p-8 text-neutral-400 text-xs">
+              <FileText size={24} className="mx-auto mb-2 text-neutral-500" />
+              <p>{t('No documents uploaded for this case yet.', 'इस केस के लिए कोई दस्तावेज अपलोड नहीं किया गया है।', 'या खटल्यासाठी अद्याप कोणतीही कागदपत्रे अपलोड केलेली नाहीत.')}</p>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                {t('Upload filings, orders, and evidence using the button above.', 'ऊपर दिए गए बटन का उपयोग करके याचिका, आदेश या साक्ष्य अपलोड करें।', 'वरील बटण वापरून कागदपत्रे अपलोड करा.')}
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {caseDocs.map(doc => (
+                <Card key={doc.id} className="flex items-center justify-between p-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-amber-300 shrink-0">
+                      <FileText size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">{doc.title || doc.name}</p>
+                      <p className="text-[11px] text-neutral-400">{doc.size || 'Attached Document'}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white truncate">{doc.title}</p>
-                    <p className="text-[11px] text-neutral-400">{doc.size}</p>
-                  </div>
-                </div>
-                <StatusBadge status={doc.status} />
-              </Card>
-            ))}
-          </div>
+                  <StatusBadge status={doc.status || 'pending'} />
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Tab 4: Fees ── */}
+      {/* ── Tab 4: Fees (O5-3 & F14: Total agreed fee from real data, zero fallback) ── */}
       {activeTab === 'fees' && (
         <div className="space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
-              {language === 'hi' ? 'केस बिलिंग व देय राशि' : 'Matter Invoices & Fee Ledger'}
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+              {t('Matter Invoices & Fee Ledger', 'केस बिलिंग व देय राशि', 'खटला बिले व फी लेजर')}
             </h3>
             <Button
               variant="primary"
               size="sm"
+              className="shrink-0"
               icon={<Plus size={13} />}
               onClick={() => onNewInvoice?.(caseFile.caseNumber)}
             >
-              New Invoice
+              {t('New Invoice', 'नया बिल', 'नवीन बिल')}
             </Button>
           </div>
 
           <Card className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-400/10 to-amber-500/5 border-amber-400/20">
             <div>
-              <p className="text-xs text-neutral-400">Total Agreed Fee</p>
+              <p className="text-xs text-neutral-400">{t('Total Agreed Fee', 'कुल सहमत शुल्क', 'एकूण ठरलेली फी')}</p>
               <h3 className="text-lg font-bold font-mono text-amber-300">
-                ₹{((caseFile.totalBilled || 50000)).toLocaleString('en-IN')}
+                ₹{(caseFile.totalBilled || 0).toLocaleString('en-IN')}
               </h3>
+              {!caseFile.totalBilled && (
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  {t('No fee agreed yet — create the first invoice.', 'अभी कोई शुल्क तय नहीं हुआ है — पहला इनवॉइस बनाएं।', 'अद्याप फी ठरलेली नाही — पहिले इनव्हॉइस तयार करा.')}
+                </p>
+              )}
             </div>
             <div className="text-right">
-              <p className="text-xs text-neutral-400">Fee Status</p>
-              <StatusBadge status={caseFile.totalBilled ? 'active' : 'pending'} label="Fee Agreed" />
+              <p className="text-xs text-neutral-400">{t('Fee Status', 'स्थिति', 'स्थिती')}</p>
+              <StatusBadge status={caseFile.totalBilled ? 'active' : 'pending'} label={caseFile.totalBilled ? t('Fee Agreed', 'शुल्क तय', 'फी ठरली') : t('Pending', 'लंबित', 'प्रलंबित')} />
             </div>
           </Card>
 
           {caseInvoices.length === 0 ? (
             <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.08] text-center text-xs text-neutral-400">
-              <p>No itemized invoices generated yet for this matter.</p>
+              <p>{t('No itemized invoices generated yet for this matter.', 'इस केस के लिए अभी कोई इनवॉइस नहीं बना है।', 'या खटल्यासाठी अद्याप कोणतेही इनव्हॉइस तयार केलेले नाही.')}</p>
             </div>
           ) : (
             caseInvoices.map(inv => (
@@ -432,54 +436,57 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         </div>
       )}
 
-      {/* ── Tab 5: Notes ── */}
+      {/* ── Tab 5: Notes (O2: pb-32 avoids FAB overlap) ── */}
       {activeTab === 'notes' && (
         <div className="space-y-3 animate-in fade-in">
           <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
-            {language === 'hi' ? 'गोपनीय वकील टिप्पणियाँ' : 'Private Advocate Case Strategy & Notes'}
+            {t('Private Advocate Case Strategy & Notes', 'गोपनीय वकील टिप्पणियाँ', 'खाजगी वकील रणनीती व टिपा')}
           </h3>
           <textarea
             rows={8}
             value={caseNotes}
             onChange={e => setCaseNotes(e.target.value)}
+            placeholder={t('Enter private strategic case notes...', 'रणनीतिक केस नोट्स यहाँ लिखें...', 'रणनीतिक केस नोट्स येथे लिहा...')}
             className="w-full bg-white/[0.04] border border-white/[0.1] rounded-2xl p-4 text-xs text-neutral-200 leading-relaxed focus:outline-none focus:border-amber-400/50 resize-none font-mono"
           />
           <div className="flex justify-end">
             <Button variant="primary" size="sm">
-              Save Strategy Notes
+              {t('Save Strategy Notes', 'नोट्स सुरक्षित करें', 'टिपा जतन करा')}
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Modals ── */}
+      {/* ── Log Order Sheet ── */}
       {activeLogOrderHearing && (
         <LogOrderSheet
           open={Boolean(activeLogOrderHearing)}
-          onOpenChange={open => !open && setActiveLogOrderHearing(null)}
+          onOpenChange={(isOpen) => { if (!isOpen) setActiveLogOrderHearing(null); }}
           hearingId={activeLogOrderHearing.id}
-          caseNumber={activeLogOrderHearing.caseNumber}
-          clientName={activeLogOrderHearing.clientName}
-          court={`${caseFile.courtLocation || 'Court'}, ${caseFile.court || ''}`}
-          currentStage={caseFile.stage}
+          caseNumber={activeLogOrderHearing.caseNumber || caseFile.caseNumber}
+          clientName={activeLogOrderHearing.clientName || caseFile.clientName}
+          court={activeLogOrderHearing.courtName || caseFile.courtLocation}
+          currentStage={activeLogOrderHearing.stage || caseFile.stage}
           language={language}
           onSave={handleSaveOrder}
         />
       )}
 
+      {/* ── Add Hearing Sheet ── */}
       <HearingFormSheet
         open={showAddHearing}
         onOpenChange={setShowAddHearing}
-        cases={[caseFile]}
         initialData={{
           caseNumber: caseFile.caseNumber,
           clientName: caseFile.clientName,
-          courtName: caseFile.courtLocation || 'District Court',
-          stage: caseFile.stage as any,
+          courtName: caseFile.courtLocation || caseFile.court || 'Court',
         }}
         language={language}
-        onSave={hearing => {
-          if (onAddHearing) onAddHearing(hearing);
+        onSave={(newHearing: Omit<HearingItem, 'id'>) => {
+          if (onAddHearing) {
+            onAddHearing(newHearing);
+          }
+          setShowAddHearing(false);
         }}
       />
     </div>

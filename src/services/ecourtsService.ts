@@ -62,7 +62,7 @@ const STATE_CODE_MAP: Record<string, string> = {
 // Map of common establishment codes
 const ESTABLISHMENT_MAP: Record<string, string> = {
   'DLHC': 'Delhi High Court',
-  'DLTH': 'Tis Hazari District Court (Central / West Delhi)',
+  'DLTH': 'Delhi Central District Court (Central / West Delhi)',
   'DLPH': 'Patiala House Court (New Delhi District)',
   'DLSK': 'Saket District Court (South / South-East Delhi)',
   'DLKK': 'Karkardooma Court (East / Shahdara / North-East Delhi)',
@@ -335,7 +335,7 @@ export const AUTHENTIC_JUDICIAL_DOCKETS: ECourtsRecord[] = [
     caseNumber: 'CC NI Act 5612/2022',
     year: 2022,
     title: 'Axis Bank Ltd. v. Sunrise Infra Projects & Anr.',
-    court: 'Tis Hazari District Court (Central Delhi)',
+    court: 'Delhi Central District Court',
     state: 'Delhi',
     petitioner: 'Axis Bank Ltd. (Retail Asset Operations)',
     respondent: 'Sunrise Infra Projects Pvt. Ltd. & Managing Director',
@@ -344,10 +344,10 @@ export const AUTHENTIC_JUDICIAL_DOCKETS: ECourtsRecord[] = [
     filingDate: '15-11-2022',
     registrationDate: '18-11-2022',
     stage: 'Disposed / Compromise Compounded',
-    benchJudge: 'Metropolitan Magistrate (Special NI Act Court), Central District, Tis Hazari',
+    benchJudge: 'Metropolitan Magistrate (Special NI Act Court), Central District Courts',
     judgmentOutcome: 'Matter Settled in National Lok Adalat: Full and final compromise of ₹85 Lakhs recorded',
     ecourtsUrl: 'https://services.ecourts.gov.in/ecourtindia_v6/?p=casestatus/index&cnr_no=DLCT010056122022',
-    sourceCitation: 'eCourts District CIS - Tis Hazari Central Courts Complex',
+    sourceCitation: 'eCourts District CIS - Delhi Central District Courts Complex',
   },
   {
     cnrNumber: 'SCIN010010922023',

@@ -124,44 +124,69 @@ export const HelpPage: React.FC<HelpPageProps> = ({
               </button>
             </div>
 
-            {matches.map(m => (
-              <Card key={m.lawyer.uid || m.lawyer.name} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-2xl bg-neutral-800 border border-white/10 flex items-center justify-center font-bold text-amber-300 text-sm shrink-0">
-                    {m.lawyer.name.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-white truncate">{m.lawyer.name}</h4>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold shrink-0">
-                        {m.score}% Match
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      {m.lawyer.experience || 10}+ Years Standing · {m.lawyer.state || 'District & High Court'}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {m.reasons.map((r, i) => (
-                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-white/[0.05] text-neutral-300">
-                          ✓ {r}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="shrink-0 flex items-center gap-2 mt-2 sm:mt-0">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<MessageSquare size={13} />}
-                    onClick={() => onMessageLawyer(m.lawyer, profile.summaryText)}
-                  >
-                    Consult & Message
+            {matches.length === 0 ? (
+              <Card className="p-6 text-center space-y-3">
+                <Users size={28} className="mx-auto text-amber-400" />
+                <h4 className="text-sm font-bold text-main">
+                  {language === 'mr'
+                    ? 'अद्याप कोणतेही सत्यापित वकील ऑनलाइन नाहीत'
+                    : language === 'hi'
+                    ? 'अभी कोई सत्यापित वकील ऑनलाइन नहीं हैं'
+                    : 'No verified advocates online yet'}
+                </h4>
+                <p className="text-xs text-sub max-w-sm mx-auto leading-relaxed">
+                  {language === 'mr'
+                    ? 'आम्ही नवीन वकिलांची पडताळणी करत आहोत. तोपर्यंत थेट डायरेक्टरी पहा किंवा तुमचा खटला खटला कक्षात सुरक्षित साठवा.'
+                    : language === 'hi'
+                    ? 'हम नए अधिवक्ताओं को सत्यापित कर रहे हैं। इस बीच पूरी डायरेक्टरी देखें या अपना केस सुरक्षित सहेजें।'
+                    : 'We are actively verifying new advocates. Meanwhile, browse the directory or save your case to your Case Room.'}
+                </p>
+                <div className="flex justify-center gap-2 pt-2">
+                  <Button variant="secondary" size="sm" onClick={onOpenDirectory}>
+                    {language === 'mr' ? 'डायरेक्टरी पहा' : language === 'hi' ? 'डायरेक्टरी देखें' : 'Browse Directory'}
                   </Button>
                 </div>
               </Card>
-            ))}
+            ) : (
+              matches.map(m => (
+                <Card key={m.lawyer.uid || m.lawyer.name} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-neutral-800 border border-white/10 flex items-center justify-center font-bold text-amber-300 text-sm shrink-0">
+                      {m.lawyer.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-main truncate">{m.lawyer.name}</h4>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold shrink-0">
+                          {m.score}% Match
+                        </span>
+                      </div>
+                      <p className="text-xs text-sub mt-0.5">
+                        {m.lawyer.experience || 10}+ Years Standing · {m.lawyer.state || 'District & High Court'}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {m.reasons.map((r, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-white/[0.05] text-sub">
+                            ✓ {r}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-2 mt-2 sm:mt-0">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<MessageSquare size={13} />}
+                      onClick={() => onMessageLawyer(m.lawyer, profile.summaryText)}
+                    >
+                      {language === 'mr' ? 'सल्ला व संदेश' : language === 'hi' ? 'परामर्श व संदेश' : 'Consult & Message'}
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
           </div>
 
           {/* BCI Safe Legal Disclaimer */}

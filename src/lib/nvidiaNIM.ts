@@ -3,9 +3,7 @@ import OpenAI from 'openai';
 // NVIDIA NIM Integration: GLM-5.3 Model by Z-ai
 // Endpoint: https://integrate.api.nvidia.com/v1/chat/completions
 
-const NVIDIA_API_KEY =
-  import.meta.env.VITE_NVIDIA_API_KEY ||
-  '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';
+const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY || '';
 
 export interface ChatMessagePayload {
   role: 'system' | 'user' | 'assistant';

@@ -178,6 +178,36 @@ export const MorePage: React.FC<MorePageProps> = ({
             </div>
           </div>
 
+          {/* Theme Mode Toggle (Sun/Moon) */}
+          {onToggleTheme && (
+            <div
+              onClick={onToggleTheme}
+              className="flex items-center justify-between p-4 hover:bg-white/[0.04] cursor-pointer transition ios-press"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/10 flex items-center justify-center text-amber-300">
+                  {theme === 'light' ? <Sun size={18} /> : <Moon size={18} />}
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-main">
+                    {language === 'mr' ? 'थीम मोड' : language === 'hi' ? 'थीम मोड' : 'Theme Mode'}
+                  </h4>
+                  <p className="text-[11px] text-sub">
+                    {theme === 'light'
+                      ? (language === 'mr' ? 'लाईट (हलका रंग)' : language === 'hi' ? 'लाइट (उजाला)' : 'Light (Minimal Mono)')
+                      : (language === 'mr' ? 'डार्क (काळा व सोनेरी)' : language === 'hi' ? 'डार्क (काला व सुनहरा)' : 'Dark (Gold & Black)')}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-sub uppercase">
+                  {theme}
+                </span>
+                <ChevronRight size={16} className="text-neutral-500" />
+              </div>
+            </div>
+          )}
+
           {/* Feedback */}
           {onOpenFeedback && (
             <div

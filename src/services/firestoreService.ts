@@ -33,7 +33,8 @@ import {
   CaseProfile,
   CaseTimelineEvent,
   CaseTask,
-  CaseNote
+  CaseNote,
+  AIInquiryBrief
 } from '../types';
 import { searchECourtsByAdvocate } from './ecourtsService';
 
@@ -343,6 +344,32 @@ export async function saveAIBrief(data: Omit<AIBrief, 'id'>): Promise<string> {
   return ref.id;
 }
 
+export function subscribeToLawyerInquiries(
+  lawyerId: string,
+  callback: (inquiries: AIInquiryBrief[]) => void
+) {
+  const q = query(
+    collection(db, 'ai_briefs'),
+    where('lawyerId', '==', lawyerId),
+    where('status', '==', 'new')
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as AIInquiryBrief)));
+    },
+    (err) => console.warn('Inquiries subscription fallback:', err)
+  );
+}
+
+export async function updateInquiryStatus(inquiryId: string, status: 'accepted' | 'declined') {
+  await updateDoc(doc(db, 'ai_briefs', inquiryId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+
 // ─── CASE ROOM: Case-scoped realtime subscriptions & mutations ───────────────
 // The Case Room is the persistent workspace for a single matter. Everything
 // (documents, hearings, invoices, tasks, timeline, notes) is keyed by caseId.
@@ -540,84 +567,7 @@ export async function createCaseFromProfile(params: {
   return caseId;
 }
 
-// ─── Auto-Seeding / Starter Data for New Users ──────────────────────────────
-
-export async function seedInitialAdvocateData(uid: string, advocateName: string) {
-  // 1. Initial Sample Hearing
-  const hearingRef = collection(db, 'hearings');
-  await addDoc(hearingRef, {
-    lawyerId: uid,
-    caseNumber: "CRL.A./882/2026",
-    clientName: "Vikramaditya Singhania",
-    courtName: "Delhi High Court (Court 14)",
-    itemNumber: 4,
-    courtRoom: "Court No. 14",
-    judgeName: "Hon'ble Mr. Justice S. K. Kaul",
-    stage: "Final Arguments",
-    hearingDate: "Today, 10:30 AM",
-    hearingTime: "10:30 AM",
-    purposeEn: "Arguments on Suspension of Sentence & Bail Application",
-    purposeHi: "सजा के निलंबन एवं जमानत याचिका पर अंतिम बहस",
-    previousOrderSummaryEn: "Ld. State counsel directed to file status report. Interim protection extended.",
-    previousOrderSummaryHi: "राज्य अभियोजक को स्थिति रिपोर्ट दाखिल करने का निर्देश दिया गया।",
-    isUrgent: true,
-    createdAt: serverTimestamp(),
-  });
-
-  // 2. Initial Sample Case
-  const casesRef = collection(db, 'cases');
-  await addDoc(casesRef, {
-    lawyerId: uid,
-    caseNumber: "CRL.A./882/2026",
-    clientName: "Vikramaditya Singhania",
-    clientPhone: "+91 98110 44219",
-    opponentName: "State (NCT of Delhi) & Anr.",
-    court: "High Court",
-    courtLocation: "Sher Shah Road, New Delhi",
-    actSections: ["Section 302 IPC", "Section 34 IPC", "Section 25 Arms Act"],
-    caseType: "Criminal Appeal",
-    filingDate: "14 Nov 2025",
-    nextHearingDate: "Today, 10:30 AM",
-    status: "Active",
-    unreadDocuments: 1,
-    pendingChecklistItems: 2,
-    totalBilled: 125000,
-    totalCollected: 75000,
-    createdAt: serverTimestamp(),
-  });
-
-  // 3. Initial Sample Invoice
-  const invoicesRef = collection(db, 'invoices');
-  await addDoc(invoicesRef, {
-    lawyerId: uid,
-    invoiceNumber: "INV-2026-089",
-    caseNumber: "CRL.A./882/2026",
-    clientName: "Vikramaditya Singhania",
-    date: "14 Sep 2026",
-    appearanceFee: 35000,
-    draftingFee: 15000,
-    clerkageAndMisc: 5000,
-    totalAmount: 55000,
-    status: "Pending",
-    createdAt: serverTimestamp(),
-  });
-
-  // 4. Initial Sample Document
-  const docsRef = collection(db, 'documents');
-  await addDoc(docsRef, {
-    lawyerId: uid,
-    caseNumber: "CRL.A./882/2026",
-    titleEn: "Certified Copy of Trial Court Judgment",
-    titleHi: "निचली अदालत के फैसले की प्रमाणित प्रति",
-    requiredFormat: "Certified Copy",
-    status: "Verified",
-    uploadedAt: "12 Sep 2026",
-    fileSize: "8.4 MB",
-    createdAt: serverTimestamp(),
-  });
-}
-
-// ─── Identity Verification Requests (Admin pradhumb1998@gmail.com) ─────────
+// ─── Identity Verification Requests ─────────────────────────────────────────
 
 // Helper: Automated Bar Council Registry Validator & Matcher
 export function verifyBarCouncilAutomated(params: {
@@ -681,26 +631,22 @@ export async function submitVerificationRequest(params: {
 }): Promise<string> {
   const cleanParams = sanitizeFirestoreData(params);
   
-  // Run automated verification matcher
+  // Run automated verification matcher for advisory flag only (P2: kill auto-verify bypass)
   const autoCheck = verifyBarCouncilAutomated(params);
-  const initialStatus: VerificationStatus = autoCheck.autoApproved ? 'verified' : 'pending';
+  const initialStatus: VerificationStatus = 'pending';
   const now = new Date().toISOString();
 
   const reqRef = await addDoc(collection(db, 'verification_requests'), {
     ...cleanParams,
     status: initialStatus,
     submittedAt: now,
-    verifiedAt: autoCheck.autoApproved ? now : undefined,
-    verifiedBy: autoCheck.autoApproved ? 'BCI-Automated-Registry-Matcher' : undefined,
-    notifyAdminEmail: 'pradhumb1998@gmail.com',
+    autoFlag: autoCheck.autoApproved ? 'likely_valid' : 'review',
     auditTrail: [
       {
         decision: initialStatus,
-        adminEmail: autoCheck.autoApproved ? 'bci-automation' : 'system',
+        adminEmail: 'system',
         timestamp: now,
-        reason: autoCheck.autoApproved
-          ? autoCheck.reason
-          : `Automated verification flagged for manual review: ${autoCheck.reason}. Queued for admin pradhumb1998@gmail.com.`,
+        reason: `Verification request submitted. Automated check: ${autoCheck.reason}. Queued for administrative review.`,
       }
     ],
     createdAt: serverTimestamp(),
@@ -714,8 +660,6 @@ export async function submitVerificationRequest(params: {
     idDocumentNumberMasked: params.maskedIdNumber || '',
     barCouncilId: params.barCouncilId || '',
     city: params.city || '',
-    verifiedAt: autoCheck.autoApproved ? now : undefined,
-    verifiedBy: autoCheck.autoApproved ? 'BCI-Automated-Registry-Matcher' : undefined,
     rejectionReason: '',
   };
   if (params.education && params.education.length > 0) {
@@ -724,21 +668,16 @@ export async function submitVerificationRequest(params: {
 
   await updateUserProfile(params.uid, profileUpdates);
 
-  // Write notification
+  // Write notification strictly for admin queue
   await addDoc(collection(db, 'notifications'), {
-    recipientId: autoCheck.autoApproved ? params.uid : 'admin',
+    recipientId: 'admin',
     type: 'verification',
-    title: autoCheck.autoApproved
-      ? 'Verification Approved Automatically!'
-      : `New ${params.role === 'lawyer' ? 'Advocate' : 'Citizen'} Verification Request`,
-    message: autoCheck.autoApproved
-      ? `Your credentials matched Bar Council registry records. Account verified.`
-      : `${params.name} submitted ${params.documentType}. Flagged for manual review: ${autoCheck.reason}`,
+    title: `New ${params.role === 'lawyer' ? 'Advocate' : 'Citizen'} Verification Request`,
+    message: `${params.name} submitted ${params.documentType}. Flagged: ${autoCheck.reason}`,
     senderName: params.name,
     read: false,
     createdAt: now,
-    actionUrl: `/admin/verify/${reqRef.id}`,
-    notifyAdminEmail: 'pradhumb1998@gmail.com',
+    link: `/admin`,
   });
 
   return reqRef.id;
@@ -749,7 +688,7 @@ export async function processVerificationRequest(
   uidOrStatus: string,
   newStatusOrReason?: 'verified' | 'rejected' | 'resubmission_required' | string,
   reason?: string,
-  adminEmail: string = 'pradhumb1998@gmail.com'
+  adminEmail: string = 'admin@nyaayneeti.in'
 ) {
   const reqRef = doc(db, 'verification_requests', requestId);
   const now = new Date().toISOString();
@@ -1093,27 +1032,39 @@ export async function engageAdvocate(params: {
     read: false,
     createdAt: new Date().toISOString(),
     lawyerEmail: params.lawyerEmail || '',
-    notifyAdminEmail: 'pradhumb1998@gmail.com',
+    notifyAdminEmail: 'admin@nyaayneeti.in',
   });
 
   return threadId;
 }
 
-export function subscribeToUserNotifications(userId: string, callback: (notifs: AppNotification[]) => void) {
+export function subscribeToUserNotifications(
+  userId: string,
+  callback: (notifs: AppNotification[]) => void,
+  opts?: { includeAdminChannel?: boolean }
+) {
+  const targets = opts?.includeAdminChannel ? [userId, 'admin'] : [userId];
   const q = query(
     collection(db, 'notifications'),
-    where('recipientId', 'in', [userId, 'admin'])
+    where('recipientId', 'in', targets)
   );
-  return onSnapshot(q, snap => {
-    const list = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    } as AppNotification));
-    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    callback(list);
-  }, err => {
-    console.warn("Notifications subscription fallback:", err);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const list = snap.docs.map(
+        (d) =>
+          ({
+            id: d.id,
+            ...d.data(),
+          } as AppNotification)
+      );
+      list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      callback(list);
+    },
+    (err) => {
+      console.warn('Notifications subscription fallback:', err);
+    }
+  );
 }
 
 export async function markNotificationRead(notifId: string) {

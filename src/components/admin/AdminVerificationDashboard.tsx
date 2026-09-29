@@ -28,6 +28,7 @@ import {
 } from '../../services/firestoreService';
 import { generateAdminEmailContent } from '../../utils/masking';
 import { VerificationRequest, VerificationStatus, Language, CitizenFeedback } from '../../types';
+import { auth } from '../../lib/firebase';
 
 interface AdminVerificationDashboardProps {
   isOpen: boolean;
@@ -98,7 +99,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
 
   const handleApprove = async (req: VerificationRequest) => {
     try {
-      await processVerificationRequest(req.id, req.uid, 'verified', 'Identity and credentials verified by admin', 'pradhumb1998@gmail.com');
+      await processVerificationRequest(req.id, req.uid, 'verified', 'Identity and credentials verified by admin', auth.currentUser?.email || 'admin@nyaayneeti.in');
       setToastMessage(`Approved ${req.name} (${req.role})! Profile verified.`);
       loadRequests();
       setTimeout(() => setToastMessage(null), 3000);
@@ -114,7 +115,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
     const reason = reasonInput.trim() || (action === 'resubmit' ? 'Please provide a clearer copy of your document.' : 'Identity credentials could not be verified.');
 
     try {
-      await processVerificationRequest(request.id, request.uid, status, reason, 'pradhumb1998@gmail.com');
+      await processVerificationRequest(request.id, request.uid, status, reason, auth.currentUser?.email || 'admin@nyaayneeti.in');
       setActiveReasonModal(null);
       setReasonInput('');
       setToastMessage(`Marked ${request.name} as ${status}!`);
@@ -134,7 +135,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
       barCouncilId: req.barCouncilId,
       requestId: req.id,
     });
-    window.open(`mailto:pradhumb1998@gmail.com?subject=${subject}&body=${body}`, '_blank');
+    window.open(`mailto:admin@nyaayneeti.in?subject=${subject}&body=${body}`, '_blank');
   };
 
   // Filter requests
@@ -167,7 +168,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white tracking-tight">Admin Verification Console</h3>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono">
-                  pradhumb1998@gmail.com
+                  Administrator
                 </span>
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
@@ -464,7 +465,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
                   <button
                     onClick={() => handleOpenEmailClient(req)}
                     className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-neutral-300 ios-press"
-                    title="Send Email Alert to pradhumb1998@gmail.com"
+                    title="Send Email Alert to Administrator"
                   >
                     <Mail size={14} />
                   </button>
@@ -552,7 +553,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
               </div>
 
               <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-400">
-                <span>Verified administrator view (pradhumb1998@gmail.com)</span>
+                <span>Verified administrator view</span>
                 <button
                   onClick={() => setSelectedDocPhotoForModal(null)}
                   className="px-3 py-1.5 rounded-xl bg-white text-black font-semibold text-xs ios-press"
