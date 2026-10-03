@@ -7,7 +7,7 @@ import {
   signOut,
   User
 } from '../lib/firebase';
-import { getUserProfile, getUserProfileByEmail, createUserProfile, UserProfile } from '../services/firestoreService';
+import { getUserProfile, getUserProfileByEmail, createUserProfile, purgeAllCitizenData, UserProfile } from '../services/firestoreService';
 import { DEMO_ACCOUNTS } from '../config/demoAccounts';
 
 interface AuthContextType {
@@ -19,6 +19,7 @@ interface AuthContextType {
   verifyOTP: (verificationId: string, otp: string) => Promise<void>;
   loginAsDemo: (type: 'firm' | 'student') => void;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => void;
 }
 
@@ -170,6 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const deleteAccount = async () => {
+    try {
+      await purgeAllCitizenData();
+    } catch (err) {
+      console.warn("Failed to purge citizen data on deleteAccount:", err);
+    }
+    await logout();
+  };
+
   const updateProfile = (data: Partial<UserProfile>) => {
     setProfile(prev => {
       const merged: UserProfile = {
@@ -193,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyOTP,
       loginAsDemo,
       logout,
+      deleteAccount,
       updateProfile,
     }}>
       {children}

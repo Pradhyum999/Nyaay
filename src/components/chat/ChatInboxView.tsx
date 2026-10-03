@@ -397,7 +397,10 @@ export const ChatInboxView: React.FC<ChatInboxViewProps> = ({
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-20px' }}
                 transition={{ type: 'spring', stiffness: 340, damping: 26 }}
-                onClick={() => onSelectThread(thread)}
+                onClick={() => {
+                  setThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unreadCount: 0 } : t));
+                  onSelectThread(thread);
+                }}
                 className={`group relative p-4 rounded-3xl bg-neutral-950/80 hover:bg-neutral-900 border transition ios-press cursor-pointer shadow-lg ${
                   isPinned
                     ? 'border-amber-400/40 bg-gradient-to-r from-amber-500/10 via-neutral-950 to-neutral-950'

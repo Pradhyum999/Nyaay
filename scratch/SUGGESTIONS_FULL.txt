@@ -1,0 +1,197 @@
+
+
+
+
+
+
+
+
+
+
+
+
+   
+NYAAYNEETI
+
+
+
+
+
+
+
+
+
+
+
+Table of Content
+
+1.Language Selection Screen – UI Enhancement2
+2.Bar Council Enrollment ID Validation3
+3.Welcome Page After Login4
+4.Time Selection Using Time Picker4
+5.Court Location and Court Hall Selection5
+6.Time-Based Grid for Task List and Cause List6
+8.New Case Dossier Form – Dropdowns and Suggestions7
+9.Automatic Invoice Generation After Payment8
+10.Enhanced Document and Attachment Upload Options8
+11.Fees Description Dropdown in Invoice Form9
+12.Lawyer Profile & Portfolio Shortcut10
+13.More Menu – Additional Features10
+
+
+
+
+
+
+
+
+Language Selection Screen – UI Enhancement
+Current Behavior:The current language selection screen displays the language options in a card-based layout without a clear selection indicator or dedicated Continue button.
+Expected Behavior:Update the screen to match the proposed design, including:
+Language options with radio-button selection.
+Clear visual indication of the selected language.
+A dedicated “Continue” button at the bottom.
+Improved spacing, alignment, and overall visual consistency.
+Screenshot:
+
+
+Bar Council Enrollment ID Validation
+Current Behavior:Currently, there is no proper format validation for the Bar Council Enrollment ID. Users can enter an incorrect or invalid format and proceed to the next step.
+Expected Behavior:
+The system should enforce the defined Bar Council Enrollment ID format.
+If the entered ID does not match the required format, an appropriate validation error message should be displayed.
+The user should not be allowed to proceed until a valid Enrollment ID is entered.
+
+
+
+
+Screenshot:
+
+
+Welcome Page After Login
+Expected Behavior:Once the user successfully completes all login steps, the application should display a dedicated Welcome Page before navigating to the main application.
+The Welcome Page should:
+Confirm that the login/setup process has been completed successfully.
+Display a brief welcome message to the user.
+Provide a clear Continue/Get Started option to proceed to the application.
+Screenshot:
+
+
+Time Selection Using Time Picker
+Current Behavior:Currently, users have to manually enter the time in fields where time is required. This can be inconvenient and may lead to incorrect or inconsistent time formats.
+Expected Behavior:A time picker/clock selector should be provided wherever the user needs to enter a time. Users should be able to select the required hour and minutes directly from the time picker instead of entering the time manually.
+Screenshot:
+
+
+Court Location and Court Hall Selection
+Current Behavior:Currently, users have to manually enter the Court Complex/Location and Court Room/Hall number.
+Expected Behavior:
+Court Complex/Location – Searchable Dropdown
+The Court Complex/Location field should provide suggestions as the user starts typing.
+Suggestions should be displayed based on the entered text.
+Court Room/Hall – Location-Based Dropdown
+The Court Room/Hall field should be a dropdown rather than a manually entered field.
+The available court halls should be dynamically populated based on the selected Court Complex/Location.
+The number and names of available halls should be configurable based on the selected court location.
+
+
+
+
+
+Screenshot:
+
+
+Time-Based Grid for Task List and Cause List
+Expected Behavior:A time-based grid/calendar view should be provided to display both the Task List and Cause List in a single view.
+The grid should be organized chronologically based on the scheduled time.
+Separate buttons such as “Add New Task” and “Add Cause List” should be available within the view.
+When a new task or cause list item is added, it should automatically appear in the grid according to its scheduled date and time.
+Different colors should be used for Task List and Cause List entries to clearly distinguish between the two.
+Screenshot:
+
+
+
+Case and Hearing Details Edit Functionality
+Expected Behavior:The system should provide Edit functionality for existing Case and Hearing details so that users can update information without creating a new entry.
+Users should be able to open/select an existing case or hearing and edit its details.
+Any changes should update the existing record rather than creating a duplicate entry.
+The system should retain the updated information consistently across all relevant sections.
+Appropriate Save and Cancel options should be provided when editing.
+Screenshot:
+
+
+New Case Dossier Form – Dropdowns and Suggestions
+Expected Behavior:The New Case Creation – Dossier Form should be enhanced to reduce manual data entry and ensure consistent case information.
+Matter Classification
+Add a dropdown field containing all applicable/predefined matter classifications.
+Initial Stage
+Provide a dropdown option for the Initial Stage field with all applicable/predefined stages.
+
+Court Complex/Location
+The Court Complex field should provide suggestions based on the text entered by the user.
+Acts and Sections
+The Acts and Sections fields should provide searchable dropdown suggestions as the user types.
+Case Category/Priority
+Add a new Case Category/Priority field in the New Case form.
+Suggested options:
+Urgent
+Normal
+Based on the selected category, the case should automatically appear in the corresponding section/queue.
+An Urgent case should continue to appear in the Active Cases listing as well as the Urgent section.
+
+Automatic Invoice Generation After Payment
+Expected Behavior:Once a payment is successfully marked as “Paid”, the system should automatically generate an invoice for the client.
+The invoice should:
+Be generated against the relevant client and case/matter.
+Include payment details such as amount, payment date, payment status, and transaction/reference number, where applicable.
+Have a unique invoice number.
+Be available for the user to view, download, and share with the client.
+Maintain the invoice in the relevant payment/transaction history for future reference.
+
+Enhanced Document and Attachment Upload Options
+Expected Behavior:The Document Upload/Attachment section should provide a “+” (Add) button with multiple sharing options, similar to the functionality available in WhatsApp.
+The “+” button can include options such as:
+Document/Attachment – Upload or attach documents and files.
+Location – Share the user's current location.
+Contact – Select and share a contact.
+Camera – Open the device camera to capture and share a picture.
+Gallery – Select and share an existing picture from the device gallery.
+A Camera icon can also be provided for quick access to the camera/gallery for sharing images.
+Screenshot:
+
+
+Fees Description Dropdown in Invoice Form
+Expected Behavior:In the New Invoice Generation form, the Fees Description field should be provided as a dropdown list instead of requiring manual entry. The dropdown should contain all predefined and applicable fee descriptions.
+Screenshot:
+
+Lawyer Profile & Portfolio Shortcut
+Expected Behavior:A profile shortcut should be available in the top-left corner of the application for quick access to the lawyer’s professional profile and portfolio.
+The profile section should have a clean, modern, and professional design and present the lawyer as a comprehensive digital professional portfolio rather than simply displaying basic account settings.
+
+More Menu – Additional Features
+Expected Behavior:The More menu should provide access to additional features and utilities required by lawyers. The menu should be organized clearly so users can easily find and access each feature.
+The following options should be included:
+Skill Assessment
+Provide an MCQ-based assessment/quiz for advocates and lawyers.
+Lawyers should be able to attempt assessments and view their results.
+Discussion Forum
+Provide a forum where lawyers can post legal/professional queries, share doubts, and participate in discussions with other lawyers.
+Peer Referral
+Allow lawyers to refer other lawyers to clients.
+Lawyers should also be able to refer clients to other lawyers, where applicable.
+Global Search
+Provide a global search option to search across relevant sections, cases, clients, documents, messages, and other available records.
+Video Conferencing
+Provide access to video conferencing for conducting online meetings or consultations.
+Settings
+The Settings section should include:
+Theme – Light/Dark or available themes
+Language
+Feedback
+Sign Out
+Delete Account and Data
+Screenshot:
+
+
+
+

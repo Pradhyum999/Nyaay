@@ -24,11 +24,11 @@ export const SuccessStep: React.FC<SuccessStepProps> = ({
   }, [onFinish]);
 
   const getGreetingName = () => {
-    if (!userName || !userName.trim()) return 'there';
+    if (!userName || !userName.trim()) return role === 'lawyer' ? 'Advocate' : 'there';
     const trimmed = userName.trim();
-    if (trimmed.startsWith('Adv.')) {
-      const parts = trimmed.split(' ').filter(Boolean);
-      return parts.length >= 2 ? `Adv. ${parts[1]}` : trimmed;
+    if (role === 'lawyer') {
+      const clean = trimmed.replace(/^adv\.?\s*/i, '').replace(/^advocate\s+/i, '').trim();
+      return `Adv. ${clean || 'Advocate'}`;
     }
     return trimmed.split(' ')[0] || 'there';
   };

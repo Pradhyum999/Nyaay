@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../../design/ui/Button';
 import { Language } from '../../types';
-import { Gavel, Loader2, Info } from 'lucide-react';
+import { Gavel, Loader2, Info, AlertCircle } from 'lucide-react';
 
 interface AdvocateProfileStepProps {
   language: Language;
@@ -30,6 +30,19 @@ export const formatAdvocateName = (raw: string): string => {
   return `Adv. ${trimmed}`;
 };
 
+/**
+ * Validate Indian Bar Council Enrollment ID format.
+ * Accepts formats like MAH/1234/2018, MAH-1234-2018, D/567/2020, KAR/999/2021.
+ * Standard format: 1-4 letter state code, numeric serial number, and 4-digit year.
+ */
+export const validateBarCouncilId = (raw: string): boolean => {
+  if (!raw) return false;
+  const cleaned = raw.trim().toUpperCase().replace(/[\s_]+/g, '/').replace(/-/g, '/');
+  // Format: [STATE]/[NUMBER]/[YEAR] e.g. MAH/1234/2018 or D/1234/2018
+  const regex = /^[A-Z]{1,4}\/\d{1,7}\/\d{4}$/;
+  return regex.test(cleaned);
+};
+
 export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
   language,
   initialName = '',
@@ -45,6 +58,7 @@ export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
   });
   const [state, setState] = useState('Maharashtra');
   const [barCouncilId, setBarCouncilId] = useState('');
+  const [touchedBarId, setTouchedBarId] = useState(false);
 
   // Normalize Bar Council ID on submission (e.g. "mah 1234 2018" -> "MAH/1234/2018")
   const normaliseBarId = (raw: string) => {
@@ -54,20 +68,25 @@ export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
       .replace(/[\s\-_]+/g, '/');
   };
 
+  const isBarIdValid = validateBarCouncilId(barCouncilId);
+  const bareName = name.replace(/^adv\.?\s*/i, '').replace(/^advocate\s+/i, '').trim();
+  const isValid = bareName.length >= 2 && isBarIdValid;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouchedBarId(true);
+    if (!isBarIdValid) return;
+
     const finalName = formatAdvocateName(name);
     const bare = finalName.replace(/^Adv\.\s*/i, '').trim();
-    if (bare.length < 2 || !barCouncilId.trim() || loading) return;
+    if (bare.length < 2 || loading) return;
+
     await onSaveProfile({
       name: finalName,
       state,
       barCouncilId: normaliseBarId(barCouncilId),
     });
   };
-
-  const bareName = name.replace(/^adv\.?\s*/i, '').replace(/^advocate\s+/i, '').trim();
-  const isValid = bareName.length >= 2 && barCouncilId.trim().length >= 3;
 
   return (
     <div className="space-y-5 animate-in fade-in">
@@ -133,20 +152,38 @@ export const AdvocateProfileStep: React.FC<AdvocateProfileStepProps> = ({
             type="text"
             required
             value={barCouncilId}
+            onBlur={() => setTouchedBarId(true)}
             onChange={e => setBarCouncilId(e.target.value)}
-            placeholder="MAH/1234/2018"
-            className="w-full h-12 px-3.5 rounded-2xl bg-white/[0.05] border border-white/[0.1] text-main text-sm sm:text-base font-mono focus:border-amber-400 outline-none"
+            placeholder="MAH/1234/2018 or MAH-1234-2018"
+            className={`w-full h-12 px-3.5 rounded-2xl bg-white/[0.05] border text-main text-sm sm:text-base font-mono outline-none transition-colors ${
+              touchedBarId && barCouncilId && !isBarIdValid
+                ? 'border-red-400/80 focus:border-red-400'
+                : 'border-white/[0.1] focus:border-amber-400'
+            }`}
           />
-          <p className="text-[11px] text-faint mt-1 flex items-start gap-1">
-            <Info size={12} className="shrink-0 mt-0.5" />
-            <span>
-              {language === 'mr'
-                ? 'सनद किंवा नोंदणी प्रमाणपत्र तुम्ही नंतर प्रोफाइलमधून कधीही अपलोड करू शकता.'
-                : language === 'hi'
-                ? 'सनद या नामांकन प्रमाण आप बाद में प्रोफ़ाइल से भी अपलोड कर सकते हैं।'
-                : 'You can upload your Sanad/enrolment certificate later from More → Profile.'}
-            </span>
-          </p>
+          {touchedBarId && barCouncilId && !isBarIdValid ? (
+            <p className="text-[11px] text-red-400 mt-1 flex items-center gap-1">
+              <AlertCircle size={12} className="shrink-0" />
+              <span>
+                {language === 'mr'
+                  ? 'अवैध बार आयडी स्वरूप. उदाहरण: MAH/1234/2018 किंवा MAH-1234-2018'
+                  : language === 'hi'
+                  ? 'अमान्य बार आईडी प्रारूप। उदाहरण: MAH/1234/2018 या MAH-1234-2018'
+                  : 'Invalid format. Use Bar Council format: MAH/1234/2018 or MAH-1234-2018'}
+              </span>
+            </p>
+          ) : (
+            <p className="text-[11px] text-faint mt-1 flex items-start gap-1">
+              <Info size={12} className="shrink-0 mt-0.5" />
+              <span>
+                {language === 'mr'
+                  ? 'उदा. MAH/1234/2018. सनद प्रमाणपत्र तुम्ही नंतरही अपलोड करू शकता.'
+                  : language === 'hi'
+                  ? 'उदा. MAH/1234/2018. सनद प्रमाणपत्र आप बाद में भी अपलोड कर सकते हैं।'
+                  : 'E.g., MAH/1234/2018. Enrolment ID validation ensures verified advocate identity.'}
+              </span>
+            </p>
+          )}
         </div>
 
         <div className="pt-2">

@@ -340,94 +340,396 @@
   animation: sweep 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
-/* ── Light theme: "Minimal Mono" (reference image) ─────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* LUXURY DUAL-TONE LIGHT THEME (Faithfully Inspired by Reference Design)      */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 [data-theme="light"] {
-  /* surfaces */
-  --bg-main:        #F2F3F7;  /* page canvas (image's pale gray) */
-  --bg-surface:     #FFFFFF;  /* cards, sheets, tab bar */
-  --bg-elevated:    #F7F7FB;  /* inset areas: week strip, timeline bg */
-  --bg-card:        #FFFFFF;  /* Card default = white + soft shadow, not tint */
-  --bg-card-hover:  #FAFAFD;
-  --bg-inset:       rgba(18, 19, 26, 0.045); /* tappable chips/rows */
+  /* Surfaces */
+  --bg-main:        #F4F5F7;  /* Soft modern warm off-white canvas */
+  --bg-surface:     #FFFFFF;  /* Crisp pure white floating cards */
+  --bg-elevated:    #FFFFFF;  /* Inset / elevated areas */
+  --bg-card:        #FFFFFF;  /* Solid pure white card */
+  --bg-card-hover:  #F9FAFB;
+  --bg-inset:       #F3F4F6;  /* Tappable chips / rows */
 
-  /* ink & text (monochrome) */
-  --text-primary:   #101116;  /* near-black headings */
-  --text-secondary: #6B7080;  /* gray descriptions (image's desc gray) */
-  --text-tertiary:  #9BA0AE;  /* timestamps, placeholders */
+  /* Text & Ink Hierarchy */
+  --text-primary:   #111827;  /* Rich ink black for bold headings */
+  --text-secondary: #4B5563;  /* Crisp slate gray for body & subtitles */
+  --text-tertiary:  #94A3B8;  /* Metadata, timestamps, placeholders */
 
-  /* ink accent — replaces gold as THE primary action colour in light mode */
-  --accent-primary:   #131419;        /* buttons, FAB, selected chips */
-  --accent-primary-fg:#FFFFFF;        /* icon/label on ink surfaces */
-  --accent-gold:      #131419;        /* remap brand-gold usages to ink (mono) */
-  --accent-gold-dim:  #3A3C46;
-  --accent-gold-glow: rgba(19, 20, 25, 0.12);
+  /* Primary Brand Accent */
+  --accent-primary:   #111827;
+  --accent-primary-fg:#FFFFFF;
+  --accent-gold:      #F5C563;
+  --accent-gold-dim:  #D97706;
+  --accent-gold-glow: rgba(245, 197, 99, 0.25);
 
-  /* inverse feature card (the image's black cards) */
-  --feature-bg:     #17181D;
-  --feature-fg:     #FFFFFF;
-  --feature-muted:  rgba(255,255,255,0.62);
+  /* Borders & Shadows */
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-light:   rgba(0, 0, 0, 0.12);
+  --border-rim:     rgba(0, 0, 0, 0.08);
+  --shadow-card:    0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  --shadow-feature: 0 16px 36px -8px rgba(0, 0, 0, 0.28);
+  --radius-card:    1.5rem;   /* 24px cards matching reference design */
+  --radius-feature: 1.75rem;  /* 28px hero cards */
 
-  /* borders & shadows */
-  --border-subtle:  rgba(16, 17, 22, 0.07);
-  --border-light:   rgba(16, 17, 22, 0.14);
-  --border-rim:     rgba(16, 17, 22, 0.10);
-  --shadow-card:    0 10px 30px rgba(17, 18, 25, 0.07);
-  --shadow-feature: 0 18px 40px rgba(17, 18, 25, 0.22);
-  --radius-card:    1.25rem;          /* 20px base cards */
-  --radius-feature: 1.75rem;          /* 28px hero/feature cards (image) */
-
-  /* semantic colours stay (status ≠ theme) */
   --color-danger:#DC2626; --color-success:#059669; --color-warning:#D97706; --color-info:#2563EB;
 }
-[data-theme="light"] body { background-color: #F2F3F7; color: #101116; }
 
-/* ── Light-mode compatibility remap (Pass 1) ─────────────────────────────────── */
-/* Entries here are tech-debt markers — remove a rule only when its component uses semantic tokens */
-[data-theme="light"] .text-white            { color:#101116 !important; }
-[data-theme="light"] .text-neutral-100,
-[data-theme="light"] .text-neutral-200      { color:#262933 !important; }
-[data-theme="light"] .text-neutral-300      { color:#3A3E4B !important; }
-[data-theme="light"] .text-neutral-400      { color:#6B7080 !important; }
-[data-theme="light"] .text-neutral-500      { color:#9BA0AE !important; }
-[data-theme="light"] .text-amber-200        { color:#3A3C46 !important; }
-[data-theme="light"] .text-amber-300,
-[data-theme="light"] .text-amber-400        { color:#131419 !important; }
+[data-theme="light"] body,
+[data-theme="light"] #root,
+[data-theme="light"] .android-frame,
+[data-theme="light"] main {
+  background-color: #F4F5F7 !important;
+  color: #111827 !important;
+}
 
-/* surfaces */
-[data-theme="light"] .bg-black              { background-color:#F2F3F7 !important; }
-[data-theme="light"] .bg-neutral-950,
-[data-theme="light"] .bg-neutral-900,
-[data-theme="light"] .bg-neutral-800        { background-color:#FFFFFF !important; }
+/* ── Top Bar & Footer Navigation: Solid Pitch Black Framing ────────────────── */
+[data-theme="light"] header,
+[data-theme="light"] .unified-top-bar {
+  background-color: #000000 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+[data-theme="light"] nav[aria-label="Primary Navigation"],
+[data-theme="light"] .unified-tab-bar {
+  background-color: #000000 !important;
+  border-top-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Header & Footer Text/Icon Preservation */
+[data-theme="light"] header .text-white,
+[data-theme="light"] .unified-top-bar .text-white,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .text-white,
+[data-theme="light"] .unified-tab-bar .text-white {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] header .text-neutral-400,
+[data-theme="light"] .unified-top-bar .text-neutral-400,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .text-neutral-400,
+[data-theme="light"] .unified-tab-bar .text-neutral-400 {
+  color: #9CA3AF !important;
+}
+[data-theme="light"] header .text-neutral-300,
+[data-theme="light"] .unified-top-bar .text-neutral-300,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .text-neutral-300,
+[data-theme="light"] .unified-tab-bar .text-neutral-300 {
+  color: #D1D5DB !important;
+}
+[data-theme="light"] header .text-amber-300,
+[data-theme="light"] header .text-amber-400,
+[data-theme="light"] .unified-top-bar .text-amber-300,
+[data-theme="light"] .unified-top-bar .text-amber-400,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .text-amber-300,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .text-amber-400,
+[data-theme="light"] .unified-tab-bar .text-amber-300,
+[data-theme="light"] .unified-tab-bar .text-amber-400 {
+  color: #F5C563 !important;
+}
+[data-theme="light"] header .bg-amber-400,
+[data-theme="light"] nav[aria-label="Primary Navigation"] .bg-amber-400 {
+  background-color: #F5C563 !important;
+  color: #000000 !important;
+}
+[data-theme="light"] header .bg-white\/\[0\.05\],
+[data-theme="light"] header .bg-white\/\[0\.06\],
+[data-theme="light"] nav[aria-label="Primary Navigation"] .bg-white\/\[0\.05\],
+[data-theme="light"] nav[aria-label="Primary Navigation"] .bg-white\/\[0\.06\] {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="light"] header div[class*="bg-neutral-950"] {
+  background-color: #0B0C10 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #FFFFFF !important;
+}
+[data-theme="light"] header div[class*="bg-neutral-950"] .text-white {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] header div[class*="bg-neutral-950"] .text-neutral-400 {
+  color: #9CA3AF !important;
+}
+
+/* ── Hero / Dark Spotlight Cards (Matching Reference: Meeting card & Hero banner) ── */
+[data-theme="light"] .more-hero-card,
+[data-theme="light"] .dark-hero-card,
+[data-theme="light"] .feature-hero-card {
+  background: #111216 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.32) !important;
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .more-hero-card .text-white,
+[data-theme="light"] .dark-hero-card .text-white,
+[data-theme="light"] .feature-hero-card .text-white {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .more-hero-card .text-amber-300,
+[data-theme="light"] .more-hero-card .text-amber-400,
+[data-theme="light"] .dark-hero-card .text-amber-300,
+[data-theme="light"] .feature-hero-card .text-amber-300 {
+  color: #F5C563 !important;
+}
+[data-theme="light"] .more-hero-card .text-neutral-300,
+[data-theme="light"] .dark-hero-card .text-neutral-300,
+[data-theme="light"] .feature-hero-card .text-neutral-300 {
+  color: #D1D5DB !important;
+}
+[data-theme="light"] .more-hero-card .text-neutral-400,
+[data-theme="light"] .dark-hero-card .text-neutral-400,
+[data-theme="light"] .feature-hero-card .text-neutral-400 {
+  color: #9CA3AF !important;
+}
+
+/* ── Floating Pure White Cards (Matching Reference: Icon set, Tasks, Prototype) ── */
+[data-theme="light"] .glass-card,
+[data-theme="light"] .glass-panel:not(header):not(nav),
+[data-theme="light"] div[class*="rounded-3xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not([role="dialog"]),
+[data-theme="light"] div[class*="rounded-2xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not(.today-active-day):not([role="dialog"]) {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.07) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
+  backdrop-filter: none !important;
+}
+
+/* Text Hierarchy Inside White Surfaces */
+[data-theme="light"] main .text-white:not(.more-hero-card *):not(.dark-hero-card *):not(button.bg-neutral-900 *):not(button.bg-black *):not(.today-active-day *):not([role="dialog"] header *),
+[data-theme="light"] [role="dialog"] .text-white:not(button.bg-neutral-900 *):not(button.bg-black *),
+[data-theme="light"] h1.text-white,
+[data-theme="light"] h2.text-white,
+[data-theme="light"] h3.text-white,
+[data-theme="light"] h4.text-white {
+  color: #111827 !important;
+}
+
+[data-theme="light"] main .text-neutral-200:not(.more-hero-card *):not(.dark-hero-card *),
+[data-theme="light"] [role="dialog"] .text-neutral-200 {
+  color: #1F2937 !important;
+}
+
+[data-theme="light"] main .text-neutral-300:not(.more-hero-card *):not(.dark-hero-card *):not(.today-active-day *),
+[data-theme="light"] [role="dialog"] .text-neutral-300 {
+  color: #374151 !important;
+}
+
+[data-theme="light"] main .text-neutral-400:not(.more-hero-card *):not(.dark-hero-card *),
+[data-theme="light"] [role="dialog"] .text-neutral-400 {
+  color: #64748B !important;
+}
+
+[data-theme="light"] main .text-neutral-500:not(.more-hero-card *):not(.dark-hero-card *) {
+  color: #94A3B8 !important;
+}
+
+/* Amber text on light canvas: warm, crisp and readable */
+[data-theme="light"] main .text-amber-300:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *),
+[data-theme="light"] main .text-amber-400:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *) {
+  color: #B45309 !important;
+}
+
+/* ── Status Pills, Badges & Micro-Surfaces ── */
+[data-theme="light"] [class*="bg-amber-400/1"],
+[data-theme="light"] [class*="bg-amber-400/2"],
+[data-theme="light"] [class*="bg-amber-500/1"] {
+  background-color: #FEF3C7 !important;
+  color: #92400E !important;
+  border-color: #FDE68A !important;
+}
+
+[data-theme="light"] [class*="bg-sky-400/1"],
+[data-theme="light"] [class*="bg-sky-400/2"],
+[data-theme="light"] [class*="bg-sky-500/1"] {
+  background-color: #E0F2FE !important;
+  color: #0369A1 !important;
+  border-color: #BAE6FD !important;
+}
+
+[data-theme="light"] [class*="bg-red-500/1"],
+[data-theme="light"] [class*="bg-red-500/2"],
+[data-theme="light"] [class*="bg-rose-500/1"] {
+  background-color: #FEE2E2 !important;
+  color: #B91C1C !important;
+  border-color: #FECACA !important;
+}
+
+[data-theme="light"] [class*="bg-emerald-500/1"],
+[data-theme="light"] [class*="bg-emerald-500/2"] {
+  background-color: #D1FAE5 !important;
+  color: #047857 !important;
+  border-color: #A7F3D0 !important;
+}
+
+[data-theme="light"] [class*="bg-indigo-500/1"] {
+  background-color: #EEF2FF !important;
+  color: #4338CA !important;
+  border-color: #C7D2FE !important;
+}
+
+[data-theme="light"] [class*="bg-cyan-500/1"],
+[data-theme="light"] [class*="bg-cyan-500/2"] {
+  background-color: #ECFEFF !important;
+  color: #0E7490 !important;
+  border-color: #A5F3FC !important;
+}
+
+[data-theme="light"] [class*="bg-teal-500/1"],
+[data-theme="light"] [class*="bg-teal-500/2"] {
+  background-color: #F0FDFA !important;
+  color: #0F766E !important;
+  border-color: #99F6E4 !important;
+}
+
+/* Inset Pills & Subtle Rows */
 [data-theme="light"] .bg-white\/\[0\.02\],
 [data-theme="light"] .bg-white\/\[0\.03\],
 [data-theme="light"] .bg-white\/\[0\.04\],
-[data-theme="light"] .bg-white\/\[0\.05\]   { background-color:rgba(16,17,22,0.04) !important; }
+[data-theme="light"] .bg-white\/\[0\.05\],
 [data-theme="light"] .bg-white\/\[0\.06\],
-[data-theme="light"] .bg-white\/\[0\.08\],
-[data-theme="light"] .bg-white\/10          { background-color:rgba(16,17,22,0.07) !important; }
-[data-theme="light"] .bg-amber-400,
-[data-theme="light"] .bg-amber-500          { background-color:#131419 !important; color:#FFFFFF !important; }
-
-/* borders */
-[data-theme="light"] [class*="border-white"]{ border-color:rgba(16,17,22,0.10) !important; }
-[data-theme="light"] [class*="border-amber"]{ border-color:rgba(16,17,22,0.22) !important; }
-
-/* glass primitives */
-[data-theme="light"] .glass-card,
-[data-theme="light"] .glass-panel {
-  background:#FFFFFF !important;
-  border-color:rgba(16,17,22,0.08) !important;
-  box-shadow:0 10px 30px rgba(17,18,25,0.07) !important;
-  backdrop-filter:none !important;
+[data-theme="light"] .bg-white\/\[0\.08\] {
+  background-color: #F3F4F6 !important;
+  border-color: #E5E7EB !important;
 }
-[data-theme="light"] .glass-header,
-[data-theme="light"] .glass-tabbar {
-  background:rgba(255,255,255,0.82) !important;
-  backdrop-filter:blur(14px) saturate(1.2) !important;
-  border-color:rgba(16,17,22,0.08) !important;
-  color:#101116 !important;
+
+/* ── Form Controls (Inputs, Textarea, Selects) ── */
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border: 1px solid #D1D5DB !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
-[data-theme="light"] [class*="bg-amber-400/1"] { background-color:rgba(16,17,22,0.05) !important; }
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] textarea:focus,
+[data-theme="light"] select:focus {
+  border-color: #111827 !important;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.1) !important;
+}
+
+[data-theme="light"] select option {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+}
+
+/* ── Segmented Control / Filter Track ── */
+[data-theme="light"] div[class*="bg-neutral-900/60"] {
+  background-color: #E5E7EB !important;
+  border-color: #D1D5DB !important;
+}
+
+[data-theme="light"] div[class*="bg-neutral-900/60"] button:not([class*="bg-amber-400"]):not([class*="bg-black"]) {
+  color: #4B5563 !important;
+}
+
+[data-theme="light"] div[class*="bg-neutral-900/60"] button:not([class*="bg-amber-400"]):not([class*="bg-black"]):hover {
+  color: #111827 !important;
+  background-color: #F3F4F6 !important;
+}
+
+/* ── Today Page Timeline & Stepper (Reference Image Right) ── */
+[data-theme="light"] div[class*="before:bg-white/10"]::before {
+  background-color: #E2E8F0 !important;
+}
+
+/* Week Strip Days */
+[data-theme="light"] div[class*="grid-cols-7"] button {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="light"] div[class*="grid-cols-7"] button:not([class*="bg-amber-400"]) span:first-child {
+  color: #64748B !important;
+}
+
+[data-theme="light"] div[class*="grid-cols-7"] button:not([class*="bg-amber-400"]) span:nth-child(2) {
+  color: #111827 !important;
+}
+
+/* Active Week Day (Black Vertical Capsule like Reference Image) */
+[data-theme="light"] div[class*="grid-cols-7"] button[class*="bg-amber-400"] {
+  background-color: #111216 !important;
+  border-color: #111216 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="light"] div[class*="grid-cols-7"] button[class*="bg-amber-400"] span {
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] div[class*="grid-cols-7"] button[class*="bg-amber-400"] .bg-black {
+  background-color: #FFFFFF !important;
+}
+
+/* ── Sheets, Dialogs & Modals ── */
+[data-theme="light"] [role="dialog"],
+[data-theme="light"] div[class*="rounded-t-[32px]"],
+[data-theme="light"] div[class*="max-w-2xl"][class*="bg-neutral-900"] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.22) !important;
+}
+
+[data-theme="light"] [role="dialog"] button[class*="rounded-full"][class*="bg-white"] {
+  background-color: #F3F4F6 !important;
+  color: #374151 !important;
+}
+
+[data-theme="light"] [role="dialog"] button[class*="rounded-full"][class*="bg-white"]:hover {
+  background-color: #E5E7EB !important;
+  color: #111827 !important;
+}
+
+/* ── Primary Action Buttons ── */
+[data-theme="light"] .bg-amber-400 {
+  background-color: #F5C563 !important;
+  color: #000000 !important;
+}
+
+[data-theme="light"] button.bg-amber-400 {
+  background-color: #F5C563 !important;
+  color: #000000 !important;
+  box-shadow: 0 4px 16px rgba(245, 197, 99, 0.35) !important;
+}
+
+[data-theme="light"] button[class*="bg-white/[0.08]"] {
+  background-color: #FFFFFF !important;
+  border-color: #D1D5DB !important;
+  color: #111827 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] button[class*="bg-white/[0.08]"]:hover {
+  background-color: #F9FAFB !important;
+  border-color: #9CA3AF !important;
+}
+
+/* ── Direct Chat View in Light Theme ── */
+[data-theme="light"] .bg-black[class*="overflow-hidden"] {
+  background-color: #F4F5F7 !important;
+}
+
+[data-theme="light"] div[class*="bg-neutral-950/98"] {
+  background-color: #000000 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+[data-theme="light"] div[class*="bg-neutral-950/98"] .text-white {
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] div[class*="bg-neutral-950/98"] .text-neutral-400 {
+  color: #9CA3AF !important;
+}
 
 /* ── Semantic Token Utilities (Tailwind v4) ──────────────────────────────────── */
 @utility text-main     { color: var(--text-primary); }

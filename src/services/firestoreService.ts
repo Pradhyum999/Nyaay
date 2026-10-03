@@ -15,6 +15,7 @@ import {
   setDoc,
   collectionGroup,
   writeBatch,
+  increment,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
@@ -185,6 +186,21 @@ export async function updateHearingRecord(
   });
 }
 
+export async function updateHearingFull(
+  hearingId: string,
+  updatedFields: Partial<HearingItem>
+) {
+  try {
+    const ref = doc(db, 'hearings', hearingId);
+    await updateDoc(ref, {
+      ...updatedFields,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn("updateHearingFull error:", err);
+  }
+}
+
 export function subscribeToHearings(
   userId: string,
   role: 'lawyer' | 'client',
@@ -225,6 +241,24 @@ export async function markInvoiceRecordPaid(invoiceId: string, upiRef: string) {
     upiRef,
     paidAt: serverTimestamp()
   });
+}
+
+export async function updateInvoiceStatus(invoiceId: string, status: 'Paid' | 'Pending' | 'Overdue', upiRef?: string) {
+  const ref = doc(db, 'invoices', invoiceId);
+  const data: any = {
+    status,
+    updatedAt: serverTimestamp()
+  };
+  if (status === 'Paid') {
+    data.paidVia = 'UPI';
+    data.upiRef = upiRef || `UPI/${Date.now().toString().slice(-10)}/NYAAYNEETI`;
+    data.paidAt = serverTimestamp();
+  } else {
+    data.paidVia = null;
+    data.upiRef = null;
+    data.paidAt = null;
+  }
+  await updateDoc(ref, data);
 }
 
 export function subscribeToInvoices(
@@ -840,6 +874,7 @@ export async function createOrGetDirectThread(params: {
   clientPhoto?: string;
   matterSubject: string;
   aiBriefText?: string;
+  caseNumber?: string;
 }): Promise<string> {
   const q = query(
     collection(db, 'threads'),
@@ -848,14 +883,28 @@ export async function createOrGetDirectThread(params: {
   );
   const snap = await getDocs(q);
 
-  if (!snap.empty) {
-    const existingId = snap.docs[0].id;
+  // Match existing thread isolated by caseNumber (Bug 13)
+  const existingDoc = snap.docs.find(d => {
+    const data = d.data();
+    if (params.caseNumber) {
+      return data.caseNumber === params.caseNumber;
+    }
+    return !data.caseNumber;
+  });
+
+  if (existingDoc) {
+    const existingId = existingDoc.id;
     if (params.aiBriefText) {
       await updateDoc(doc(db, 'threads', existingId), {
         aiBriefAttached: true,
         aiBriefText: params.aiBriefText,
         lastMessage: 'AI Legal Intake Brief shared with Advocate.',
         lastMessageAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        lastMessageSenderId: params.clientId,
+        unreadCount: increment(1),
+        lawyerUnreadCount: increment(1),
+        clientUnreadCount: 0,
+        updatedAt: serverTimestamp(),
       });
       await addDoc(collection(db, `threads/${existingId}/messages`), {
         threadId: existingId,
@@ -865,6 +914,7 @@ export async function createOrGetDirectThread(params: {
         text: `📋 AI Legal Brief: ${params.aiBriefText}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         createdAt: serverTimestamp(),
+        read: false,
       });
     }
     return existingId;
@@ -877,9 +927,14 @@ export async function createOrGetDirectThread(params: {
     clientId: params.clientId,
     clientName: params.clientName,
     clientPhoto: params.clientPhoto || '',
+    caseNumber: params.caseNumber || '',
     matterSubject: params.matterSubject,
     lastMessage: params.aiBriefText ? 'AI Legal Brief attached to consultation.' : 'Consultation requested.',
     lastMessageAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    lastMessageSenderId: params.clientId,
+    unreadCount: 1,
+    lawyerUnreadCount: 1,
+    clientUnreadCount: 0,
     aiBriefAttached: !!params.aiBriefText,
     aiBriefText: params.aiBriefText || '',
     status: 'active',
@@ -897,7 +952,26 @@ export async function createOrGetDirectThread(params: {
       : `Hello Adv. ${params.lawyerName}, I would like to consult with you regarding: ${params.matterSubject}.`,
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     createdAt: serverTimestamp(),
+    read: false,
   });
+
+  // Create in-app notification for the advocate
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      recipientId: params.lawyerId,
+      type: 'chat',
+      title: `New Consultation from ${params.clientName}`,
+      message: params.aiBriefText ? 'AI Legal Brief attached to consultation.' : `Consultation requested regarding: ${params.matterSubject}`,
+      senderName: params.clientName,
+      read: false,
+      threadId: threadRef.id,
+      caseNumber: params.caseNumber || '',
+      createdAt: new Date().toISOString(),
+      link: '/inbox',
+    });
+  } catch (err) {
+    console.warn("Failed to create consultation notification:", err);
+  }
 
   return threadRef.id;
 }
@@ -917,6 +991,7 @@ export async function sendDirectMessage(threadId: string, msg: {
   await addDoc(collection(db, `threads/${threadId}/messages`), {
     threadId,
     ...msg,
+    read: false,
     timestamp,
     createdAt: serverTimestamp(),
   });
@@ -925,14 +1000,142 @@ export async function sendDirectMessage(threadId: string, msg: {
     ? (msg.text.length > 80 ? msg.text.slice(0, 80) + '...' : msg.text)
     : (msg.attachmentType === 'image' ? '📷 Photo' : '📎 Document: ' + (msg.attachmentName || 'Attachment'));
 
+  const isLawyerSender = msg.senderRole === 'lawyer';
   await updateDoc(doc(db, 'threads', threadId), {
     lastMessage: lastPreview,
     lastMessageAt: timestamp,
     lastMessageSenderId: msg.senderId,
     hasAttachment: !!msg.hasAttachment,
     attachmentType: msg.attachmentType || null,
+    unreadCount: increment(1),
+    lawyerUnreadCount: isLawyerSender ? 0 : increment(1),
+    clientUnreadCount: isLawyerSender ? increment(1) : 0,
     updatedAt: serverTimestamp(),
   });
+
+  // Create In-App Notification for Recipient (for all messages)
+  try {
+    const threadSnap = await getDoc(doc(db, 'threads', threadId));
+    if (threadSnap.exists()) {
+      const threadData = threadSnap.data();
+      const recipientId = isLawyerSender ? threadData.clientId : threadData.lawyerId;
+      if (recipientId && recipientId !== msg.senderId) {
+        await addDoc(collection(db, 'notifications'), {
+          recipientId,
+          type: 'chat',
+          title: `New message from ${msg.senderName}`,
+          message: lastPreview,
+          senderName: msg.senderName,
+          read: false,
+          threadId,
+          caseNumber: threadData.caseNumber || '',
+          createdAt: new Date().toISOString(),
+          link: '/inbox',
+        });
+      }
+    }
+  } catch (notifErr) {
+    console.warn("Failed to create message notification in Firestore:", notifErr);
+  }
+}
+
+export async function markThreadMessagesRead(
+  threadId: string,
+  readerId: string,
+  readerRole?: 'lawyer' | 'client'
+) {
+  try {
+    const q = query(
+      collection(db, `threads/${threadId}/messages`),
+      where('read', '==', false)
+    );
+    const snap = await getDocs(q);
+    const updates = snap.docs
+      .filter(d => {
+        const data = d.data();
+        if (readerRole && data.senderRole) {
+          return data.senderRole !== readerRole;
+        }
+        return data.senderId !== readerId;
+      })
+      .map(d => updateDoc(d.ref, { read: true, readAt: serverTimestamp() }));
+    await Promise.all(updates);
+
+    // Reset thread unread count in parent thread document
+    const threadRef = doc(db, 'threads', threadId);
+    const resetData: Record<string, any> = {
+      unreadCount: 0,
+      updatedAt: serverTimestamp(),
+    };
+    if (readerRole === 'lawyer') {
+      resetData.lawyerUnreadCount = 0;
+    } else if (readerRole === 'client') {
+      resetData.clientUnreadCount = 0;
+    } else {
+      resetData.lawyerUnreadCount = 0;
+      resetData.clientUnreadCount = 0;
+    }
+    await updateDoc(threadRef, resetData).catch(err => console.warn("Failed to reset thread unread count", err));
+  } catch (err) {
+    console.warn("markThreadMessagesRead error:", err);
+  }
+}
+
+export async function updateCaseNotes(caseNumber: string, notes: string) {
+  try {
+    const q = query(
+      collection(db, 'cases'),
+      where('caseNumber', '==', caseNumber)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      await updateDoc(snap.docs[0].ref, { notes, privateNotes: notes, updatedAt: serverTimestamp() });
+    }
+  } catch (err) {
+    console.warn("updateCaseNotes error:", err);
+  }
+}
+
+export async function updateCaseStatusAndPriority(
+  caseNumber: string,
+  status: 'Active' | 'Closed',
+  priority?: 'Normal' | 'Urgent'
+) {
+  try {
+    const q = query(
+      collection(db, 'cases'),
+      where('caseNumber', '==', caseNumber)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const updateData: any = { status, updatedAt: serverTimestamp() };
+      if (priority) updateData.priority = priority;
+      await updateDoc(snap.docs[0].ref, updateData);
+    }
+  } catch (err) {
+    console.warn("updateCaseStatusAndPriority error:", err);
+  }
+}
+
+export async function updateCaseDetails(
+  caseNumber: string,
+  updatedFields: Partial<any>
+) {
+  try {
+    const q = query(
+      collection(db, 'cases'),
+      where('caseNumber', '==', caseNumber)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      await updateDoc(snap.docs[0].ref, {
+        ...updatedFields,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.warn("updateCaseDetails error:", err);
+  }
 }
 
 export async function transferAIBriefToThread(
@@ -950,6 +1153,7 @@ export async function transferAIBriefToThread(
     text: `⚡ [Transferred AI Consultation Summary]\n${aiBriefText}`,
     timestamp,
     createdAt: serverTimestamp(),
+    read: false,
   });
 
   await updateDoc(doc(db, 'threads', threadId), {
@@ -957,8 +1161,36 @@ export async function transferAIBriefToThread(
     aiBriefText,
     lastMessage: 'AI Case Summary transferred by client.',
     lastMessageAt: timestamp,
+    lastMessageSenderId: clientId,
+    unreadCount: increment(1),
+    lawyerUnreadCount: increment(1),
+    clientUnreadCount: 0,
     updatedAt: serverTimestamp(),
   });
+
+  // Create In-App Notification for Advocate
+  try {
+    const threadSnap = await getDoc(doc(db, 'threads', threadId));
+    if (threadSnap.exists()) {
+      const threadData = threadSnap.data();
+      if (threadData.lawyerId) {
+        await addDoc(collection(db, 'notifications'), {
+          recipientId: threadData.lawyerId,
+          type: 'chat',
+          title: `AI Brief from ${clientName}`,
+          message: 'Client attached AI Legal Consultation Brief.',
+          senderName: clientName,
+          read: false,
+          threadId,
+          caseNumber: threadData.caseNumber || '',
+          createdAt: new Date().toISOString(),
+          link: '/inbox',
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to create transfer notification:", err);
+  }
 }
 
 export function subscribeToThreadMessages(threadId: string, callback: (msgs: DirectMessage[]) => void) {
@@ -988,10 +1220,22 @@ export function subscribeToUserThreads(
     where(field, '==', userId)
   );
   return onSnapshot(q, snap => {
-    const list = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    } as DirectThread));
+    const list = snap.docs.map(d => {
+      const data = d.data() as any;
+      let count = 0;
+      if (role === 'lawyer' && typeof data.lawyerUnreadCount === 'number') {
+        count = data.lawyerUnreadCount;
+      } else if (role === 'client' && typeof data.clientUnreadCount === 'number') {
+        count = data.clientUnreadCount;
+      } else if (data.lastMessageSenderId && data.lastMessageSenderId !== userId) {
+        count = data.unreadCount || 0;
+      }
+      return {
+        id: d.id,
+        ...data,
+        unreadCount: Math.max(0, count),
+      } as DirectThread;
+    });
     
     // Sort most recent first
     list.sort((a: any, b: any) => {
@@ -1058,13 +1302,15 @@ export function subscribeToUserNotifications(
   return onSnapshot(
     q,
     (snap) => {
-      const list = snap.docs.map(
-        (d) =>
-          ({
-            id: d.id,
-            ...d.data(),
-          } as AppNotification)
-      );
+      const list = snap.docs
+        .map(
+          (d) =>
+            ({
+              id: d.id,
+              ...d.data(),
+            } as any)
+        )
+        .filter((n: any) => !n.dismissed) as AppNotification[];
       list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
       callback(list);
     },
@@ -1078,6 +1324,17 @@ export async function markNotificationRead(notifId: string) {
   await updateDoc(doc(db, 'notifications', notifId), {
     read: true,
   });
+}
+
+export async function deleteNotificationRecord(notifId: string) {
+  try {
+    await deleteDoc(doc(db, 'notifications', notifId));
+  } catch {
+    await updateDoc(doc(db, 'notifications', notifId), {
+      dismissed: true,
+      read: true,
+    }).catch(() => {});
+  }
 }
 
 export async function addNotification(

@@ -1,8 +1,7 @@
 import React from 'react';
 import { Card } from '../../design/ui/Card';
 import { Button } from '../../design/ui/Button';
-import { StatusBadge } from '../../design/ui/StatusBadge';
-import { Clock, MapPin, Gavel, ArrowRight, Calendar } from 'lucide-react';
+import { Clock, MapPin, Gavel, ArrowRight, Edit3 } from 'lucide-react';
 import { HearingItem, Language } from '../../types';
 
 interface HearingCardProps {
@@ -10,6 +9,7 @@ interface HearingCardProps {
   language?: Language;
   onLogOrder?: (hearing: HearingItem) => void;
   onOpenCase?: (caseNumber: string) => void;
+  onEditHearing?: (hearing: HearingItem) => void;
   onMessageClient?: (caseNumber: string, clientName: string) => void;
 }
 
@@ -18,6 +18,7 @@ export const HearingCard: React.FC<HearingCardProps> = ({
   language = 'en',
   onLogOrder,
   onOpenCase,
+  onEditHearing,
 }) => {
   const hasOrder = Boolean(hearing.previousOrderSummaryEn || hearing.previousOrderSummaryHi);
 
@@ -30,7 +31,7 @@ export const HearingCard: React.FC<HearingCardProps> = ({
   return (
     <Card className="hover:border-white/[0.14] transition duration-150">
       <div className="flex flex-col gap-3">
-        {/* Top line: Item number & Time + Court Room */}
+        {/* Top line: Item number & Time + Court Room + Edit Button */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {hearing.itemNumber && (
@@ -45,11 +46,24 @@ export const HearingCard: React.FC<HearingCardProps> = ({
               </div>
             )}
           </div>
-          {hearing.courtRoom && (
-            <span className="text-xs font-mono font-medium text-neutral-400 truncate">
-              {hearing.courtRoom}
-            </span>
-          )}
+
+          <div className="flex items-center gap-2">
+            {hearing.courtRoom && (
+              <span className="text-xs font-mono font-medium text-neutral-400 truncate">
+                {hearing.courtRoom}
+              </span>
+            )}
+            {onEditHearing && (
+              <button
+                type="button"
+                onClick={() => onEditHearing(hearing)}
+                className="p-1 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-amber-300 transition"
+                title="Edit Hearing Details"
+              >
+                <Edit3 size={13} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Case Info: Case Number & Parties */}
@@ -78,27 +92,42 @@ export const HearingCard: React.FC<HearingCardProps> = ({
           )}
         </div>
 
-        {/* Action Button: exactly one primary action per card (O1) */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.06]">
-          {!hasOrder && onLogOrder ? (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Gavel size={13} />}
-              onClick={() => onLogOrder(hearing)}
+        {/* Action Button: log order or view case + edit option */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
+          {onEditHearing ? (
+            <button
+              type="button"
+              onClick={() => onEditHearing(hearing)}
+              className="text-xs text-neutral-400 hover:text-white flex items-center gap-1 font-medium transition"
             >
-              {t('Log Order', 'आदेश दर्ज करें', 'आदेश नोंदवा')}
-            </Button>
-          ) : onOpenCase ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onOpenCase(hearing.caseNumber)}
-            >
-              <span>{t('View Case', 'केस देखें', 'केस पहा')}</span>
-              <ArrowRight size={13} />
-            </Button>
-          ) : null}
+              <Edit3 size={12} />
+              <span>{t('Edit', 'संपादित करें', 'संपादन')}</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center gap-2">
+            {!hasOrder && onLogOrder ? (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Gavel size={13} />}
+                onClick={() => onLogOrder(hearing)}
+              >
+                {t('Log Order', 'आदेश दर्ज करें', 'आदेश नोंदवा')}
+              </Button>
+            ) : onOpenCase ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onOpenCase(hearing.caseNumber)}
+              >
+                <span>{t('View Case', 'केस देखें', 'केस पहा')}</span>
+                <ArrowRight size={13} />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </Card>

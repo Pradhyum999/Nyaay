@@ -1,0 +1,162 @@
+                                       
+  
+NYAAYNEETI
+ Table of Content
+1.Navigation Behavior After Sign-In3
+2.Advocate Designation Display During Sign-In3
+3.Form Reset After Submission3
+4.Duplicate Hearing and Case Prevention3
+5.Auto-Generation of Item Number4
+6.Remove Button Outside Mobile View4
+7.Time-Based Cause List and Task List5
+8.Case Tab Option Panel Alignment5
+9.Case Status, Priority and Queue Management6
+10.Hearing Date Display in Case Summary8
+11.Initial Stage Text Duplication8
+12.Notes Section Save Issue9
+13.Message Read Status and Case-Wise Message Separation9
+14.Calling and Video Calling Functionality10
+15.New Inquiry Feature Clarification10
+16.Message Notifications and Unread Message Count11
+17.Dismiss All Notifications Functionality11
+18.Language Change Functionality12
+Navigation Behavior After Sign-In
+Current Behavior:When a user signs out of the application and signs back in, the application opens on the page where the user was last active before signing out.         
+Expected Behavior:Each time a user signs in, the application should redirect them to the Home Page, regardless of the page they were on before signing out.
+Advocate Designation Display During Sign-In
+Current Behavior:While signing in, the advocate’s name is displayed without the “Adv.” designation.
+Expected Behavior:The advocate’s name should be displayed with the “Adv.” prefix during the sign-in process.
+Form Reset After Submission
+Current Behavior:In the Add Hearing and New Case forms, after submitting a form, if the user adds another hearing or case without changing the tab or refreshing the page, the previously entered form details are retained and displayed by default.
+Expected Behavior:After successfully submitting a hearing or case, the form should be reset automatically so that a fresh, blank form is displayed when adding a new hearing or case.
+Duplicate Hearing and Case Prevention
+Current Behavior:
+The Hearing Form allows multiple hearings to be added with the same date and time.
+The Case Hearing Form allows multiple cases to be added with the same case number.
+Expected Behavior:
+The system should not allow more than one hearing to be scheduled for the same date and time.
+The system should not allow duplicate case numbers to be created in the system.
+Before creating or adding a case/hearing, the system should validate the existing records and display an appropriate message if a duplicate is detected.
+Preferred Enhancement:Ideally, the application should integrate with the e-Courts system and fetch/verify the relevant case and hearing details. This would help ensure that case numbers and hearing schedules are accurate and prevent duplicate or conflicting entries.
+Auto-Generation of Item Number
+Current Behavior:The Item Number is currently a field in the Add Hearing form and needs to be entered manually.
+Expected Behavior:The Item Number should be generated automatically by the system based on the hearing date and time.
+The Item Number field should therefore be removed from the Add Hearing form, as the value will be system-generated.
+Remove Button Outside Mobile View
+Current Behavior:A button such as “New Hearing” or “New Case” is displayed at the right corner of the screen. On mobile devices, the button extends beyond the visible screen area and is not properly aligned within the mobile view.
+Expected Behavior:The “New Hearing” / “New Case” button should be removed from this location to ensure the interface remains clean and fully responsive on mobile devices.
+The required actions should instead be accessible through the appropriate in-page controls or navigation options.
+Screenshot:
+Time-Based Cause List and Task List
+Current Behavior:Currently, the Cause List and Task List entries are displayed randomly and are not arranged according to their scheduled time.
+Expected Behavior:
+The Cause List and Task List should be sorted chronologically based on their date and time.
+Entries with earlier timings should appear first, followed by entries scheduled later.
+Ideally, the Cause List and Task List should be combined into a single calendar-style view, where both hearings and tasks are displayed according to their respective date and time.
+The calendar view should provide a clear timeline of all scheduled hearings and tasks, similar to the attached screenshot.
+Screenshot:
+Case Tab Option Panel Alignment
+Current Behavior:The padding and indentation in the Option Panel of the Case tab are not properly aligned. The spacing between the options is inconsistent, resulting in an uneven layout.
+Expected Behavior:The padding, indentation, and spacing within the Option Panel should be corrected to ensure that all options are properly aligned and consistently spaced.
+Screenshot:
+Case Status, Priority and Queue Management
+Current Behavior:
+The Cases tab has sections such as Active, Urgent, and Closed, but it is unclear how the urgency/priority of a case is determined and who has permission to change it.
+When a case is marked as Urgent while creating a new case, it is currently not appearing in the Urgent section.
+A closed case currently shows an option to “Add New Case”, which may result in the same case being added repeatedly.
+Case status and priority do not appear to be consistently reflected across the relevant sections.
+Expected Behavior:
+Case Priority Selection
+The New Case form should include a Priority dropdown.
+Suggested options: Active, Urgent, and Closed — or, preferably, Priority: Normal/Urgent and Status: Active/Closed as separate fields.
+Based on the selected priority, the case should automatically appear in the appropriate queue/section.
+Urgent Cases
+If a case is marked as Urgent, it should appear in both the Active Cases listing, and the Urgent Cases section.
+Case Closure Through e-Courts
+When a case is marked as Closed based on the status received from e-Courts, it should automatically move to the Closed Cases section.
+The closed case should also remain available in the advocate's portfolio/history for reference.
+Control Over Status/Priority
+The system should clearly define who can change the case status and priority.
+Ideally, case status received from e-Courts should be treated as the authoritative status, while the advocate/user may be allowed to set or update the priority (e.g., Normal/Urgent), subject to the application's permission rules.
+Automatic Queue Management
+Cases should automatically move between sections based on their current status and priority.
+A case should not disappear from the Active listing simply because it is also marked as Urgent.
+Suggested Logic:
+Case
+Status
+Priority
+Active
+Urgent
+Closed
+Case A
+Active
+Normal
+✓
+—
+—
+Case B
+Active
+Urgent
+✓
+✓
+—
+Case C
+Closed
+Normal/Urgent
+—
+—
+✓
+Screenshot:
+Hearing Date Display in Case Summary
+Current Behavior:When a hearing is scheduled for a client, the hearing details are correctly displayed in the Hearing section. However, the top/summary section still displays the hearing date as “TBD”.
+Expected Behavior:Once a hearing is scheduled, the top/summary section should automatically update and display the scheduled hearing date and time instead of showing “TBD”.
+Screenshot:
+         
+ Initial Stage Text Duplication
+Current Behavior:In the New Case form, whatever text is entered in the Initial Stage field is automatically displayed again after the checkbox text at the end of the form.
+Expected Behavior:The text entered in the Initial Stage field should be displayed only in its intended location. It should not be automatically duplicated or appended after the checkbox text at the end of the form.
+Screenshot:
+Notes Section Save Issue
+Current Behavior:In the Notes section, the notes entered by the user are not being saved after submission.
+Expected Behavior:Any information entered in the Notes section should be successfully saved when the form is submitted and should remain available when the case/record is opened again.
+Screenshot:
+Message Read Status and Case-Wise Message Separation
+Current Behavior:
+When a message is sent, the double tick immediately turns blue, indicating that the message has been read, even when the recipient has not actually viewed it.
+Messages associated with different cases are getting copied or displayed under the wrong case.
+Expected Behavior:
+Message Read Status
+When a message is sent, it should initially show two grey ticks to indicate that the message has been delivered.
+The ticks should turn blue only when the recipient actually opens/reads the message.
+Case-Wise Message Separation
+Messages should be linked to the correct case under which they were sent.
+Messages from one case should not appear or get copied into another case.
+Screenshot:
+               
+ Calling and Video Calling Functionality
+Current Behavior:The Voice Calling and Video Calling features are currently not working.
+Expected Behavior:
+The calling interface should function properly, including call connection, audio, video, and call termination.
+Appropriate error messages should be displayed if a call cannot be connected.
+Screenshot:
+New Inquiry Feature Clarification
+Current Concern:The purpose and workflow of the New Inquiry feature are not clearly defined. 
+Expected Behavior:A clear explanation and defined workflow should be provided for the New Inquiry feature, including its purpose, responsible user/role, required fields, status flow, and how it connects to cases and clients.
+Message Notifications and Unread Message Count
+Current Behavior:
+When a new message is received from a client, no notification/pop-up is displayed to alert the user.
+The Messages section does not show the number of unread messages.
+Expected Behavior:
+A notification/pop-up should appear when a new message is received from a client.
+The Messages section should display an unread message count/badge indicating the number of unread messages.
+The unread count should update automatically whenever a new message is received and should decrease once the messages are read.
+Screenshot:
+Dismiss All Notifications Functionality
+Current Behavior:The “Dismiss All” option in the notification bar is currently not working. Notifications remain visible even after selecting the option.
+Expected Behavior:When the user clicks “Dismiss All”, all existing notifications should be dismissed/cleared from the notification bar immediately.
+Language Change Functionality
+Current Behavior:When the user changes the application language, not all content is translated. Some labels, buttons, messages, and other UI elements continue to appear in the previous language.
+Expected Behavior:
+When the user selects a different language, all applicable content across the application should be translated consistently into the selected language. 
+The selected language should be applied consistently across the entire application without requiring a page refresh, wherever technically feasible.
+Screenshot:

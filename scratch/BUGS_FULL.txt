@@ -1,0 +1,145 @@
+
+
+
+
+
+
+                                       
+
+
+
+
+  
+NYAAYNEETI
+
+
+
+
+
+
+
+
+
+
+
+
+Table of Contents
+
+1.Notes Section – Date and Time-Based Segregation3
+2.Inbox Chat – Pinned Lawyer Header3
+3.Hearing Date Display in Case Summary4
+4.Message Notifications and Unread Message Count4
+5.Notification Bar – Dismiss All and Individual Notification Removal5
+6.Fees Section – Amount Display and Font Size Adjustment6
+7.White and Black Theme – UI Design Consistency6
+8.Inbox Chat – Camera, Gallery and Attachment Features7
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Notes Section – Date and Time-Based Segregation
+Current Behavior:
+Notes entered in the Notes section are getting saved successfully. However, multiple notes are not clearly segregated or organized based on when they were added.
+Expected Behavior:
+Each saved note should be displayed separately below the Writing Notes section.
+Notes should be automatically organized based on their date and time of creation/update, with the latest note displayed first.
+Screenshot:
+
+
+Inbox Chat – Pinned Lawyer Header
+Current Behavior:
+In the Inbox chat page, the lawyer’s name panel containing the Voice Call and Video Call options moves upward and disappears while scrolling through the chat.
+Expected Behavior:
+The lawyer’s name panel should remain fixed/pinned at the top of the chat screen while scrolling.
+The lawyer’s name, Voice Call, and Video Call options should remain visible and accessible at all times.
+Only the chat messages area should scroll.
+
+
+
+
+Screenshot:
+
+
+Hearing Date Display in Case Summary
+Current Behavior:When a hearing is scheduled for a client, the hearing details are correctly displayed in the Hearing section. However, the top/summary section still displays the hearing date as “TBD”.
+Expected Behavior:Once a hearing is scheduled, the top/summary section should automatically update and display the scheduled hearing date and time instead of showing “TBD”.
+Screenshot:
+
+
+Message Notifications and Unread Message Count
+Current Behavior:
+When a new message is received from a client, no notification/pop-up is displayed to alert the user.
+The Messages section does not show the number of unread messages.
+
+Expected Behavior:
+A notification/pop-up should appear when a new message is received from a client.
+The Messages section should display an unread message count/badge indicating the number of unread messages.
+The unread count should update automatically whenever a new message is received and should decrease once the messages are read.
+Screenshot:
+
+
+Notification Bar – Dismiss All and Individual Notification Removal
+Current Behavior:
+The “Dismiss All” option in the notification bar is not working, and notifications remain visible after selecting it.
+The cross (×) icon on individual notifications is also not working, so the selected notification remains visible.
+Expected Behavior:
+Clicking “Dismiss All” should immediately remove all notifications from the notification bar.
+Clicking the cross (×) on an individual notification should remove only that particular notification.
+The notification count should also update accordingly after notifications are dismissed.
+
+
+
+
+
+
+
+Screenshot:
+
+
+Fees Section – Amount Display and Font Size Adjustment
+Current Behavior:
+In the Fees section, the amount exceeds the boundaries of the designated input/display box when a larger number is entered.
+Expected Behavior:
+The amount should always fit completely within the designated box.
+The font size should automatically adjust based on the length of the amount.
+  Screenshot:
+
+
+
+White and Black Theme – UI Design Consistency
+Expected Behavior:
+The White and Black themes should follow the theme/design reference provided below.
+Maintain consistent colors, backgrounds, text, buttons, borders, icons, and overall styling as per the reference.
+Ensure proper contrast, readability, spacing, and visual consistency across all screens in both themes.
+All UI components should adapt consistently when switching between White and Black themes.
+Screenshot:
+
+
+Inbox Chat – Camera, Gallery and Attachment Features
+Current Behavior:
+In the Inbox chat section, features such as Camera, Gallery, and other attachment options are not functioning properly on mobile devices.
+Selecting these options does not open the respective phone functionality.
+Expected Behavior:
+The Camera option should open the device camera and allow users to capture and send images.
+The Gallery option should open the device gallery and allow users to select and send images.
+Other available attachment options should also function correctly on mobile devices.
+Screenshot:
+
+
+

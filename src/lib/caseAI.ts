@@ -867,3 +867,139 @@ ${rawText}
     return extractCaseDetailsDeterministic(rawText);
   }
 }
+// ─── LAWYER AI COUNSEL — grounded on ALL of the lawyer's practice data ─────────
+
+export interface LawyerAIGroundingData {
+  cases?: CaseFile[];
+  hearings?: HearingItem[];
+  invoices?: InvoiceItem[];
+  documents?: DocumentItem[];
+  tasks?: CaseTask[];
+  threadMessages?: { senderName?: string; text: string; timestamp?: string }[];
+  lawyerName?: string;
+}
+
+/**
+ * Build a single grounding context block from ALL of the lawyer's live data —
+ * cases, hearings, invoices, documents, tasks and client messages.
+ * This is the "all context of his data" the AI Counsel answers from.
+ */
+export function buildGroundingContext(data: LawyerAIGroundingData): string {
+  const lines: string[] = ['=== LAWYER PRACTICE DATA (live workspace) ==='];
+
+  // 1. Cases
+  const cases = data.cases || [];
+  lines.push(`\n--- CASES (${cases.length}) ---`);
+  cases.slice(0, 40).forEach(c => {
+    lines.push(
+      `- ${c.caseNumber}: ${c.clientName}${c.opponentName ? ` vs ${c.opponentName}` : ''} | ` +
+      `Type: ${c.caseType || 'N/A'} | Status: ${c.status || 'Active'} | Stage: ${c.stage || 'N/A'} | ` +
+      `Court: ${c.courtLocation || c.court || 'N/A'} | Next Hearing: ${c.nextHearingDate || 'TBD'} | ` +
+      `Priority: ${c.priority || 'Normal'} | Billed: ₹${c.totalBilled || 0} | Collected: ₹${c.totalCollected || 0}` +
+      (c.actSections?.length ? ` | Acts: ${c.actSections.join(', ')}` : '')
+    );
+  });
+  if (cases.length === 0) lines.push('- (No cases in the workspace yet)');
+
+  // 2. Hearings
+  const hearings = data.hearings || [];
+  lines.push(`\n--- HEARINGS (${hearings.length}) ---`);
+  hearings.slice(0, 40).forEach(h => {
+    lines.push(
+      `- ${h.caseNumber} on ${h.hearingDate} | Court Hall: ${(h as any).courtHall || h.courtRoom || 'N/A'} | ` +
+      `Time: ${(h as any).hearingTime || 'N/A'} | Judge: ${h.judgeName || 'N/A'} | Purpose: ${(h as any).purpose || h.purposeEn || (h as any).purposeOfListing || 'N/A'}` +
+      (h.previousOrderSummaryEn ? ` | Last Order: ${h.previousOrderSummaryEn}` : '')
+    );
+  });
+  if (hearings.length === 0) lines.push('- (No hearings recorded yet)');
+
+  // 3. Invoices
+  const invoices = data.invoices || [];
+  lines.push(`\n--- INVOICES (${invoices.length}) ---`);
+  invoices.slice(0, 30).forEach(inv => {
+    lines.push(
+      `- ${inv.invoiceNumber || inv.id}: ${inv.clientName || 'Client'} | ₹${inv.totalAmount || 0} | ` +
+      `Status: ${inv.status || 'Pending'} | Case: ${inv.caseNumber || 'N/A'}` +
+      ((inv as any).dueDate ? ` | Due: ${(inv as any).dueDate}` : '')
+    );
+  });
+  if (invoices.length === 0) lines.push('- (No invoices raised yet)');
+
+  // 4. Documents
+  const documents = data.documents || [];
+  lines.push(`\n--- DOCUMENTS (${documents.length}) ---`);
+  documents.slice(0, 30).forEach(d => {
+    lines.push(
+      `- ${(d as any).name || (d as any).title || d.id}: ${d.status || 'N/A'} | Case: ${d.caseNumber || (d as any).caseId || 'N/A'}`
+    );
+  });
+  if (documents.length === 0) lines.push('- (No documents uploaded yet)');
+
+  return lines.join('\n');
+}
+
+/**
+ * Lawyer AI Counsel Chat Engine — grounded on all chambers case data
+ */
+export async function askCaseAI(
+  prompt: string,
+  groundingData: LawyerAIGroundingData,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<string> {
+  const context = buildGroundingContext(groundingData);
+  const systemPrompt = `You are NYAAY AI Counsel — the intelligent judicial copilot built into the NYAAYNEETI platform.
+Answer the advocate's query accurately using the following live chambers data:
+
+${context}
+
+Rules:
+1. Always cite specific case numbers, dates, amounts, and party names from the data where applicable.
+2. If information is not in the data, state it clearly without hallucination.
+3. Be professional, structured, and helpful.`;
+
+  try {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...history.map(h => ({ role: h.role, content: h.content })),
+      { role: 'user', content: prompt }
+    ];
+    const nRes = await callNvidiaGLM5(messages as any, { max_tokens: 2048, temperature: 0.3 });
+    const content = (nRes as any)?.choices?.[0]?.message?.content || (nRes as any)?.content;
+    if (content?.trim()) return content.trim();
+  } catch (err) {
+    console.warn("askCaseAI: NVIDIA GLM failed, trying Gemini:", err);
+  }
+
+  try {
+    const key = getGeminiApiKey();
+    if (key) {
+      const ai = new GoogleGenAI({ apiKey: key });
+      const res = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { systemInstruction: systemPrompt }
+      });
+      if (res.text?.trim()) return res.text.trim();
+    }
+  } catch (err) {
+    console.warn("askCaseAI: Gemini failed:", err);
+  }
+
+  return `📋 **Summary from Chambers Data:**\n- Cases on record: ${(groundingData.cases || []).length}\n- Upcoming hearings: ${(groundingData.hearings || []).length}\n- Invoices: ${(groundingData.invoices || []).length}\n\nQuery: "${prompt}". Verify relevant case dossiers directly in the Case Room.`;
+}
+
+/**
+ * Stream Lawyer AI Counsel answers chunk-by-chunk for live streaming UI
+ */
+export async function* streamCaseAI(
+  prompt: string,
+  groundingData: LawyerAIGroundingData,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): AsyncGenerator<string, void, unknown> {
+  const fullText = await askCaseAI(prompt, groundingData, history);
+  const words = fullText.split(' ');
+  for (let i = 0; i < words.length; i += 3) {
+    yield words.slice(i, i + 3).join(' ') + ' ';
+    await new Promise(r => setTimeout(r, 20));
+  }
+}

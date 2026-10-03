@@ -12,6 +12,7 @@ import { OtpStep } from './OtpStep';
 import { AdvocateProfileStep } from './AdvocateProfileStep';
 import { CitizenProfileStep } from './CitizenProfileStep';
 import { SuccessStep } from './SuccessStep';
+import { WelcomeStep } from './WelcomeStep';
 import { OtherSignInSheet } from './OtherSignInSheet';
 
 export type AuthStep =
@@ -106,14 +107,22 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
           return;
         }
 
-        setDisplayName(existingProfile.name || currentUser.displayName || '');
+        const rawName = (existingProfile.name || currentUser.displayName || '').trim();
+        const formatted = chosenRole === 'lawyer'
+          ? (/^adv\.?\s*/i.test(rawName) ? rawName.replace(/^adv\.?\s*/i, 'Adv. ') : /^advocate\s+/i.test(rawName) ? rawName.replace(/^advocate\s+/i, 'Adv. ') : `Adv. ${rawName}`)
+          : rawName;
+        setDisplayName(formatted);
         if (existingProfile.onboardingCompleted) {
           setCurrentStep('success');
           return;
         }
       }
 
-      setDisplayName(currentUser.displayName || '');
+      const rawCurrName = (currentUser.displayName || '').trim();
+      const formattedCurr = chosenRole === 'lawyer' && rawCurrName
+        ? (/^adv\.?\s*/i.test(rawCurrName) ? rawCurrName.replace(/^adv\.?\s*/i, 'Adv. ') : `Adv. ${rawCurrName}`)
+        : rawCurrName;
+      setDisplayName(formattedCurr);
       setCurrentStep('profile');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
@@ -170,7 +179,11 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
             return;
           }
 
-          setDisplayName(existingProfile.name || '');
+          const rawPhoneName = (existingProfile.name || '').trim();
+          const formattedPhoneName = chosenRole === 'lawyer'
+            ? (/^adv\.?\s*/i.test(rawPhoneName) ? rawPhoneName.replace(/^adv\.?\s*/i, 'Adv. ') : `Adv. ${rawPhoneName}`)
+            : rawPhoneName;
+          setDisplayName(formattedPhoneName);
           if (existingProfile.onboardingCompleted) {
             setCurrentStep('success');
             return;
@@ -513,10 +526,10 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
             >
-              <SuccessStep
+              <WelcomeStep
                 language={language}
                 role={chosenRole}
-                userName={displayName.split(' ')[0] || ''}
+                userName={displayName}
                 onFinish={() => onSuccess(chosenRole)}
               />
             </motion.div>

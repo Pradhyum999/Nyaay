@@ -16,13 +16,20 @@ import {
   Paperclip,
   Phone,
   Video,
+  Camera,
+  Image as ImageIcon,
+  MapPin,
+  Contact,
+  Plus
 } from 'lucide-react';
 import {
   subscribeToThreadMessages,
   sendDirectMessage,
-  transferAIBriefToThread
+  transferAIBriefToThread,
+  markThreadMessagesRead
 } from '../../services/firestoreService';
 import { DirectMessage, Language, UserRole } from '../../types';
+import { CallModal } from './CallModal';
 
 interface DirectChatViewProps {
   threadId: string;
@@ -62,6 +69,15 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
+  const [callModalOpen, setCallModalOpen] = useState(false);
+  const [callType, setCallType] = useState<'audio' | 'video'>('audio');
+
+  // Enhanced Attachment Sharing (Suggestion 7)
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   // One-time transfer popup state (client only, after 4+ messages)
   const [showTransferPopup, setShowTransferPopup] = useState(false);
   const [transferPopupShownKey] = useState(`transfer_popup_shown_${threadId}`);
@@ -69,8 +85,109 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-
   const t = (en: string, hi: string) => (language === 'hi' ? hi : en);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      await sendDirectMessage(threadId, {
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderRole: currentUserRole,
+        text: `📄 ${file.name} (${formatFileSize(file.size)})`,
+        hasAttachment: true,
+        attachmentType: 'file',
+        attachmentName: file.name,
+        attachmentUrl: dataUrl,
+      });
+      setShowAttachmentMenu(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      await sendDirectMessage(threadId, {
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderRole: currentUserRole,
+        text: '📷 Photo captured with Camera',
+        hasAttachment: true,
+        attachmentType: 'image',
+        attachmentName: 'camera_capture.jpg',
+        attachmentUrl: dataUrl,
+      });
+      setShowAttachmentMenu(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      await sendDirectMessage(threadId, {
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderRole: currentUserRole,
+        text: `🖼️ ${file.name}`,
+        hasAttachment: true,
+        attachmentType: 'image',
+        attachmentName: file.name,
+        attachmentUrl: dataUrl,
+      });
+      setShowAttachmentMenu(false);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleShareLocation = async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          await sendDirectMessage(threadId, {
+            senderId: currentUserId,
+            senderName: currentUserName,
+            senderRole: currentUserRole,
+            text: `📍 Location Shared: https://maps.google.com/?q=${latitude},${longitude}`,
+          });
+          setShowAttachmentMenu(false);
+        },
+        async () => {
+          await sendDirectMessage(threadId, {
+            senderId: currentUserId,
+            senderName: currentUserName,
+            senderRole: currentUserRole,
+            text: `📍 Location Shared: High Court / District Court Chambers Complex`,
+          });
+          setShowAttachmentMenu(false);
+        }
+      );
+    }
+  };
+
+  const handleShareContact = async () => {
+    await sendDirectMessage(threadId, {
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderRole: currentUserRole,
+      text: `👤 Contact Card: ${currentUserName} (${currentUserRole === 'lawyer' ? 'Advocate Counsel' : 'Litigant Client'})\n📞 Phone: +91 98765 43210\n⚖️ Matter: ${matterSubject}`,
+    });
+    setShowAttachmentMenu(false);
+  };
 
   // Format file size
   const formatFileSize = (bytes: number): string => {
@@ -84,13 +201,17 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
     if (!threadId) return;
     const unsub = subscribeToThreadMessages(threadId, (liveMsgs) => {
       setMessages(liveMsgs);
+      // Mark messages sent by the other party as read (Bug 13)
+      if (liveMsgs.some(m => !m.read && (m.senderRole ? m.senderRole !== currentUserRole : m.senderId !== currentUserId))) {
+        markThreadMessagesRead(threadId, currentUserId, currentUserRole);
+      }
       // Check if AI brief is in the messages
       if (liveMsgs.some(m => m.text?.includes('[Transferred AI Consultation Summary]') || m.text?.includes('📋 AI Legal Brief:'))) {
         setIsAiBriefShared(true);
       }
     });
     return () => unsub();
-  }, [threadId]);
+  }, [threadId, currentUserId, currentUserRole]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -164,7 +285,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-black text-white relative">
+    <div className="flex flex-col h-full max-h-full overflow-hidden bg-black text-white relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="absolute top-16 left-4 right-4 z-40 bg-neutral-900/95 border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
@@ -186,8 +307,8 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex-shrink-0 bg-neutral-950/95 border-b border-white/[0.08] px-4 py-3 flex items-center justify-between backdrop-blur-2xl z-20">
+      {/* Header (Pinned Lawyer Header - BUGS_20261002 Item 2) */}
+      <div className="sticky top-0 z-30 flex-shrink-0 bg-neutral-950/98 border-b border-white/[0.08] px-4 py-3 flex items-center justify-between backdrop-blur-2xl shadow-md">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -231,20 +352,26 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Audio Call Button matching Image 5 */}
+          {/* Audio Call Button (Bug 14) */}
           <button
             type="button"
-            onClick={() => alert(`Initiating secure encrypted audio call with ${recipientName}...`)}
+            onClick={() => {
+              setCallType('audio');
+              setCallModalOpen(true);
+            }}
             className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition ios-press"
             title="Audio Call"
           >
             <Phone size={14} />
           </button>
 
-          {/* Video Call Button matching Image 5 */}
+          {/* Video Call Button (Bug 14) */}
           <button
             type="button"
-            onClick={() => alert(`Starting video consultation session with ${recipientName}...`)}
+            onClick={() => {
+              setCallType('video');
+              setCallModalOpen(true);
+            }}
             className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition ios-press"
             title="Video Call"
           >
@@ -382,7 +509,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
           </div>
         ) : (
           messages.map((msg) => {
-            const isMe = msg.senderId === currentUserId;
+            const isMe = msg.senderRole ? msg.senderRole === currentUserRole : msg.senderId === currentUserId;
             const isAiBriefMsg =
               msg.text?.includes('[Transferred AI Consultation Summary]') ||
               msg.text?.includes('📋 AI Legal Brief:');
@@ -470,10 +597,19 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
                       </p>
                     )}
 
-                    {/* Timestamp + Blue Double Checks (matching Image 5) */}
+                    {/* Timestamp + Double Checks (grey when delivered, blue when read - WhatsApp style) */}
                     <div className={`flex items-center justify-end gap-1 text-[9px] font-mono ${isMe ? 'text-neutral-400' : 'text-neutral-500'} pt-0.5`}>
                       <span>{msg.timestamp || 'Just now'}</span>
-                      {isMe && <span className="text-blue-400 font-bold">✓✓</span>}
+                      {isMe && (
+                        <span
+                          className={`inline-flex items-center text-[12px] font-bold tracking-[-3px] ml-0.5 select-none ${
+                            msg.read ? 'text-blue-400' : 'text-neutral-400'
+                          }`}
+                          title={msg.read ? 'Read (Double Blue Tick)' : 'Delivered (Double Grey Tick)'}
+                        >
+                          ✓✓
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -527,12 +663,141 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
       )}
 
-      {/* ── Input Bar matching Image 5 (Pill container with paperclip + circular send) ── */}
+      {/* ── Input Bar with WhatsApp-style + button & Camera (Suggestion 7) ── */}
       <form
         onSubmit={handleSend}
-        className="flex-shrink-0 bg-neutral-950/95 border-t border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl"
+        className="flex-shrink-0 bg-neutral-950/95 border-t border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl relative"
       >
-        {/* Pill-shaped text input with paperclip inside */}
+        {/* Hidden File Inputs for Mobile & Desktop (BUGS_20261002 Item 8) */}
+        <input
+          id="chat-file-input"
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt,image/*"
+          onChange={handleFileUpload}
+        />
+        <input
+          id="chat-camera-input"
+          type="file"
+          ref={cameraInputRef}
+          className="hidden"
+          accept="image/*"
+          capture="environment"
+          onChange={handleCameraCapture}
+        />
+        <input
+          id="chat-gallery-input"
+          type="file"
+          ref={galleryInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={handleGalleryUpload}
+        />
+
+        {/* WhatsApp-Style Circular Attachment Drawer Menu (Suggestion 7) */}
+        {showAttachmentMenu && (
+          <div className="absolute bottom-16 left-3 z-50 bg-neutral-950/95 border border-white/[0.18] rounded-3xl p-4 shadow-2xl backdrop-blur-2xl w-80 sm:w-88 animate-in slide-in-from-bottom-2 space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
+              <span className="text-[11px] font-bold text-neutral-400 font-mono uppercase tracking-wider">
+                Share with Case
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAttachmentMenu(false)}
+                className="text-neutral-400 hover:text-white p-1 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-2 text-center">
+              {/* Document */}
+              <label
+                htmlFor="chat-file-input"
+                onClick={() => setShowAttachmentMenu(false)}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center shadow-md">
+                  <FileText size={20} />
+                </div>
+                <span className="text-[10px] text-neutral-300 font-medium">Document</span>
+              </label>
+
+              {/* Camera */}
+              <label
+                htmlFor="chat-camera-input"
+                onClick={() => setShowAttachmentMenu(false)}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center shadow-md">
+                  <Camera size={20} />
+                </div>
+                <span className="text-[10px] text-neutral-300 font-medium">Camera</span>
+              </label>
+
+              {/* Gallery */}
+              <label
+                htmlFor="chat-gallery-input"
+                onClick={() => setShowAttachmentMenu(false)}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center shadow-md">
+                  <ImageIcon size={20} />
+                </div>
+                <span className="text-[10px] text-neutral-300 font-medium">Gallery</span>
+              </label>
+
+              {/* Location */}
+              <button
+                type="button"
+                onClick={handleShareLocation}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shadow-md">
+                  <MapPin size={20} />
+                </div>
+                <span className="text-[10px] text-neutral-300 font-medium">Location</span>
+              </button>
+
+              {/* Contact */}
+              <button
+                type="button"
+                onClick={handleShareContact}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center shadow-md">
+                  <Contact size={20} />
+                </div>
+                <span className="text-[10px] text-neutral-300 font-medium">Contact</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp-Style '+' Button (Suggestion 7) */}
+        <button
+          type="button"
+          onClick={() => setShowAttachmentMenu(prev => !prev)}
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition shrink-0 ios-press border ${
+            showAttachmentMenu
+              ? 'bg-amber-400 text-black border-amber-300 shadow-md rotate-45'
+              : 'bg-white/[0.06] hover:bg-white/[0.12] text-neutral-300 hover:text-white border-white/10'
+          }`}
+          title="Share document, photo, location, contact"
+        >
+          <Plus size={18} />
+        </button>
+
+        {/* Quick Camera Icon Button (Suggestion 7 & BUGS_20261002 Item 8) */}
+        <label
+          htmlFor="chat-camera-input"
+          className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-neutral-300 hover:text-white flex items-center justify-center transition shrink-0 ios-press border border-white/10 cursor-pointer"
+          title="Quick Camera Photo"
+        >
+          <Camera size={16} />
+        </label>
+
+        {/* Pill-shaped text input */}
         <div className="flex-1 bg-white/[0.08] rounded-full flex items-center px-4 py-2 border border-white/10 focus-within:border-white/30 transition shadow-inner">
           <input
             type="text"
@@ -545,17 +810,9 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
             }
             className="flex-1 bg-transparent text-xs text-white placeholder-neutral-400 outline-none"
           />
-          <button
-            type="button"
-            onClick={() => alert('Document attachment ready')}
-            className="p-1 text-neutral-400 hover:text-white transition shrink-0 ml-1"
-            title="Attach document"
-          >
-            <Paperclip size={16} />
-          </button>
         </div>
 
-        {/* Circular Send Button matching Image 5 */}
+        {/* Circular Send Button */}
         <button
           type="submit"
           disabled={!inputText.trim() || isSending}
@@ -568,6 +825,16 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
           )}
         </button>
       </form>
+
+      {/* Audio / Video Call Modal (Bug 14) */}
+      <CallModal
+        isOpen={callModalOpen}
+        onClose={() => setCallModalOpen(false)}
+        callType={callType}
+        recipientName={recipientName}
+        recipientPhoto={recipientPhoto}
+        language={language}
+      />
     </div>
   );
 };

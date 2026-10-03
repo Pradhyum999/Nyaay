@@ -3,6 +3,7 @@ import { Sheet } from '../../design/ui/Sheet';
 import { Button } from '../../design/ui/Button';
 import { Mic, MicOff, Calendar, Gavel, MessageSquare, Clock } from 'lucide-react';
 import { Language } from '../../types';
+import { getISTDateString } from '../../lib/istDate';
 
 export interface LogOrderData {
   hearingId?: string;
@@ -42,7 +43,7 @@ export const LogOrderSheet: React.FC<LogOrderSheetProps> = ({
   const getPresetDate = (days: number): string => {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
+    return getISTDateString(d);
   };
 
   const [outcome, setOutcome] = useState('Adjourned / Postponed');

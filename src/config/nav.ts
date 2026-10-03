@@ -17,7 +17,7 @@ export const lawyerTabs: TabDef[] = [
   { id: 'cases', to: '/cases', labelKey: 'nav.cases', labelEn: 'Cases', labelHi: 'मामले', labelMr: 'केस फाइल्स', icon: Briefcase },
   { id: 'inbox', to: '/inbox', labelKey: 'nav.inbox', labelEn: 'Inbox', labelHi: 'संदेश', labelMr: 'संदेश', icon: Inbox, badge: 'unread' },
   { id: 'fees',  to: '/fees',  labelKey: 'nav.fees',  labelEn: 'Fees',  labelHi: 'शुल्क',  labelMr: 'फी',  icon: IndianRupee },
-  { id: 'more',  to: '/more',  labelKey: 'nav.more',  labelEn: 'More',  labelHi: 'अधिक',  labelMr: 'अधिक',  icon: Menu, badge: 'attention' },
+  { id: 'more',  to: '/more',  labelKey: 'nav.more',  labelEn: 'More',  labelHi: 'अधिक',  labelMr: 'अधिक', icon: Menu },
 ];
 
 export const clientTabs: TabDef[] = [

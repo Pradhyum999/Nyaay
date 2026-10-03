@@ -110,6 +110,8 @@ export interface DirectMessage {
   senderRole: UserRole;
   text: string;
   timestamp: string;
+  read?: boolean;
+  readAt?: any;
   hasAttachment?: boolean;
   attachmentName?: string;
   attachmentUrl?: string;
@@ -281,7 +283,10 @@ export interface CaseFile {
   caseType: string;
   filingDate: string;
   nextHearingDate: string;
-  status: 'Active' | 'Disposed' | 'Stayed';
+  status: 'Active' | 'Disposed' | 'Stayed' | 'Closed';
+  priority?: 'Normal' | 'Urgent';
+  notes?: string;
+  privateNotes?: string;
   unreadDocuments: number;
   pendingChecklistItems: number;
   totalBilled: number;
@@ -362,6 +367,7 @@ export interface InvoiceItem {
   status: 'Paid' | 'Pending' | 'Overdue';
   paidVia?: 'UPI' | 'Bank Transfer' | 'Cash';
   upiRef?: string;
+  notes?: string;
 }
 
 export interface ForumPost {

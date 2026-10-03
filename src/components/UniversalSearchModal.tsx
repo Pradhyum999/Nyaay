@@ -12,7 +12,7 @@ interface UniversalSearchModalProps {
   hearings: HearingItem[];
   language: Language;
   onSelectCase: (caseNumber: string) => void;
-  onOpenIpcModal: () => void;
+  onOpenIpcModal?: () => void;
 }
 
 export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
@@ -158,15 +158,17 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
                         <Scale size={13} className="text-amber-400" />
                         Statutory Law (BNS 2023 ↔ IPC Registry)
                       </span>
-                      <button
-                        onClick={() => {
-                          onClose();
-                          onOpenIpcModal();
-                        }}
-                        className="text-[10px] text-neutral-400 hover:text-white underline"
-                      >
-                        All Sections →
-                      </button>
+                      {onOpenIpcModal && (
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onOpenIpcModal();
+                          }}
+                          className="text-[10px] text-neutral-400 hover:text-white underline"
+                        >
+                          All Sections →
+                        </button>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -174,8 +176,10 @@ export const UniversalSearchModal: React.FC<UniversalSearchModalProps> = ({
                         <div
                           key={item.id}
                           onClick={() => {
-                            onClose();
-                            onOpenIpcModal();
+                            if (onOpenIpcModal) {
+                              onClose();
+                              onOpenIpcModal();
+                            }
                           }}
                           className="p-3.5 rounded-2xl bg-white/[0.035] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.2] transition cursor-pointer flex flex-col gap-1.5 group"
                         >

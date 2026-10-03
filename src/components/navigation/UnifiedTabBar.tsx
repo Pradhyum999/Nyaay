@@ -49,7 +49,9 @@ export const UnifiedTabBar: React.FC<UnifiedTabBarProps> = ({
               <div className="relative flex items-center justify-center">
                 <Icon size={20} className={isActive ? 'text-amber-400 stroke-[2.2]' : 'text-neutral-400 stroke-[1.8]'} />
                 {showBadge && (
-                  <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-400 text-black font-mono font-extrabold text-[10px] flex items-center justify-center shadow-lg shadow-amber-400/30">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
                 )}
               </div>
               <span className="text-[11px] sm:text-xs mt-1 tracking-tight truncate max-w-[68px]">
