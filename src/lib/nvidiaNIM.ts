@@ -40,7 +40,7 @@ export function saveNvidiaApiKey(key: string): void {
 }
 
 export const NVIDIA_PROXY_URL =
-  'https://ecourts-cors-proxy.joyous-data.workers.dev/api/nvidia/v1';
+  'https://ecourts-cors-proxy.peach-gas.workers.dev/api/nvidia/v1';
 
 export function getNvidiaBaseURL(): string {
   // Always use the edge CORS proxy to ensure identical behavior on mobile, PWA, desktop and localhost
@@ -75,10 +75,10 @@ export async function callNvidiaGLM5(
   const model = options?.model || 'openai/gpt-oss-20b';
   const temperature = options?.temperature ?? 0.3;
   const top_p = options?.top_p ?? 1;
-  const max_tokens = options?.max_tokens ?? 1024;
-  const timeoutMs = options?.timeoutMs ?? 25000;
+  const max_tokens = options?.max_tokens ?? 4096;
+  const timeoutMs = options?.timeoutMs ?? 35000;
 
-  // Primary: Cloudflare edge CORS proxy; Fallbacks: local dev proxy, direct NVIDIA endpoint
+  // Primary: Active Cloudflare edge CORS proxy; Fallbacks: local dev proxy, direct NVIDIA endpoint
   const basesToTry = [
     NVIDIA_PROXY_URL,
     typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
@@ -94,23 +94,33 @@ export async function callNvidiaGLM5(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const client = getNvidiaClient(base);
-      const completion = await client.chat.completions.create(
-        {
+      // Use clean standard fetch to avoid OpenAI SDK adding proprietary headers that trigger CORS preflight errors
+      const endpoint = base.endsWith('/chat/completions') ? base : `${base.replace(/\/+$/, '')}/chat/completions`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           model,
           messages,
           temperature,
           top_p,
           max_tokens,
           stream: false,
-        },
-        {
-          signal: controller.signal,
-        }
-      );
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timer);
 
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`NVIDIA endpoint returned ${res.status}: ${errText.slice(0, 200)}`);
+      }
+
+      const completion = await res.json();
       const choice = completion.choices?.[0];
       const msg = choice?.message as any;
       const reasoning =

@@ -768,7 +768,7 @@ export const SAMPLE_ECOURTS_CNRS = [
 export const DEFAULT_ECOURTS_INDIA_API_KEY =
   'eci_live_mkoohqi4zzksr3lj5ibi4so96pq8vc80';
 
-export const ECOURTS_PROXY_URL = 'https://ecourts-cors-proxy.joyous-data.workers.dev/api/partner';
+export const ECOURTS_PROXY_URL = 'https://ecourts-cors-proxy.peach-gas.workers.dev/api/partner';
 
 export function getECourtsIndiaApiKey(): string {
   if (typeof window !== 'undefined') {

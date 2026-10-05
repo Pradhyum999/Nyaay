@@ -422,13 +422,14 @@ export async function runCaseIntakeTurn(
   try {
     const res = await callNvidiaGLM5(messages, {
       model: 'openai/gpt-oss-20b',
-      max_tokens: 4096,
-      temperature: 1,
+      max_tokens: 1024,
+      temperature: 0.3,
       top_p: 1,
-      timeoutMs: 8000,
+      timeoutMs: 25000,
     });
     const full = res.content || '';
     const { text, profile } = extractProfile(full);
+    console.info("AI Response from NVIDIA NIM (openai/gpt-oss-20b)");
     return { text, profile, modelUsed: `openai/gpt-oss-20b` };
   } catch (nvidiaErr) {
     console.warn("Primary AI call (openai/gpt-oss-20b) error, attempting fallback:", nvidiaErr);
@@ -448,15 +449,21 @@ export async function runCaseIntakeTurn(
         system_instruction: INTAKE_SYSTEM_PROMPT + langNote,
         input,
       });
+ 
+       console.info("AI Response from Gemini 2.5 Flash");
       const full = interaction.output_text || '';
       const { text, profile } = extractProfile(full);
       return { text, profile, modelUsed: 'Gemini 2.5 Flash' };
     } catch (geminiErr) {
       console.warn("Gemini API call failed:", geminiErr);
+   // Fixed console.info line
+   console.info("AI Response from Autonomous Indian Legal Heuristics Engine");
     }
   }
 
   // Tier 3: Autonomous Indian Legal Heuristics Engine (100% reliability, instant response, zero hallucinations)
+   // Fixed console.info line
+   console.info("AI Response from Autonomous Indian Legal Heuristics Engine");
   return runAutonomousLegalIntake(userMessage, sanitizedHistory, language);
 }
 
@@ -1094,9 +1101,9 @@ Rules:
 
     const nRes = await callNvidiaGLM5(messages as any, {
       model: 'openai/gpt-oss-20b',
-      max_tokens: 1024,
+      max_tokens: 4096,
       temperature: 0.3,
-      timeoutMs: 25000,
+      timeoutMs: 35000,
     });
     const content = (nRes as any)?.content;
     if (content?.trim() && content.trim() !== 'No response generated.') {
@@ -1111,9 +1118,9 @@ Rules:
         { role: 'user', content: prompt }
       ] as any, {
         model: 'openai/gpt-oss-20b',
-        max_tokens: 1024,
+        max_tokens: 4096,
         temperature: 0.3,
-        timeoutMs: 20000,
+        timeoutMs: 25000,
       });
       const retryContent = (retryRes as any)?.content;
       if (retryContent?.trim() && retryContent.trim() !== 'No response generated.') {
