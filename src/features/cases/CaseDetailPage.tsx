@@ -11,7 +11,7 @@ import { CaseFile, HearingItem, InvoiceItem, DocumentItem, Language } from '../.
 import { getStagesForMatter } from '../../config/stages';
 import { normaliseCaseNumber } from '../../lib/caseNumber';
 import { PREDEFINED_FEE_DESCRIPTIONS } from '../../config/courtsData';
-import { getISTDateString, getISTTimeString } from '../../lib/istDate';
+import { getISTDateString, getISTTimeString, getCaseNextHearing } from '../../lib/istDate';
 import {
   ArrowLeft,
   Calendar,
@@ -30,7 +30,10 @@ import {
   FileCheck,
   Edit3,
   Trash2,
-  Sparkles
+  Sparkles,
+  Landmark,
+  ExternalLink,
+  Users,
 } from 'lucide-react';
 import { NewCaseSheet } from './NewCaseSheet';
 
@@ -199,25 +202,26 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
     h => normaliseCaseNumber(h.caseNumber) === normalisedCase
   );
 
-  // Auto-derived Next Hearing Date from scheduled hearings (Bug 10)
-  const scheduledNextHearingDate = useMemo(() => {
-    if (caseHearings && caseHearings.length > 0) {
-      const sorted = [...caseHearings].sort((a, b) => {
-        const da = new Date(a.hearingDate?.split(',')[0] || 0).getTime();
-        const db = new Date(b.hearingDate?.split(',')[0] || 0).getTime();
-        return da - db;
-      });
-      const nextHearing = sorted[0];
-      if (nextHearing && nextHearing.hearingDate) {
-        return nextHearing.hearingTime
-          ? `${nextHearing.hearingDate} (${nextHearing.hearingTime})`
-          : nextHearing.hearingDate;
-      }
+  // Single source of truth for Next Hearing Date from hearings and caseFile (Items 3, 15, 18)
+  const nextHearingInfo = useMemo(() => {
+    return getCaseNextHearing(caseFile, hearings);
+  }, [caseFile, hearings]);
+
+  // Filter and auto-populate relevant legal sections (Item 9)
+  const cleanedActSections = useMemo(() => {
+    const rawList = caseFile.actSections || [];
+    const filtered = rawList.filter(
+      s => s && s.trim() && !s.toLowerCase().includes('relevant legal section')
+    );
+    if (filtered.length > 0) return filtered;
+    const isNiAct = /138|cheque|dishonou?r|negotiable/i.test(
+      `${caseFile.caseType || ''} ${caseFile.caseNumber || ''} ${caseFile.stage || ''}`
+    );
+    if (isNiAct) {
+      return ['Section 138, NI Act (Cheque Dishonour)', 'Section 142, NI Act (Cognizance of Offence)'];
     }
-    return caseFile.nextHearingDate && caseFile.nextHearingDate !== 'TBD'
-      ? caseFile.nextHearingDate
-      : t('TBD', 'निर्धारित नहीं', 'ठरवायचे आहे');
-  }, [caseHearings, caseFile.nextHearingDate, language]);
+    return [];
+  }, [caseFile.actSections, caseFile.caseType, caseFile.caseNumber, caseFile.stage]);
 
   // Invoices for this case
   const caseInvoices = invoices.filter(
@@ -288,8 +292,61 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
     }
   };
 
+  const handleAnalyzeThisCase = () => {
+    const isNiAct = /138|cheque|dishonou?r|negotiable/i.test(
+      `${caseFile.caseType || ''} ${caseFile.caseNumber || ''} ${caseFile.stage || ''}`
+    );
+    const parties = isNiAct
+      ? `${caseFile.clientName} (Complainant) vs ${caseFile.opponentName || 'Accused'}`
+      : `${caseFile.clientName} (Petitioner/Plaintiff) vs ${caseFile.opponentName || 'Respondent/Defendant'}`;
+
+    const sectionsText = cleanedActSections.length > 0
+      ? cleanedActSections.join(', ')
+      : (caseFile.actSections?.join(', ') || 'Applicable statutory provisions');
+
+    const hearingsSummary = caseHearings.length > 0
+      ? caseHearings.map(h => `• ${h.hearingDate}: Stage '${h.stage || h.purposeEn || 'Hearing'}', Purpose '${h.purposeEn || h.purposeHi || 'General'}', Order Notes: '${h.previousOrderSummaryEn || 'None'}'`).join('\n')
+      : 'No hearings scheduled yet.';
+
+    const docsSummary = caseDocs.length > 0
+      ? caseDocs.map(d => `• ${d.title} (${d.status || 'Pending inspection'})`).join('\n')
+      : 'No documents filed.';
+
+    const feesSummary = `Total Billed: ₹${caseTotalInvoiced.toLocaleString('en-IN')}, Paid: ₹${caseTotalPaid.toLocaleString('en-IN')}, Outstanding: ₹${caseOutstanding.toLocaleString('en-IN')}`;
+
+    const prompt = `Analyze this case in depth:
+Dossier: ${caseFile.caseNumber} (${caseFile.caseType || 'Matter'})
+Parties: ${parties}
+Court: ${caseFile.court || 'Court'} - ${caseFile.courtLocation || 'Chambers'}
+Current Stage: ${caseFile.stage || 'Initial'}, Status: ${caseFile.status || 'Active'}, Priority: ${caseFile.priority || 'Normal'}
+Relevant Sections: ${sectionsText}
+
+Hearings Timeline:
+${hearingsSummary}
+
+Case Documents:
+${docsSummary}
+
+Fee & Retainer Status:
+${feesSummary}
+
+Advocate's Internal Notes:
+${caseNotes || (savedNotesList.map(n => n.text).join('; ')) || 'None recorded.'}
+
+Provide an exhaustive advocate strategic memorandum covering:
+1. Legal Strategy & Merits of the Case
+2. Critical Procedural Steps for the Current Stage (${caseFile.stage || 'Active'})
+3. Evidentiary Requirements & Documents to Summon
+4. Limitation Risks & Jurisdictional Defenses
+5. Recommended Action Items for Advocate & Client Counsel`;
+
+    if (onAskAI) {
+      onAskAI(prompt);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-32 text-main max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-36 text-main max-w-4xl mx-auto w-full">
       {/* ── Top Bar ── */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <button
@@ -302,6 +359,17 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
+          {onAskAI && (
+            <button
+              type="button"
+              onClick={handleAnalyzeThisCase}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-md transition ios-press"
+              title={t('Summarize Case with AI', 'AI केस सारांश', 'AI केस सारांश')}
+            >
+              <Sparkles size={13} className="text-black animate-pulse" />
+              <span>{t('Summarize Case', 'केस सारांश', 'केस सारांश')}</span>
+            </button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -332,8 +400,40 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
               <h1 className="text-lg sm:text-2xl font-bold font-mono text-main mt-2 tracking-tight">
                 {caseFile.caseNumber}
               </h1>
+              {caseFile.cnrNumber && (
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-300 font-mono font-semibold">
+                    <Landmark size={12} className="text-sky-400" />
+                    <span>CNR: {caseFile.cnrNumber}</span>
+                  </span>
+                  <a
+                    href={
+                      caseFile.cnrNumber.startsWith('SC')
+                        ? 'https://main.sci.gov.in/case-status'
+                        : caseFile.cnrNumber.substring(0, 4).endsWith('HC') || ['MHBJ', 'MHNG', 'MHAU', 'KADH', 'UPLK', 'TNMD'].includes(caseFile.cnrNumber.substring(0, 4))
+                        ? `https://hcservices.ecourts.gov.in/hcservices/main.php?cnr_no=${caseFile.cnrNumber}`
+                        : `https://services.ecourts.gov.in/ecourtindia_v6/?p=casestatus/index&cnr_no=${caseFile.cnrNumber}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300 underline font-medium"
+                  >
+                    <span>eCourts CIS Portal</span>
+                    <ExternalLink size={11} />
+                  </a>
+                </div>
+              )}
               <p className="text-sm font-semibold text-sub mt-1">
-                {caseFile.clientName} {caseFile.opponentName ? `vs. ${caseFile.opponentName}` : ''}
+                {(() => {
+                  const isNiAct = /138|cheque|dishonou?r|negotiable/i.test(
+                    `${caseFile.caseType || ''} ${caseFile.caseNumber || ''}`
+                  );
+                  if (isNiAct) {
+                    const opp = caseFile.opponentName && caseFile.opponentName !== 'State / Respondent' ? caseFile.opponentName : 'Accused';
+                    return `${caseFile.clientName} (Complainant) vs. ${opp}`;
+                  }
+                  return `${caseFile.clientName} ${caseFile.opponentName ? `vs. ${caseFile.opponentName}` : ''}`;
+                })()}
               </p>
             </div>
 
@@ -373,17 +473,27 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
           {/* 3 Balanced Metadata Capsules */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-white/[0.08] text-xs">
             <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
-              <MapPin size={15} className="text-amber-400 shrink-0" />
+              <MapPin size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
               <span className="truncate">{caseFile.courtLocation || caseFile.court || t('Court', 'अदालत', 'न्यायालय')}</span>
             </div>
             <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
-              <Calendar size={15} className="text-amber-400 shrink-0" />
-              <span className="truncate font-mono">
-                {t('Next Hearing', 'अगली सुनवाई', 'पुढील सुनावणी')}: <strong className="text-amber-300 font-bold ml-1">{scheduledNextHearingDate}</strong>
-              </span>
+              <Calendar size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
+              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                <span className="text-neutral-400 font-medium">
+                  {t('Next Hearing', 'अगली सुनवाई', 'पुढील सुनावणी')}:
+                </span>
+                <strong className="text-amber-800 dark:text-amber-300 font-bold font-mono">
+                  {nextHearingInfo.formattedDateTime || nextHearingInfo.rawDate || caseFile.nextHearingDate || t('TBD', 'निर्धारित नहीं', 'ठरवायचे आहे')}
+                </strong>
+                {nextHearingInfo.countdown && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    ⏳ {nextHearingInfo.countdown.label}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
-              <Scale size={15} className="text-amber-400 shrink-0" />
+              <Scale size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
               <span className="truncate">{caseFile.stage || t('Hearing Scheduled', 'सुनवाई निर्धारित', 'सुनावणी नियोजित')}</span>
             </div>
           </div>
@@ -406,13 +516,66 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
       {/* ── Tab 1: Overview (O1: ZERO buttons here, clean info only) ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-in fade-in">
+          {/* Parties to the Matter: Petitioner & Accused / Respondent */}
+          <Card className="p-4 bg-white/[0.02] border border-white/[0.08]">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+                <Users size={14} className="text-amber-400" />
+                <span>{t('Parties to the Matter (Petitioner vs Accused / Respondent)', 'पक्षकार (याचिकाकर्ता / परिवादी बनाम अभियुक्त / प्रतिवादी)', 'पक्षकार (याचिकाकर्ता / तक्रारदार विरुद्ध आरोपी / प्रतिवादी)')}</span>
+              </h3>
+              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/[0.05] text-neutral-400">
+                {caseFile.cnrNumber ? 'eCourts CIS Mapped' : 'Chamber Dossier'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Petitioner / Complainant Box */}
+              <div className="p-3 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-sky-400 tracking-wider">
+                    {/138|cheque|criminal|fir|ipc|bns/i.test(caseFile.caseType || '') ? 'Complainant / Prosecution' : 'Petitioner / Plaintiff'}
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 font-medium">
+                    Client Representation
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-white break-words">
+                  {caseFile.petitioner || caseFile.clientName}
+                </div>
+                {caseFile.clientPhone && (
+                  <div className="text-[11px] text-neutral-400">
+                    Contact: <span className="font-mono text-neutral-300">{caseFile.clientPhone}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Respondent / Accused Box */}
+              <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-purple-400 tracking-wider">
+                    {/138|cheque|criminal|fir|ipc|bns/i.test(caseFile.caseType || '') ? 'Accused / Opposite Party' : 'Respondent / Defendant'}
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 font-medium">
+                    Opposing Party
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-white break-words">
+                  {caseFile.respondent || caseFile.accused || caseFile.opponentName || 'State / Opposite Party'}
+                </div>
+                <div className="text-[11px] text-neutral-400">
+                  Role: <span className="text-neutral-300">{/138|cheque|criminal|fir|ipc|bns/i.test(caseFile.caseType || '') ? 'Accused / Defending Party' : 'Respondent / Opposite Counsel'}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Stage Progression Stepper: Horizontal Scrolling Strip (O5-1, O5-2) */}
           <Card>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
                 {t('Procedural Stage Progression', 'न्यायिक कार्यवाही का चरण', 'न्यायालयीन प्रक्रियेचे टप्पे')}
               </h3>
-              <span className="text-xs font-mono font-bold text-amber-300">
+              <span className="text-xs font-bold text-amber-300">
                 {t('Stage', 'चरण', 'टप्पा')} {safeStageIdx + 1} / {stages.length}
               </span>
             </div>
@@ -454,14 +617,14 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
             </div>
           </Card>
 
-          {/* Legal Sections & Acts */}
-          {caseFile.actSections && caseFile.actSections.length > 0 && (
+          {/* Legal Sections & Acts (Item 9) */}
+          {cleanedActSections.length > 0 && (
             <Card>
-              <h3 className="text-xs font-bold uppercase tracking-wider font-mono text-neutral-300 mb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300 mb-2">
                 {t('Applicable Sections & Statutes', 'लागू कानूनी धाराएं एवं अधिनियम', 'लागू कायदेशीर कलमे व कायदे')}
               </h3>
               <div className="flex flex-wrap gap-1.5">
-                {caseFile.actSections.map(sec => (
+                {cleanedActSections.map(sec => (
                   <span
                     key={sec}
                     className="px-3 py-1 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-300 font-mono text-xs font-bold"
@@ -472,6 +635,62 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
               </div>
             </Card>
           )}
+
+          {/* AI Case Strategic Intelligence Card (Full Context Aware) */}
+          {onAskAI && (
+            <Card className="border-amber-400/30 bg-gradient-to-br from-amber-400/10 via-white/[0.03] to-transparent p-4 sm:p-5 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                    <Sparkles size={18} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-main font-display">
+                      {t('AI Case Strategic Intelligence', 'AI केस रणनीतिक विश्लेषण', 'AI खटला धोरणात्मक विश्लेषण')}
+                    </h3>
+                    <p className="text-[11px] text-sub">
+                      {t('Grounded on facts, statutory sections, hearing history & chamber notes', 'तथ्यों, धाराओं, सुनवाई इतिहास और नोट्स पर आधारित', 'तथ्ये, कलमे, सुनावणी इतिहास व नोंदींवर आधारित')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAnalyzeThisCase}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-md transition ios-press self-start sm:self-auto shrink-0"
+                >
+                  <Sparkles size={14} className="text-black" />
+                  <span>{t('Summarize Case', 'केस सारांश', 'केस सारांश')}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => onAskAI(`Draft key contentions, defenses, and citations for case ${caseFile.caseNumber} at stage ${caseFile.stage}. Parties: ${caseFile.clientName} vs ${caseFile.opponentName || 'Opposing Party'}. Sections: ${cleanedActSections.join(', ')}.`)}
+                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
+                >
+                  <span className="font-semibold text-amber-300 block mb-0.5">⚖️ Legal Arguments</span>
+                  <span className="text-[10px] text-neutral-400">Draft key arguments & citations</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAskAI(`Check limitation deadlines and statutory compliance risks for case ${caseFile.caseNumber} under ${cleanedActSections.join(', ') || 'governing statutes'}.`)}
+                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
+                >
+                  <span className="font-semibold text-amber-300 block mb-0.5">⏱️ Limitation & Risks</span>
+                  <span className="text-[10px] text-neutral-400">Deadlines, summons & notice risks</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAskAI(`What next evidentiary steps and document checklist should Advocate Adv. Rajesh Sharma prepare for upcoming hearing in ${caseFile.caseNumber}? Notes: ${caseNotes || 'None'}`)}
+                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
+                >
+                  <span className="font-semibold text-amber-300 block mb-0.5">📋 Hearing Checklist</span>
+                  <span className="text-[10px] text-neutral-400">Checklist for next listing</span>
+                </button>
+              </div>
+            </Card>
+          )}
         </div>
       )}
 
@@ -479,7 +698,7 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
       {activeTab === 'hearings' && (
         <div className="space-y-3 animate-in fade-in">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+            <h3 className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wider text-neutral-300">
               {t('Hearing History & Listings', 'सुनवाई इतिहास व आगामी तारीखें', 'सुनावणी इतिहास व आगामी तारखा')}
             </h3>
             <Button
@@ -520,7 +739,7 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
         <div className="space-y-3 animate-in fade-in">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1 truncate">
-              <h3 className="truncate text-xs font-bold uppercase tracking-wider font-mono text-neutral-300">
+              <h3 className="truncate text-xs font-bold uppercase tracking-wider text-neutral-300">
                 {t('Dossier Vault & Evidentiary Documents', 'केस दस्तावेज एवं साक्ष्य', 'खटल्याची कागदपत्रे व पुरावे')}
               </h3>
               <p className="text-xs text-neutral-400 truncate">
@@ -557,20 +776,28 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
             </Card>
           ) : (
             <div className="space-y-2">
-              {caseDocs.map(doc => (
-                <Card key={doc.id} className="flex items-center justify-between p-3.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-amber-300 shrink-0">
-                      <FileText size={16} />
+              {caseDocs.map(doc => {
+                const ext = (doc.title || doc.name || '').split('.').pop()?.toUpperCase() || 'DOC';
+                return (
+                  <Card key={doc.id} className="flex items-center justify-between p-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center text-amber-300 shrink-0">
+                        <FileText size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-semibold text-white truncate">{doc.title || doc.name}</p>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 border border-amber-400/20 shrink-0">
+                            {ext}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">{doc.size || 'Attached Document'}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">{doc.title || doc.name}</p>
-                      <p className="text-[11px] text-neutral-400">{doc.size || 'Attached Document'}</p>
-                    </div>
-                  </div>
-                  <StatusBadge status={doc.status || 'pending'} />
-                </Card>
-              ))}
+                    <StatusBadge status={doc.status || 'pending'} />
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -645,8 +872,12 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
             caseInvoices.map(inv => (
               <Card key={inv.id} className="flex items-center justify-between p-3.5">
                 <div className="min-w-0 pr-2">
-                  <p className="text-xs font-bold text-white font-mono truncate">{inv.caseNumber} · {inv.clientName}</p>
-                  <p className="text-[11px] text-neutral-400 font-mono">{t('Invoice', 'बिल', 'बिल')} #{inv.id} · {t('Dated', 'दिनांक', 'दिनांक')} {inv.date}</p>
+                  <p className="text-xs font-bold text-main truncate">
+                    <span className="font-mono text-amber-600 dark:text-amber-400">{inv.caseNumber}</span> · <span>{inv.clientName}</span>
+                  </p>
+                  <p className="text-[11px] text-sub">
+                    {t('Invoice', 'बिल', 'बिल')} <span className="font-mono font-medium">#{inv.id}</span> · {t('Dated', 'दिनांक', 'दिनांक')} <span className="font-mono font-medium">{inv.date}</span>
+                  </p>
                   {inv.paidVia && (
                     <p className="text-[10px] text-emerald-400/90 font-mono mt-0.5">
                       ✓ {t('Paid via', 'के माध्यम से प्राप्त', 'द्वारे प्राप्त')} {inv.paidVia} {inv.upiRef ? `(${inv.upiRef})` : ''}

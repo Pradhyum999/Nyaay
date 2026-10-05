@@ -40,21 +40,21 @@ export const UnifiedTabBar: React.FC<UnifiedTabBarProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onSelectTab(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 px-1 rounded-2xl transition duration-150 ios-press relative ${
+              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 px-1 rounded-2xl transition duration-150 ios-press relative cursor-pointer touch-manipulation ${
                 isActive
                   ? 'text-amber-400 font-bold'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <div className="relative flex items-center justify-center">
+              <div className="relative flex items-center justify-center pointer-events-none">
                 <Icon size={20} className={isActive ? 'text-amber-400 stroke-[2.2]' : 'text-neutral-400 stroke-[1.8]'} />
                 {showBadge && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-400 text-black font-mono font-extrabold text-[10px] flex items-center justify-center shadow-lg shadow-amber-400/30">
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-amber-400 text-black font-mono font-extrabold text-[10px] flex items-center justify-center shadow-lg shadow-amber-400/30 pointer-events-none">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </div>
-              <span className="text-[11px] sm:text-xs mt-1 tracking-tight truncate max-w-[68px]">
+              <span className="text-[11px] sm:text-xs mt-1 tracking-tight truncate max-w-[68px] pointer-events-none">
                 {label}
               </span>
             </button>

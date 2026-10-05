@@ -13,16 +13,21 @@ import { callNvidiaGLM5, ChatMessagePayload } from './nvidiaNIM';
 import { searchLegalSections } from './ipcToBns';
 import { normaliseCaseNumber } from './caseNumber';
 import { STAGE_KEYWORDS } from '../config/stages';
+import { getISTDateString, getISTTimeString, isSameDayIST } from './istDate';
 
 export function getGeminiApiKey(): string {
-  if (import.meta.env.DEV && typeof window !== 'undefined') {
-    const customKey = localStorage.getItem('nyaay_gemini_key');
-    if (customKey && customKey.trim()) return customKey.trim();
-  }
+  // Prioritize environment variable for consistent behavior across all users
   const envKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   if (envKey && !envKey.includes('REPLACE_WITH_GEMINI_KEY')) {
     return envKey;
   }
+  
+  // Fallback to localStorage only if no environment key is set
+  if (typeof window !== 'undefined') {
+    const customKey = localStorage.getItem('nyaay_gemini_key') || localStorage.getItem('gemini_api_key');
+    if (customKey && customKey.trim()) return customKey.trim();
+  }
+  
   return '';
 }
 
@@ -413,7 +418,23 @@ export async function runCaseIntakeTurn(
     messages.push({ role: 'user', content: userMessage });
   }
 
-  // Tier 1: Check Gemini API Key (runs with 100% full browser CORS support)
+  // Tier 1: Primary AI Engine - NVIDIA NIM (openai/gpt-oss-20b)
+  try {
+    const res = await callNvidiaGLM5(messages, {
+      model: 'openai/gpt-oss-20b',
+      max_tokens: 4096,
+      temperature: 1,
+      top_p: 1,
+      timeoutMs: 8000,
+    });
+    const full = res.content || '';
+    const { text, profile } = extractProfile(full);
+    return { text, profile, modelUsed: `openai/gpt-oss-20b` };
+  } catch (nvidiaErr) {
+    console.warn("Primary AI call (openai/gpt-oss-20b) error, attempting fallback:", nvidiaErr);
+  }
+
+  // Tier 2: Check Gemini API Key fallback if configured
   const geminiKey = getGeminiApiKey();
   if (geminiKey) {
     try {
@@ -433,22 +454,6 @@ export async function runCaseIntakeTurn(
     } catch (geminiErr) {
       console.warn("Gemini API call failed:", geminiErr);
     }
-  }
-
-  // Tier 2: NVIDIA NIM GLM-5.3 Model by Z-ai (works on localhost/Vite dev or backend proxy)
-  try {
-    const res = await callNvidiaGLM5(messages, {
-      model: 'z-ai/glm-5.3-flash',
-      max_tokens: 1024,
-      temperature: 0.3,
-      timeoutMs: 15000,
-    });
-    const full = res.content || '';
-    const { text, profile } = extractProfile(full);
-    return { text, profile, modelUsed: `GLM-5.3 (${res.model})` };
-  } catch (nvidiaErr) {
-    // Expected in pure browser production due to NVIDIA gateway CORS header
-    console.info("NVIDIA NIM direct browser call bypassed (CORS / timeout). Utilizing Autonomous Legal Intelligence.");
   }
 
   // Tier 3: Autonomous Indian Legal Heuristics Engine (100% reliability, instant response, zero hallucinations)
@@ -576,7 +581,7 @@ ${context}`;
     const res = await callNvidiaGLM5([
       { role: 'system', content: systemInstruction },
       { role: 'user', content: question },
-    ], { max_tokens: 1024, temperature: 0.3, timeoutMs: 8000 });
+    ], { model: 'openai/gpt-oss-20b', max_tokens: 4096, temperature: 1, top_p: 1, timeoutMs: 8000 });
 
     return res.content || 'I could not find that in your case file.';
   } catch (err) {
@@ -649,7 +654,7 @@ ${orderText}
     const res = await callNvidiaGLM5([
       { role: 'system', content: 'You are an expert Indian judicial order analyst.' },
       { role: 'user', content: prompt }
-    ], { max_tokens: 1024, temperature: 0.3, timeoutMs: 8000 });
+    ], { model: 'openai/gpt-oss-20b', max_tokens: 4096, temperature: 1, top_p: 1, timeoutMs: 8000 });
     return res.content || 'Unable to summarize the order.';
   } catch (err) {
     const geminiKey = getGeminiApiKey();
@@ -885,57 +890,171 @@ export interface LawyerAIGroundingData {
  * This is the "all context of his data" the AI Counsel answers from.
  */
 export function buildGroundingContext(data: LawyerAIGroundingData): string {
-  const lines: string[] = ['=== LAWYER PRACTICE DATA (live workspace) ==='];
+  const todayStr = getISTDateString();
+  const timeStr = getISTTimeString();
+  const todayDateObj = new Date();
+  const dayOfWeek = todayDateObj.toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
 
-  // 1. Cases
+  const lines: string[] = [
+    '=== LAWYER PRACTICE DATA (live workspace) ===',
+    `Today's IST Date: ${todayStr} (${dayOfWeek})`,
+    `Current Time: ${timeStr} IST`,
+  ];
+
+  // 1. Today's Hearings specifically highlighted
+  const allHearings = data.hearings || [];
+  const todayHearings = allHearings.filter(h => isSameDayIST(h.hearingDate, todayStr));
+  lines.push(`\n--- TODAY'S HEARINGS (${todayHearings.length} on ${todayStr}) ---`);
+  if (todayHearings.length > 0) {
+    todayHearings.forEach(h => {
+      lines.push(
+        `- Case ${h.caseNumber}: ${h.clientName || 'Matter'} | Court: ${h.courtName || 'Court'} | Room: ${h.courtRoom || (h as any).courtHall || 'N/A'} | Time: ${h.hearingTime || 'N/A'} | Item: ${h.itemNumber || 'N/A'} | Stage: ${h.stage || 'Hearing'} | Judge: ${h.judgeName || 'Bench'} | Purpose: ${h.purposeEn || (h as any).purpose || 'Listing'}` +
+        (h.previousOrderSummaryEn ? ` | Prior Order: ${h.previousOrderSummaryEn}` : '')
+      );
+    });
+  } else {
+    lines.push(`- No court hearings scheduled for today (${todayStr}, ${dayOfWeek}).`);
+  }
+
+  // 2. Upcoming Hearings
+  const upcomingHearings = allHearings
+    .filter(h => {
+      const dStr = typeof h.hearingDate === 'string' ? h.hearingDate.slice(0, 10) : '';
+      return dStr >= todayStr && !isSameDayIST(dStr, todayStr);
+    })
+    .sort((a, b) => (a.hearingDate || '').localeCompare(b.hearingDate || ''));
+
+  lines.push(`\n--- UPCOMING SCHEDULED HEARINGS (${upcomingHearings.length}) ---`);
+  upcomingHearings.slice(0, 15).forEach(h => {
+    lines.push(
+      `- ${h.hearingDate} (${h.hearingTime || 'TBD'}): Case ${h.caseNumber} (${h.clientName || 'Matter'}) at ${h.courtName || 'Court'} (Room ${h.courtRoom || 'N/A'}, Item #${h.itemNumber || 'N/A'}) | Stage: ${h.stage || 'Hearing'} | Judge: ${h.judgeName || 'Bench'}`
+    );
+  });
+  if (upcomingHearings.length === 0) lines.push('- (No future hearings scheduled)');
+
+  // 3. Cases
   const cases = data.cases || [];
-  lines.push(`\n--- CASES (${cases.length}) ---`);
-  cases.slice(0, 40).forEach(c => {
+  lines.push(`\n--- CASES DOSSIERS (${cases.length}) ---`);
+  cases.slice(0, 30).forEach(c => {
     lines.push(
       `- ${c.caseNumber}: ${c.clientName}${c.opponentName ? ` vs ${c.opponentName}` : ''} | ` +
-      `Type: ${c.caseType || 'N/A'} | Status: ${c.status || 'Active'} | Stage: ${c.stage || 'N/A'} | ` +
-      `Court: ${c.courtLocation || c.court || 'N/A'} | Next Hearing: ${c.nextHearingDate || 'TBD'} | ` +
-      `Priority: ${c.priority || 'Normal'} | Billed: ₹${c.totalBilled || 0} | Collected: ₹${c.totalCollected || 0}` +
+      `Type: ${c.caseType || 'Matter'} | Status: ${c.status || 'Active'} | Stage: ${c.stage || 'N/A'} | ` +
+      `Court: ${c.courtLocation || c.court || 'N/A'} | Next Listing: ${c.nextHearingDate || 'TBD'} | ` +
+      `CNR: ${c.cnrNumber || 'N/A'} | Priority: ${c.priority || 'Normal'} | Billed: ₹${c.totalBilled || 0} | Paid: ₹${c.totalCollected || 0}` +
       (c.actSections?.length ? ` | Acts: ${c.actSections.join(', ')}` : '')
     );
   });
   if (cases.length === 0) lines.push('- (No cases in the workspace yet)');
 
-  // 2. Hearings
-  const hearings = data.hearings || [];
-  lines.push(`\n--- HEARINGS (${hearings.length}) ---`);
-  hearings.slice(0, 40).forEach(h => {
-    lines.push(
-      `- ${h.caseNumber} on ${h.hearingDate} | Court Hall: ${(h as any).courtHall || h.courtRoom || 'N/A'} | ` +
-      `Time: ${(h as any).hearingTime || 'N/A'} | Judge: ${h.judgeName || 'N/A'} | Purpose: ${(h as any).purpose || h.purposeEn || (h as any).purposeOfListing || 'N/A'}` +
-      (h.previousOrderSummaryEn ? ` | Last Order: ${h.previousOrderSummaryEn}` : '')
-    );
-  });
-  if (hearings.length === 0) lines.push('- (No hearings recorded yet)');
-
-  // 3. Invoices
+  // 4. Invoices & Financials
   const invoices = data.invoices || [];
-  lines.push(`\n--- INVOICES (${invoices.length}) ---`);
-  invoices.slice(0, 30).forEach(inv => {
+  const totalBilled = invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+  const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
+  const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+  const pendingInvoices = invoices.filter(inv => inv.status !== 'Paid');
+  lines.push(`\n--- INVOICES & FEES (${invoices.length} invoices | Total: ₹${totalBilled}, Paid: ₹${totalPaid}, Outstanding: ₹${totalBilled - totalPaid}) ---`);
+  pendingInvoices.slice(0, 10).forEach(inv => {
     lines.push(
-      `- ${inv.invoiceNumber || inv.id}: ${inv.clientName || 'Client'} | ₹${inv.totalAmount || 0} | ` +
-      `Status: ${inv.status || 'Pending'} | Case: ${inv.caseNumber || 'N/A'}` +
-      ((inv as any).dueDate ? ` | Due: ${(inv as any).dueDate}` : '')
+      `- ${inv.invoiceNumber || inv.id}: ${inv.clientName || 'Client'} | ₹${inv.totalAmount || 0} | Status: ${inv.status || 'Pending'} | Case: ${inv.caseNumber || 'N/A'}`
     );
   });
-  if (invoices.length === 0) lines.push('- (No invoices raised yet)');
 
-  // 4. Documents
+  // 5. Documents
   const documents = data.documents || [];
   lines.push(`\n--- DOCUMENTS (${documents.length}) ---`);
-  documents.slice(0, 30).forEach(d => {
+  documents.slice(0, 15).forEach(d => {
     lines.push(
-      `- ${(d as any).name || (d as any).title || d.id}: ${d.status || 'N/A'} | Case: ${d.caseNumber || (d as any).caseId || 'N/A'}`
+      `- ${(d as any).name || (d as any).title || d.id}: ${d.status || 'Verified'} | Case: ${d.caseNumber || (d as any).caseId || 'N/A'}`
     );
   });
-  if (documents.length === 0) lines.push('- (No documents uploaded yet)');
 
   return lines.join('\n');
+}
+
+/**
+ * Intelligent contextual responder from chamber data if remote LLM is unreachable.
+ * Dynamically answers based on actual question and user data.
+ */
+function generateIntelligentChambersAnswer(prompt: string, data: LawyerAIGroundingData): string {
+  const pLower = prompt.toLowerCase();
+  const todayStr = getISTDateString();
+  const dayOfWeek = new Date().toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'Asia/Kolkata' });
+  const allHearings = data.hearings || [];
+  const todayHearings = allHearings.filter(h => isSameDayIST(h.hearingDate, todayStr));
+  const cases = data.cases || [];
+
+  // Query: Today's hearings / daily schedule
+  if (pLower.includes('today') || pLower.includes('hearing today') || pLower.includes('how many hearing')) {
+    if (todayHearings.length === 0) {
+      const nextHearings = allHearings
+        .filter(h => (h.hearingDate || '') > todayStr)
+        .sort((a, b) => (a.hearingDate || '').localeCompare(b.hearingDate || ''));
+      const nextOne = nextHearings[0];
+      return `You have **0 hearings scheduled for today** (${todayStr}, ${dayOfWeek}).\n\n` +
+        (nextOne
+          ? `Your next upcoming listing is **${nextOne.caseNumber}** on **${nextOne.hearingDate}** at **${nextOne.courtName || 'Court'}** (Stage: ${nextOne.stage || 'Hearing'}).`
+          : `No upcoming court hearings are currently on record.`);
+    }
+    return `You have **${todayHearings.length} court hearing${todayHearings.length > 1 ? 's' : ''} today** (${todayStr}, ${dayOfWeek}):\n\n` +
+      todayHearings.map(h => `• **${h.caseNumber}** (${h.clientName || 'Matter'})\n  - Court: ${h.courtName || 'Court'} | Room: ${h.courtRoom || (h as any).courtHall || 'N/A'}\n  - Time: ${h.hearingTime || 'Morning Listing'} | Item #${h.itemNumber || 'N/A'}\n  - Stage: ${h.stage || 'Hearing'}`).join('\n\n');
+  }
+
+  // Query: Summarize Day
+  if (pLower.includes('summarize day') || pLower.includes('daily summary') || pLower.includes('day briefing')) {
+    return `### 📅 Chambers Daily Briefing (${todayStr}, ${dayOfWeek})\n\n` +
+      `• **Court Hearings Today:** ${todayHearings.length}\n` +
+      (todayHearings.length > 0
+        ? todayHearings.map(h => `  - Case ${h.caseNumber}: ${h.courtName || 'Court'} (Item ${h.itemNumber || 'N/A'}, Stage: ${h.stage || 'Hearing'})`).join('\n') + '\n'
+        : '  - No court appearances scheduled for today.\n') +
+      `• **Active Matters Portfolio:** ${cases.length} cases\n` +
+      `• **Key Priority:** Prepare upcoming briefs and verify client notices in the Case Room.`;
+  }
+
+  // Query: Summarize Case or specific Case query
+  const matchedCase = cases.find(c =>
+    (c.caseNumber && pLower.includes(c.caseNumber.toLowerCase())) ||
+    (c.clientName && pLower.includes(c.clientName.toLowerCase())) ||
+    (c.opponentName && pLower.includes(c.opponentName.toLowerCase()))
+  );
+
+  if (matchedCase || pLower.includes('summarize case') || pLower.includes('case dossier')) {
+    const c = matchedCase || cases[0];
+    if (c) {
+      return `### 🏛️ Case Dossier: ${c.caseNumber}\n\n` +
+        `• **Parties:** ${c.clientName} vs. ${c.opponentName || 'State / Respondent'}\n` +
+        `• **Court:** ${c.courtLocation || c.court || 'Court'}\n` +
+        `• **Classification:** ${c.caseType || 'Matter'}\n` +
+        `• **Current Stage:** ${c.stage || 'Under Trial'}\n` +
+        `• **Status:** ${c.status || 'Active'}\n` +
+        `• **Next Listing:** ${c.nextHearingDate || 'TBD'}\n` +
+        (c.cnrNumber ? `• **eCourts CNR:** \`${c.cnrNumber}\` (Live CIS Indexed)\n` : '') +
+        (c.actSections?.length ? `• **Acts/Sections:** ${c.actSections.join(', ')}` : '');
+    }
+  }
+
+  // Query: Fees / Invoices / Financials
+  if (pLower.includes('fee') || pLower.includes('invoice') || pLower.includes('billing') || pLower.includes('outstanding') || pLower.includes('money')) {
+    const invoices = data.invoices || [];
+    const totalBilled = invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const paid = invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const outstanding = Math.max(0, totalBilled - paid);
+    return `### 💳 Financial & Billing Summary\n\n` +
+      `• **Total Billed:** ₹${totalBilled.toLocaleString('en-IN')}\n` +
+      `• **Total Collected:** ₹${paid.toLocaleString('en-IN')}\n` +
+      `• **Pending Outstanding:** ₹${outstanding.toLocaleString('en-IN')} (${invoices.filter(i => i.status !== 'Paid').length} unpaid invoices)\n\n` +
+      `You can review and send payment reminders directly from the Invoices tab.`;
+  }
+
+  // Default helpful response with real chambers numbers and suggested actions
+  return `### ⚖️ NYAAY AI Counsel\n\n` +
+    `I am actively analyzing your **${cases.length} cases**, **${allHearings.length} hearings**, and practice records.\n\n` +
+    `• **Today (${todayStr}):** ${todayHearings.length} hearings scheduled\n` +
+    `• **Active Matters:** ${cases.filter(c => c.status !== 'Closed').length} active portfolios\n\n` +
+    `You can ask me:\n` +
+    `1. *"How many hearings do I have today?"*\n` +
+    `2. *"Summarize my day"* (daily schedule & briefing)\n` +
+    `3. *"Summarize case ${cases[0]?.caseNumber || 'CC 4788/2015'}"*\n` +
+    `4. *"What are my pending fees and invoices?"*`;
 }
 
 /**
@@ -947,29 +1066,65 @@ export async function askCaseAI(
   history: Array<{ role: 'user' | 'assistant'; content: string }> = []
 ): Promise<string> {
   const context = buildGroundingContext(groundingData);
-  const systemPrompt = `You are NYAAY AI Counsel — the intelligent judicial copilot built into the NYAAYNEETI platform.
+  const systemPrompt = `You are NYAAY AI Counsel — the intelligent judicial AI copilot built into the NYAAYNEETI platform.
 Answer the advocate's query accurately using the following live chambers data:
 
 ${context}
 
 Rules:
-1. Always cite specific case numbers, dates, amounts, and party names from the data where applicable.
-2. If information is not in the data, state it clearly without hallucination.
-3. Be professional, structured, and helpful.`;
+1. Always base your response directly on the advocate's live chambers data above.
+2. If asked about today's hearings or daily schedule: cite the exact cases, courtrooms, timings, and item numbers from "TODAY'S HEARINGS", or state clearly that no hearings are scheduled for today.
+3. If asked to summarize a case: provide a concise, structured briefing (Parties, Court, Case Number, Stage, Next Date, Acts/Sections).
+4. If asked to summarize the day: provide an actionable daily preparation briefing of hearings, timings, and priorities.
+5. Answer directly, concisely, and professionally. Do not repeat these rules.`;
 
   try {
+    // Sanitize conversation history: ensure the history alternating sequence starts cleanly
+    const cleanHistory = history.slice(-4).map(h => ({ role: h.role, content: h.content }));
+    // If the first message in history is from assistant, drop it so messages start with user
+    while (cleanHistory.length > 0 && cleanHistory[0].role === 'assistant') {
+      cleanHistory.shift();
+    }
+
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...history.map(h => ({ role: h.role, content: h.content })),
+      ...cleanHistory,
       { role: 'user', content: prompt }
     ];
-    const nRes = await callNvidiaGLM5(messages as any, { max_tokens: 2048, temperature: 0.3 });
-    const content = (nRes as any)?.choices?.[0]?.message?.content || (nRes as any)?.content;
-    if (content?.trim()) return content.trim();
+
+    const nRes = await callNvidiaGLM5(messages as any, {
+      model: 'openai/gpt-oss-20b',
+      max_tokens: 1024,
+      temperature: 0.3,
+      timeoutMs: 25000,
+    });
+    const content = (nRes as any)?.content;
+    if (content?.trim() && content.trim() !== 'No response generated.') {
+      return content.trim();
+    }
   } catch (err) {
-    console.warn("askCaseAI: NVIDIA GLM failed, trying Gemini:", err);
+    console.warn("askCaseAI: NVIDIA GLM call error, retrying without history:", err);
+    try {
+      // Instant retry with direct system + user prompt in case history or timeout caused the glitch
+      const retryRes = await callNvidiaGLM5([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ] as any, {
+        model: 'openai/gpt-oss-20b',
+        max_tokens: 1024,
+        temperature: 0.3,
+        timeoutMs: 20000,
+      });
+      const retryContent = (retryRes as any)?.content;
+      if (retryContent?.trim() && retryContent.trim() !== 'No response generated.') {
+        return retryContent.trim();
+      }
+    } catch (retryErr) {
+      console.warn("askCaseAI: NVIDIA retry also failed, trying Gemini fallback:", retryErr);
+    }
   }
 
+  // Gemini Fallback if available
   try {
     const key = getGeminiApiKey();
     if (key) {
@@ -982,10 +1137,11 @@ Rules:
       if (res.text?.trim()) return res.text.trim();
     }
   } catch (err) {
-    console.warn("askCaseAI: Gemini failed:", err);
+    console.warn("askCaseAI: Gemini fallback failed:", err);
   }
 
-  return `📋 **Summary from Chambers Data:**\n- Cases on record: ${(groundingData.cases || []).length}\n- Upcoming hearings: ${(groundingData.hearings || []).length}\n- Invoices: ${(groundingData.invoices || []).length}\n\nQuery: "${prompt}". Verify relevant case dossiers directly in the Case Room.`;
+  // Intelligent Contextual Fallback based on user's actual data
+  return generateIntelligentChambersAnswer(prompt, groundingData);
 }
 
 /**

@@ -177,23 +177,6 @@ export const MorePage: React.FC<MorePageProps> = ({
             </div>
           )}
 
-          {onOpenUniversalSearch && (
-            <div
-              onClick={onOpenUniversalSearch}
-              className="flex items-center justify-between p-4 hover:bg-white/[0.04] cursor-pointer transition ios-press"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400">
-                  <Search size={18} />
-                </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-white">Universal Search & CNR Lookup</h4>
-                  <p className="text-[11px] text-neutral-400">Search cases, clients, statutes, and CNR filings</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-neutral-500" />
-            </div>
-          )}
         </Card>
       </div>
 

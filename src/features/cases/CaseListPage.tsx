@@ -3,21 +3,26 @@ import { Card } from '../../design/ui/Card';
 import { Button } from '../../design/ui/Button';
 import { StatusBadge } from '../../design/ui/StatusBadge';
 import { EmptyState } from '../../design/ui/EmptyState';
-import { CaseFile, Language } from '../../types';
+import { CaseFile, Language, HearingItem } from '../../types';
 import { Search, Plus, Folder, Calendar, MapPin, ChevronRight, Scale, AlertTriangle } from 'lucide-react';
+import { getCaseNextHearing } from '../../lib/istDate';
 
 interface CaseListPageProps {
   cases: CaseFile[];
+  hearings?: HearingItem[];
   language?: Language;
   onSelectCase: (caseNumber: string) => void;
-  onNewCase: () => void;
+  onNewCase: (mode?: 'standard' | 'ecourts') => void;
+  onUploadEvidentiary?: () => void;
 }
 
 export const CaseListPage: React.FC<CaseListPageProps> = ({
   cases,
+  hearings = [],
   language = 'en',
   onSelectCase,
   onNewCase,
+  onUploadEvidentiary,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'urgent' | 'normal' | 'closed'>('all');
@@ -50,7 +55,7 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
   }, [cases, searchQuery, filter]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-28 text-main max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-36 text-main max-w-4xl mx-auto w-full">
       {/* ── Header ── */}
       <div className="flex items-center justify-between pt-1">
         <div>
@@ -58,7 +63,7 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
             {language === 'hi' ? 'मामले एवं वाद फाइलें' : language === 'mr' ? 'खटले व वाद संचिका' : 'Case Files & Dossiers'}
           </h1>
           <p className="text-xs text-neutral-400 mt-0.5">
-            {cases.length} {cases.length === 1 ? (language === 'hi' ? 'मामला' : language === 'mr' ? 'खटला' : 'Matter') : (language === 'hi' ? 'मामले' : language === 'mr' ? 'खटले' : 'Matters')} {language === 'hi' ? 'सक्रिय विधिक अभ्यास' : language === 'mr' ? 'सक्रिय कायदेशीर सराव' : 'under active practice'}
+            {cases.length} {cases.length === 1 ? (language === 'hi' ? 'मामला' : language === 'mr' ? 'खटला' : 'matter') : (language === 'hi' ? 'मामले' : language === 'mr' ? 'खटले' : 'matters')} {language === 'hi' ? 'सक्रिय विधिक अभ्यास' : language === 'mr' ? 'सक्रिय कायदेशीर सराव' : 'under active practice'}
           </p>
         </div>
 
@@ -67,7 +72,7 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
             variant="primary"
             size="sm"
             icon={<Plus size={14} />}
-            onClick={onNewCase}
+            onClick={() => onNewCase('standard')}
           >
             {language === 'hi' ? 'नया केस' : language === 'mr' ? 'नवीन खटला' : 'New Case'}
           </Button>
@@ -88,7 +93,7 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
               ? 'खटला क्रमांक, पक्षकाराचे नाव किंवा न्यायालयाने शोधा...'
               : 'Search by case number, client, opponent, or court...'
           }
-          className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.1] text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400/50"
+          className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/[0.1] text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 dark:focus:border-amber-400/50 focus:bg-white transition"
         />
       </div>
 
@@ -136,6 +141,9 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
       ) : (
         <div className="space-y-3">
           {filteredCases.map(c => {
+            const nextHearing = getCaseNextHearing(c, hearings);
+            const displayHearingDate = nextHearing.formattedDateTime || nextHearing.rawDate || c.nextHearingDate;
+
             return (
               <Card
                 key={c.id || c.caseNumber}
@@ -170,15 +178,20 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
                     <span>{c.courtLocation || c.court || (language === 'hi' ? 'जिला न्यायालय' : language === 'mr' ? 'जिल्हा न्यायालय' : 'District Court')}</span>
                   </div>
 
-                  {c.nextHearingDate && (
-                    <div className="flex items-center gap-1 text-amber-300/90 font-mono font-medium">
-                      <Calendar size={13} className="shrink-0 text-amber-400" />
-                      <span>{language === 'hi' ? 'अगली:' : language === 'mr' ? 'पुढील:' : 'Next:'} {c.nextHearingDate}</span>
+                  {displayHearingDate && (
+                    <div className="flex items-center gap-1.5 font-mono text-amber-800 dark:text-amber-300 font-semibold text-xs">
+                      <Calendar size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>{language === 'hi' ? 'अगली:' : language === 'mr' ? 'पुढील:' : 'Next:'} {displayHearingDate}</span>
+                      {nextHearing.countdown && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                          ⏳ {nextHearing.countdown.label}
+                        </span>
+                      )}
                     </div>
                   )}
 
                   {c.stage && (
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-neutral-300 border border-white/[0.08]">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/[0.06] text-neutral-300 border border-white/[0.08]">
                       {c.stage}
                     </span>
                   )}
@@ -186,6 +199,73 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
               </Card>
             );
           })}
+
+          {/* Quick Practice Actions for sparse case lists (UX Item 19) */}
+          {filteredCases.length <= 1 && (
+            <div className="mt-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.08] space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-300">
+                  {language === 'hi' ? 'त्वरित विधिक अभ्यास कार्य' : language === 'mr' ? 'जलद कायदेशीर कृती' : 'Quick Practice Actions'}
+                </span>
+                <span className="text-[11px] text-amber-400 font-medium">Chambers Hub</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onNewCase('standard')}
+                  className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-amber-400/40 text-left transition flex items-center gap-2.5 text-xs text-white group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Plus size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white group-hover:text-amber-300 transition-colors">
+                      {language === 'hi' ? 'नया केस खोलें' : '+ New Case Dossier'}
+                    </p>
+                    <p className="text-[10px] text-neutral-400 truncate">
+                      {language === 'hi' ? 'मैन्युअल या वॉयस से' : 'Manual or AI voice intake'}
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onNewCase('ecourts')}
+                  className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-sky-400/40 text-left transition flex items-center gap-2.5 text-xs text-white group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-sky-400/10 text-sky-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Scale size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white group-hover:text-sky-300 transition-colors">
+                      {language === 'hi' ? 'eCourts CNR खोज' : 'Import eCourts CNR'}
+                    </p>
+                    <p className="text-[10px] text-neutral-400 truncate">
+                      {language === 'hi' ? '16-अंक आधिकारिक रिकॉर्ड' : '16-digit court registry'}
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onUploadEvidentiary ? onUploadEvidentiary() : onNewCase('standard')}
+                  className="p-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] hover:border-emerald-400/40 text-left transition flex items-center gap-2.5 text-xs text-white group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-400/10 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Folder size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                      {language === 'hi' ? 'दस्तावेज अपलोड' : 'Upload Evidentiary Files'}
+                    </p>
+                    <p className="text-[10px] text-neutral-400 truncate">
+                      {language === 'hi' ? 'याचिका व साक्ष्य' : 'Pleadings & evidence'}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

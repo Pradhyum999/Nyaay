@@ -18,13 +18,18 @@ import {
   Eye,
   Trash2,
   Star,
-  MessageSquare
+  MessageSquare,
+  Bug,
+  Search,
+  Download,
+  Check,
 } from 'lucide-react';
 import {
   getAllVerificationRequests,
   processVerificationRequest,
   purgeAllCitizenData,
-  subscribeToCitizenFeedback
+  subscribeToCitizenFeedback,
+  updateCitizenFeedbackStatus,
 } from '../../services/firestoreService';
 import { generateAdminEmailContent } from '../../utils/masking';
 import { VerificationRequest, VerificationStatus, Language, CitizenFeedback } from '../../types';
@@ -43,6 +48,9 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
 }) => {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [feedbackList, setFeedbackList] = useState<CitizenFeedback[]>([]);
+  const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState<'all' | 'bug_report' | 'feedback' | 'has_image' | 'new'>('all');
+  const [feedbackSearchQuery, setFeedbackSearchQuery] = useState('');
+  const [selectedFeedbackImageModal, setSelectedFeedbackImageModal] = useState<{ url: string; title: string; submitter: string; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<'pending' | 'lawyer' | 'client' | 'history' | 'feedback'>('pending');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -138,6 +146,19 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
     window.open(`mailto:admin@nyaayneeti.in?subject=${subject}&body=${body}`, '_blank');
   };
 
+  const handleUpdateStatus = async (id: string, newStatus: 'new' | 'investigating' | 'resolved') => {
+    try {
+      await updateCitizenFeedbackStatus(id, newStatus);
+      setFeedbackList(prev => prev.map(f => f.id === id ? { ...f, status: newStatus } : f));
+      setToastMessage(`Feedback status updated to: ${newStatus.toUpperCase()}`);
+      setTimeout(() => setToastMessage(null), 2500);
+    } catch (err: any) {
+      console.warn("Failed to update feedback status:", err);
+      setToastMessage("Failed to update status");
+      setTimeout(() => setToastMessage(null), 2500);
+    }
+  };
+
   // Filter requests
   const filteredRequests = requests.filter(r => {
     if (filterTab === 'pending') return r.status === 'pending';
@@ -211,7 +232,7 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
             { id: 'pending', label: 'Pending', count: requests.filter(r => r.status === 'pending').length },
             { id: 'lawyer', label: 'Advocates', count: requests.filter(r => r.role === 'lawyer').length },
             { id: 'client', label: 'Citizens', count: requests.filter(r => r.role === 'client').length },
-            { id: 'feedback', label: 'Feedback Forms', count: feedbackList.length },
+            { id: 'feedback', label: 'Feedback & Bugs', count: feedbackList.length },
             { id: 'history', label: 'Audit History', count: requests.filter(r => r.status !== 'pending').length },
           ].map(tab => (
             <button
@@ -233,57 +254,246 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
           ))}
         </div>
 
-        {/* Feedback List Tab */}
+        {/* Feedback & Bug Reports Tab */}
         {filterTab === 'feedback' ? (
-          <div className="space-y-3">
-            {feedbackList.length === 0 ? (
-              <div className="py-12 text-center space-y-2 bg-black/30 rounded-2xl border border-white/[0.06]">
-                <MessageSquare size={24} className="text-neutral-500 mx-auto" />
-                <p className="text-xs font-semibold text-white">No Citizen Feedback Submitted Yet</p>
-                <p className="text-[11px] text-neutral-500">Submissions from citizens via text and voice dictation will arrive here in real time.</p>
+          <div className="space-y-3.5">
+            {/* Sub-Filters and Search Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-[11px]">
+                {[
+                  { id: 'all', label: 'All', count: feedbackList.length },
+                  { id: 'bug_report', label: '🐞 Bug Reports', count: feedbackList.filter(f => f.type === 'bug_report').length },
+                  { id: 'feedback', label: '⭐ Feedback', count: feedbackList.filter(f => f.type !== 'bug_report').length },
+                  { id: 'has_image', label: '📎 With Screenshot', count: feedbackList.filter(f => Boolean(f.imageUrl)).length },
+                  { id: 'new', label: '⚠️ Action Required', count: feedbackList.filter(f => !f.status || f.status === 'new').length },
+                ].map(sub => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setFeedbackCategoryFilter(sub.id as any)}
+                    className={`px-2.5 py-1 rounded-lg border transition whitespace-nowrap ${
+                      feedbackCategoryFilter === sub.id
+                        ? 'bg-amber-400 text-black border-amber-400 font-bold shadow-sm'
+                        : 'bg-white/[0.04] text-neutral-300 border-white/[0.08] hover:text-white'
+                    }`}
+                  >
+                    <span>{sub.label}</span>
+                    <span className="ml-1 opacity-70">({sub.count})</span>
+                  </button>
+                ))}
               </div>
-            ) : (
-              feedbackList.map((fb) => (
-                <div
-                  key={fb.id}
-                  className="p-4 rounded-2xl bg-black/50 border border-white/[0.08] hover:border-emerald-500/30 transition space-y-2 text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                        <User size={15} />
+
+              {/* Real-time Search Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={feedbackSearchQuery}
+                  onChange={(e) => setFeedbackSearchQuery(e.target.value)}
+                  placeholder="Search submissions by user, email, subject, or message..."
+                  className="w-full bg-black/60 border border-white/[0.1] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                />
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Submissions List */}
+            {(() => {
+              const filtered = feedbackList.filter((fb) => {
+                if (feedbackCategoryFilter === 'bug_report' && fb.type !== 'bug_report') return false;
+                if (feedbackCategoryFilter === 'feedback' && fb.type === 'bug_report') return false;
+                if (feedbackCategoryFilter === 'has_image' && !fb.imageUrl) return false;
+                if (feedbackCategoryFilter === 'new' && fb.status && fb.status !== 'new') return false;
+
+                if (feedbackSearchQuery.trim()) {
+                  const q = feedbackSearchQuery.toLowerCase();
+                  const matchUser = (fb.userName || '').toLowerCase().includes(q);
+                  const matchEmail = (fb.userEmail || '').toLowerCase().includes(q);
+                  const matchTitle = (fb.title || '').toLowerCase().includes(q);
+                  const matchText = (fb.feedbackText || '').toLowerCase().includes(q);
+                  if (!matchUser && !matchEmail && !matchTitle && !matchText) return false;
+                }
+                return true;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="py-12 text-center space-y-2 bg-black/30 rounded-2xl border border-white/[0.06]">
+                    <MessageSquare size={24} className="text-neutral-500 mx-auto" />
+                    <p className="text-xs font-semibold text-white">No submissions matching criteria</p>
+                    <p className="text-[11px] text-neutral-500">Submissions from citizens & advocates arrive here in real time.</p>
+                  </div>
+                );
+              }
+
+              return filtered.map((fb) => {
+                const isBug = fb.type === 'bug_report';
+                const formattedTime = fb.submittedAtIST || (fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Recent');
+                const status = fb.status || 'new';
+
+                return (
+                  <div
+                    key={fb.id}
+                    className={`p-4 rounded-2xl bg-black/50 border transition space-y-3 text-left ${
+                      isBug ? 'border-rose-500/25 hover:border-rose-500/40' : 'border-amber-500/25 hover:border-amber-500/40'
+                    }`}
+                  >
+                    {/* Top Status & Date Header */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        {isBug ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
+                            <Bug size={11} />
+                            <span>BUG REPORT • {(fb.severity || 'moderate').toUpperCase()}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
+                            <Star size={11} className="fill-amber-400" />
+                            <span>APP FEEDBACK • {fb.rating || 5}/5 STARS</span>
+                          </span>
+                        )}
+
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          status === 'resolved'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : status === 'investigating'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                        }`}>
+                          {status}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-xs font-bold text-white">{fb.userName}</span>
-                        <span className="text-[10px] text-neutral-400 block font-mono">Citizen ID: {fb.userId}</span>
+
+                      <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-mono">
+                        <Clock size={11} />
+                        <span>{formattedTime}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 text-amber-400">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          size={12}
-                          className={s <= fb.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-600'}
-                        />
-                      ))}
+                    {/* Title if present */}
+                    {fb.title && (
+                      <h4 className="text-xs font-bold text-white tracking-tight">
+                        {fb.title}
+                      </h4>
+                    )}
+
+                    {/* What Was Received (Body Text) */}
+                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                      "{fb.feedbackText}"
+                    </div>
+
+                    {/* Attached Screenshot / Image Preview (if present) */}
+                    {fb.imageUrl && (
+                      <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-3">
+                        <div
+                          onClick={() => setSelectedFeedbackImageModal({
+                            url: fb.imageUrl!,
+                            title: fb.title || (isBug ? 'Bug Screenshot' : 'Feedback Attachment'),
+                            submitter: fb.userName || 'Citizen',
+                            date: formattedTime,
+                          })}
+                          className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition group"
+                        >
+                          <img
+                            src={fb.imageUrl}
+                            alt="Screenshot"
+                            className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0 group-hover:scale-105 transition-transform"
+                          />
+                          <div>
+                            <span className="text-xs font-semibold text-white group-hover:text-amber-300 transition flex items-center gap-1">
+                              <span>📎 Attached Screenshot</span>
+                              <Maximize2 size={12} className="text-neutral-400" />
+                            </span>
+                            <span className="text-[10px] text-neutral-400 block font-mono">
+                              {fb.imageName || 'screenshot.jpg'} • Tap to enlarge
+                            </span>
+                          </div>
+                        </div>
+
+                        <a
+                          href={fb.imageUrl}
+                          download={fb.imageName || 'nyaay-screenshot.jpg'}
+                          className="p-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-neutral-300 hover:text-white transition"
+                          title="Download screenshot"
+                        >
+                          <Download size={14} />
+                        </a>
+                      </div>
+                    )}
+
+                    {/* By Whom & Notification Destination */}
+                    <div className="pt-1 flex items-center justify-between gap-2 flex-wrap text-[11px] border-t border-white/[0.06]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-white/[0.06] flex items-center justify-center text-neutral-300 font-bold text-[10px]">
+                          <User size={12} />
+                        </div>
+                        <div>
+                          <span className="font-semibold text-white mr-1.5">{fb.userName}</span>
+                          <span className="text-[10px] text-neutral-400 capitalize font-mono">({fb.userRole || 'citizen'})</span>
+                          {fb.userEmail && fb.userEmail !== 'Not provided' && (
+                            <a
+                              href={`mailto:${fb.userEmail}?subject=Re: [NYAAY ${isBug ? 'Bug Report' : 'Feedback'}] ${encodeURIComponent(fb.title || 'Inquiry')}`}
+                              className="ml-2 inline-flex items-center gap-1 text-[10px] text-sky-400 hover:text-sky-300 underline font-mono"
+                            >
+                              <Mail size={10} />
+                              <span>{fb.userEmail}</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-[10px] text-amber-300 font-mono">
+                        <span>✉️ Target:</span>
+                        <span className="font-bold">{fb.targetEmail || 'Pradhumb1998@gmail.com'}</span>
+                      </div>
+                    </div>
+
+                    {/* Admin Action Controls */}
+                    <div className="flex items-center justify-between pt-1 gap-2 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-neutral-500 font-semibold uppercase tracking-wider">Status:</span>
+                        {status !== 'investigating' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(fb.id, 'investigating')}
+                            className="px-2 py-0.5 rounded-md bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[10px] font-semibold transition"
+                          >
+                            Mark Investigating
+                          </button>
+                        )}
+                        {status !== 'resolved' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(fb.id, 'resolved')}
+                            className="px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[10px] font-semibold transition"
+                          >
+                            Mark Resolved
+                          </button>
+                        )}
+                        {status === 'resolved' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(fb.id, 'new')}
+                            className="px-2 py-0.5 rounded-md bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-neutral-300 text-[10px] font-semibold transition"
+                          >
+                            Re-open as New
+                          </button>
+                        )}
+                      </div>
+
+                      {fb.userEmail && fb.userEmail !== 'Not provided' && (
+                        <a
+                          href={`mailto:${fb.userEmail}?subject=Re: [NYAAY ${isBug ? 'Bug Report' : 'Feedback'}] ${encodeURIComponent(fb.title || 'Inquiry')}`}
+                          className="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 font-semibold text-[11px] inline-flex items-center gap-1 transition"
+                        >
+                          <Mail size={12} />
+                          <span>Reply to User</span>
+                          <ExternalLink size={10} />
+                        </a>
+                      )}
                     </div>
                   </div>
-
-                  <p className="text-xs text-neutral-200 bg-white/[0.03] p-3 rounded-xl border border-white/[0.05] leading-relaxed">
-                    "{fb.feedbackText}"
-                  </p>
-
-                  <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono">
-                    <span className="flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 size={10} />
-                      <span>Verified Citizen Review</span>
-                    </span>
-                    <span>{fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Recent'}</span>
-                  </div>
-                </div>
-              ))
-            )}
+                );
+              });
+            })()}
           </div>
         ) : (
           /* Requests List */
@@ -559,6 +769,61 @@ export const AdminVerificationDashboard: React.FC<AdminVerificationDashboardProp
                   className="px-3 py-1.5 rounded-xl bg-white text-black font-semibold text-xs ios-press"
                 >
                   Close Inspection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Screenshot Full Lightbox Modal */}
+        {selectedFeedbackImageModal && (
+          <div className="fixed inset-0 z-70 bg-black/92 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in">
+            <div className="max-w-2xl w-full bg-neutral-950 border border-white/20 rounded-3xl p-5 space-y-3 shadow-2xl flex flex-col max-h-[90vh]">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="min-w-0 pr-2">
+                  <div className="flex items-center gap-2">
+                    <Bug size={16} className="text-amber-400 shrink-0" />
+                    <span className="text-xs font-bold text-white tracking-tight truncate">
+                      {selectedFeedbackImageModal.title}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-neutral-400 font-mono mt-0.5 truncate">
+                    Submitted by: <strong className="text-neutral-200">{selectedFeedbackImageModal.submitter}</strong> • {selectedFeedbackImageModal.date}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <a
+                    href={selectedFeedbackImageModal.url}
+                    download="feedback-screenshot.jpg"
+                    className="p-1.5 rounded-xl bg-white/[0.08] hover:bg-white/20 text-neutral-300 hover:text-white transition"
+                    title="Download original screenshot"
+                  >
+                    <Download size={15} />
+                  </a>
+                  <button
+                    onClick={() => setSelectedFeedbackImageModal(null)}
+                    className="p-1.5 rounded-xl bg-white/[0.08] hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto rounded-2xl border border-white/10 flex items-center justify-center bg-black/60 p-2 min-h-0">
+                <img
+                  src={selectedFeedbackImageModal.url}
+                  alt="Feedback Screenshot"
+                  className="max-w-full max-h-[62vh] object-contain rounded-xl shadow-lg"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-400">
+                <span className="font-mono text-[10px]">Evidence / Bug visual inspection</span>
+                <button
+                  onClick={() => setSelectedFeedbackImageModal(null)}
+                  className="px-4 py-1.5 rounded-xl bg-white text-black font-semibold text-xs ios-press hover:bg-neutral-200 transition"
+                >
+                  Close Viewer
                 </button>
               </div>
             </div>

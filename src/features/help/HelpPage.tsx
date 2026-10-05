@@ -33,14 +33,14 @@ export const HelpPage: React.FC<HelpPageProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-28 text-white max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 pb-28 text-neutral-900 dark:text-white max-w-4xl mx-auto w-full">
       {/* ── Header ── */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-display">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white font-display">
             {language === 'hi' ? 'कानूनी सहायता एवं वकील खोजें' : 'Legal Help & Advocate Matching'}
           </h1>
-          <p className="text-xs text-neutral-400 mt-0.5">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             Describe your problem with AI guidance and match with verified advocates
           </p>
         </div>
@@ -48,7 +48,7 @@ export const HelpPage: React.FC<HelpPageProps> = ({
         <button
           type="button"
           onClick={onOpenDirectory}
-          className="text-xs font-semibold text-amber-300 hover:underline shrink-0"
+          className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline shrink-0"
         >
           {language === 'hi' ? 'वकील डायरेक्टरी देखें →' : 'Browse All Lawyers →'}
         </button>
@@ -57,7 +57,7 @@ export const HelpPage: React.FC<HelpPageProps> = ({
       {/* ── Step 1: AI Legal Consultation ── */}
       {step === 'intake' && (
         <div className="space-y-4">
-          <div className="h-[620px] rounded-3xl overflow-hidden border border-white/[0.1] bg-neutral-950/80">
+          <div className="h-[620px] rounded-3xl overflow-hidden border border-slate-200 dark:border-white/[0.1] bg-[#EEF2F6] dark:bg-neutral-950/80 shadow-lg">
             <ClientAIConsultation
               language={language}
               onCaseProfileReady={handleProfileReady}

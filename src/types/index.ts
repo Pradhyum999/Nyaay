@@ -79,6 +79,22 @@ export interface DirectoryEntry {
   reviewCount?: number;
 }
 
+export interface PublicCourtHearing {
+  judge?: string;
+  businessOnDate?: string;
+  hearingDate?: string;
+  purposeOfListing?: string;
+}
+
+export interface PublicCourtOrder {
+  orderDate?: string;
+  description?: string;
+  orderUrl?: string;
+  orderType?: string;
+  markdownContent?: string;
+  pdfFile?: string;
+}
+
 export interface PublicCourtCase {
   id: string;
   cnrNumber?: string;
@@ -94,12 +110,30 @@ export interface PublicCourtCase {
   advocateNotes?: string;
   ecourtsUrl?: string;
   filingDate?: string;
+  filingNumber?: string;
+  registrationNumber?: string;
+  registrationDate?: string;
+  firstHearingDate?: string;
+  lastHearingDate?: string;
   nextHearingDate?: string;
+  decisionDate?: string;
   benchJudge?: string;
   petitioner?: string;
   respondent?: string;
   petitionerAdvocate?: string;
   respondentAdvocate?: string;
+  caseType?: string;
+  caseStatus?: string;
+  disposalType?: string;
+  district?: string;
+  state?: string;
+  courtNo?: number | string;
+  firDetails?: { caseNumber?: string; policeStation?: string; year?: string };
+  actSections?: string[];
+  historyOfHearings?: PublicCourtHearing[];
+  orders?: PublicCourtOrder[];
+  aiSummary?: string;
+  latestOrderText?: string;
 }
 
 export interface DirectMessage {
@@ -110,6 +144,7 @@ export interface DirectMessage {
   senderRole: UserRole;
   text: string;
   timestamp: string;
+  createdAt?: any;
   read?: boolean;
   readAt?: any;
   hasAttachment?: boolean;
@@ -141,6 +176,8 @@ export interface DirectThread {
   courtName?: string;
   nextHearingDate?: string;
   source?: 'direct' | 'diary';
+  updatedAt?: any;
+  lastMessageTime?: string;
 }
 
 export interface ClientUser {
@@ -272,11 +309,15 @@ export interface CaseNote {
 export interface CaseFile {
   id: string;
   caseNumber: string;
+  cnrNumber?: string;
   clientName: string;
   clientPhone: string;
   clientId?: string;
   lawyerId?: string;
   opponentName: string;
+  petitioner?: string;
+  respondent?: string;
+  accused?: string;
   court: CourtHierarchy;
   courtLocation: string;
   actSections: string[];
@@ -466,9 +507,19 @@ export interface CitizenFeedback {
   id: string;
   userId: string;
   userName: string;
-  userRole: UserRole;
-  rating: number;
+  userRole?: UserRole | string;
+  type?: 'feedback' | 'bug_report';
+  title?: string;
+  rating?: number;
+  severity?: 'minor' | 'moderate' | 'critical';
   feedbackText: string;
+  imageUrl?: string | null;
+  imageName?: string | null;
+  userEmail?: string;
+  userPhone?: string;
+  targetEmail?: string;
+  status?: 'new' | 'investigating' | 'resolved';
+  submittedAtIST?: string;
   voiceAudioUrl?: string;
   createdAt: any;
 }

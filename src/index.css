@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./design/tokens.css";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 @layer base {
   :root {
     --bg-main: #000000;
@@ -40,6 +42,11 @@
     --color-warning: #F59E0B;
     --color-info: #3B82F6;
 
+    /* Mobile Typography Tokens: Engineered for screen readability and legal precision */
+    --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Noto Sans Devanagari", system-ui, sans-serif;
+    --font-display: "Plus Jakarta Sans", "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Noto Sans Devanagari", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
     /* Spring easing for CSS transitions */
     --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -51,16 +58,27 @@
     padding: 0;
     background-color: #000000;
     color: #FFFFFF;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hind", system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    letter-spacing: -0.018em;
+    letter-spacing: -0.011em;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
   }
 
+  /* Headings: Authoritative, modern, crisp Plus Jakarta Sans */
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.022em;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Monospace: Strictly for Case Numbers, CNRs, Statutory Sections, Dates, and Times */
   code, pre, .font-mono {
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   * {
@@ -484,49 +502,47 @@
 }
 
 /* ── Floating Pure White Cards (Matching Reference: Icon set, Tasks, Prototype) ── */
-[data-theme="light"] .glass-card,
-[data-theme="light"] .glass-panel:not(header):not(nav),
-[data-theme="light"] div[class*="rounded-3xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not([role="dialog"]),
-[data-theme="light"] div[class*="rounded-2xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not(.today-active-day):not([role="dialog"]) {
+[data-theme="light"] .glass-card:not(.ai-chat-modal):not(.ai-bubble-assistant):not(.ai-bubble-user),
+[data-theme="light"] .glass-panel:not(header):not(nav):not(.ai-chat-modal):not(.ai-chat-feed):not(.client-ai-consultation),
+[data-theme="light"] div[class*="rounded-3xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not([role="dialog"]):not(.chat-bubble):not([class*="chat-bubble"]):not([class*="bg-black"]):not([class*="bg-neutral-900"]):not([class*="bg-neutral-950"]):not([class*="bg-amber-400"]):not(.ai-chat-modal):not(.ai-chat-feed):not(.client-ai-consultation):not(.ai-bubble-assistant):not(.ai-bubble-user),
+[data-theme="light"] div[class*="rounded-2xl"]:not(header):not(nav):not(.more-hero-card):not(.dark-hero-card):not(.today-active-day):not([role="dialog"]):not(.chat-bubble):not([class*="chat-bubble"]):not([class*="bg-black"]):not([class*="bg-neutral-900"]):not([class*="bg-neutral-950"]):not([class*="bg-amber-400"]):not(.ai-chat-modal):not(.ai-chat-feed):not(.client-ai-consultation):not(.ai-bubble-assistant):not(.ai-bubble-user) {
   background-color: #FFFFFF !important;
   border-color: rgba(0, 0, 0, 0.07) !important;
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
   backdrop-filter: none !important;
 }
 
-/* Text Hierarchy Inside White Surfaces */
-[data-theme="light"] main .text-white:not(.more-hero-card *):not(.dark-hero-card *):not(button.bg-neutral-900 *):not(button.bg-black *):not(.today-active-day *):not([role="dialog"] header *),
-[data-theme="light"] [role="dialog"] .text-white:not(button.bg-neutral-900 *):not(button.bg-black *),
-[data-theme="light"] h1.text-white,
-[data-theme="light"] h2.text-white,
-[data-theme="light"] h3.text-white,
-[data-theme="light"] h4.text-white {
+/* Text Hierarchy Inside White Surfaces - Universal across entire application */
+[data-theme="light"] .text-white:not(header *):not(nav *):not(.more-hero-card *):not(.dark-hero-card *):not(button.bg-neutral-900 *):not(button.bg-black *):not(.today-active-day *):not([role="dialog"] header *):not([class*="bg-black"] *):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"] *):not([class*="bg-amber-400"] *):not(button.bg-amber-400 *):not(.chat-bubble-sent *):not(.chat-bubble-sent):not(.ai-chat-header *):not(.ai-bubble-user *),
+[data-theme="light"] h1.text-white:not(.ai-chat-header *),
+[data-theme="light"] h2.text-white:not(.ai-chat-header *),
+[data-theme="light"] h3.text-white:not(.ai-chat-header *),
+[data-theme="light"] h4.text-white:not(.ai-chat-header *) {
   color: #111827 !important;
 }
 
-[data-theme="light"] main .text-neutral-200:not(.more-hero-card *):not(.dark-hero-card *),
-[data-theme="light"] [role="dialog"] .text-neutral-200 {
+[data-theme="light"] .text-neutral-200:not(header *):not(nav *):not(.more-hero-card *):not(.dark-hero-card *):not([class*="bg-black"] *):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"] *) {
   color: #1F2937 !important;
 }
 
-[data-theme="light"] main .text-neutral-300:not(.more-hero-card *):not(.dark-hero-card *):not(.today-active-day *),
-[data-theme="light"] [role="dialog"] .text-neutral-300 {
+[data-theme="light"] .text-neutral-300:not(header *):not(nav *):not(.more-hero-card *):not(.dark-hero-card *):not(.today-active-day *):not([class*="bg-black"] *):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"] *) {
   color: #374151 !important;
 }
 
-[data-theme="light"] main .text-neutral-400:not(.more-hero-card *):not(.dark-hero-card *),
-[data-theme="light"] [role="dialog"] .text-neutral-400 {
+[data-theme="light"] .text-neutral-400:not(header *):not(nav *):not(.more-hero-card *):not(.dark-hero-card *):not([class*="bg-black"] *):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"] *) {
   color: #64748B !important;
 }
 
-[data-theme="light"] main .text-neutral-500:not(.more-hero-card *):not(.dark-hero-card *) {
+[data-theme="light"] .text-neutral-500:not(header *):not(nav *):not(.more-hero-card *):not(.dark-hero-card *):not([class*="bg-black"] *):not([class*="bg-neutral-900"] *):not([class*="bg-neutral-950"] *) {
   color: #94A3B8 !important;
 }
 
-/* Amber text on light canvas: warm, crisp and readable */
+/* Amber text on light canvas: warm, crisp and readable - high contrast Amber 800 (Bug 13) */
 [data-theme="light"] main .text-amber-300:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *),
-[data-theme="light"] main .text-amber-400:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *) {
-  color: #B45309 !important;
+[data-theme="light"] main .text-amber-400:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *),
+[data-theme="light"] .text-amber-300:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *):not(button.bg-amber-400 *),
+[data-theme="light"] .text-amber-400:not(.more-hero-card *):not(.dark-hero-card *):not(.bg-amber-400 *):not(button.bg-amber-400 *) {
+  color: #92400E !important; /* WCAG compliant contrast on white/cream */
 }
 
 /* ── Status Pills, Badges & Micro-Surfaces ── */
@@ -593,11 +609,16 @@
 }
 
 /* ── Form Controls (Inputs, Textarea, Selects) ── */
+input, textarea, select {
+  -webkit-text-fill-color: currentColor;
+}
+
 [data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="light"] textarea,
 [data-theme="light"] select {
   background-color: #FFFFFF !important;
   color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
   border: 1px solid #D1D5DB !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
@@ -605,6 +626,7 @@
 [data-theme="light"] input::placeholder,
 [data-theme="light"] textarea::placeholder {
   color: #9CA3AF !important;
+  -webkit-text-fill-color: #9CA3AF !important;
 }
 
 [data-theme="light"] input:focus,
@@ -689,6 +711,22 @@
   color: #111827 !important;
 }
 
+[data-theme="light"] [role="dialog"] {
+  color: #111827 !important;
+}
+
+[data-theme="light"] [role="dialog"] .text-white:not(button.bg-amber-400 *):not(.bg-amber-400 *):not(button.bg-black *):not(.bg-black *) {
+  color: #111827 !important;
+}
+
+[data-theme="light"] [role="dialog"] .text-neutral-300 {
+  color: #374151 !important;
+}
+
+[data-theme="light"] [role="dialog"] .text-neutral-400 {
+  color: #64748B !important;
+}
+
 /* ── Primary Action Buttons ── */
 [data-theme="light"] .bg-amber-400 {
   background-color: #F5C563 !important;
@@ -714,6 +752,7 @@
 }
 
 /* ── Direct Chat View in Light Theme ── */
+[data-theme="light"] .chat-container,
 [data-theme="light"] .bg-black[class*="overflow-hidden"] {
   background-color: #F4F5F7 !important;
 }
@@ -731,6 +770,132 @@
   color: #9CA3AF !important;
 }
 
+/* ── High-Contrast Chat Bubbles (Fix Bug 1: No White on White) ── */
+.chat-bubble-sent {
+  background-color: #F59E0B !important;
+  color: #111827 !important;
+  border-color: #D97706 !important;
+}
+.chat-bubble-sent p {
+  color: #111827 !important;
+}
+.chat-bubble-sent .chat-time,
+.chat-bubble-sent .chat-time * {
+  color: #1F2937 !important;
+}
+
+[data-theme="light"] .chat-bubble-sent {
+  background-color: #F59E0B !important;
+  color: #111827 !important;
+  border-color: #D97706 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .chat-bubble-sent p {
+  color: #111827 !important;
+}
+[data-theme="light"] .chat-bubble-sent .chat-time,
+[data-theme="light"] .chat-bubble-sent .chat-time * {
+  color: #1F2937 !important;
+}
+
+.chat-bubble-received {
+  background-color: #262626 !important;
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.chat-bubble-received p {
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .chat-bubble-received {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .chat-bubble-received p {
+  color: #0F172A !important;
+}
+
+/* ── Dedicated Eye-Comfort AI Chat Styles (All AI Chats) ─────────────────────── */
+.ai-chat-header,
+[data-theme="light"] .ai-chat-header {
+  background-color: #0F172A !important;
+  border-bottom: 1px solid #1E293B !important;
+  color: #FFFFFF !important;
+}
+
+.ai-chat-header h1,
+.ai-chat-header h2,
+.ai-chat-header h3,
+.ai-chat-header p,
+.ai-chat-header span,
+[data-theme="light"] .ai-chat-header h1,
+[data-theme="light"] .ai-chat-header h2,
+[data-theme="light"] .ai-chat-header h3,
+[data-theme="light"] .ai-chat-header p,
+[data-theme="light"] .ai-chat-header span {
+  color: #FFFFFF !important;
+}
+
+.ai-chat-header .text-slate-300,
+[data-theme="light"] .ai-chat-header .text-slate-300 {
+  color: #CBD5E1 !important;
+}
+
+.ai-chat-header .text-emerald-300,
+[data-theme="light"] .ai-chat-header .text-emerald-300 {
+  color: #6EE7B7 !important;
+}
+
+.ai-chat-header .text-amber-300,
+[data-theme="light"] .ai-chat-header .text-amber-300 {
+  color: #FCD34D !important;
+}
+
+/* Eye-Comfort Matte Chat Canvas (Prevents white glare eye strain) */
+[data-theme="light"] .ai-chat-modal {
+  background-color: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+}
+
+[data-theme="light"] .ai-chat-feed {
+  background-color: #EEF2F6 !important;
+}
+
+/* Assistant Message Bubble - Crisp Charcoal on Pure White with Soft Shadow */
+[data-theme="light"] .ai-bubble-assistant {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-bubble-assistant p,
+[data-theme="light"] .ai-bubble-assistant span,
+[data-theme="light"] .ai-bubble-assistant div {
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .ai-bubble-assistant strong {
+  color: #92400E !important; /* High contrast warm amber/bronze */
+}
+
+/* User Message Bubble - High Contrast Amber with Dark Ink */
+.ai-bubble-user,
+[data-theme="light"] .ai-bubble-user {
+  background-color: #F59E0B !important;
+  border: 1px solid #D97706 !important;
+  color: #111827 !important;
+}
+
+.ai-bubble-user p,
+.ai-bubble-user span,
+[data-theme="light"] .ai-bubble-user p,
+[data-theme="light"] .ai-bubble-user span {
+  color: #111827 !important;
+}
+
 /* ── Semantic Token Utilities (Tailwind v4) ──────────────────────────────────── */
 @utility text-main     { color: var(--text-primary); }
 @utility text-sub      { color: var(--text-secondary); }
@@ -740,4 +905,33 @@
 @utility surface-inset { background-color: var(--bg-inset); }
 @utility btn-ink       { background-color: var(--accent-primary); color: var(--accent-primary-fg); }
 @utility hairline      { border-color: var(--border-subtle); }
+
+/* ── Typography Utilities (Tailwind v4) ────────────────────────────────────────── */
+@utility font-sans     { font-family: var(--font-sans); }
+@utility font-display  { font-family: var(--font-display); }
+@utility font-mono     { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+@utility tabular-nums  { font-variant-numeric: tabular-nums; }
+
+/* ── Theme-Adaptive Typography Optical Tracking ── */
+[data-theme="light"] {
+  letter-spacing: -0.016em;
+}
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] .font-display {
+  letter-spacing: -0.024em;
+}
+
+[data-theme="dark"] {
+  letter-spacing: -0.008em;
+}
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] .font-display {
+  letter-spacing: -0.018em;
+}
 

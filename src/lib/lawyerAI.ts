@@ -139,8 +139,8 @@ async function askNvidia(
     ...history.slice(-8).map(m => ({ role: m.role, content: m.content }) as ChatMessagePayload),
     { role: 'user', content: question },
   ];
-  const res = await callNvidiaGLM5(messages, { temperature: 0.3, max_tokens: 1400, timeoutMs: 25000 });
-  const text = (res as any)?.choices?.[0]?.message?.content || (res as any)?.content || '';
+  const res = await callNvidiaGLM5(messages, { model: 'openai/gpt-oss-20b', temperature: 1, top_p: 1, max_tokens: 4096, timeoutMs: 8000 });
+  const text = (res as any)?.content || (res as any)?.choices?.[0]?.message?.content || '';
   if (!text.trim()) throw new Error('Empty GLM response');
   return text.trim();
 }

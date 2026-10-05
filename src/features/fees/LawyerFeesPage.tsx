@@ -142,7 +142,7 @@ export const LawyerFeesPage: React.FC<LawyerFeesPageProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-28 text-main max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-36 text-main max-w-4xl mx-auto w-full">
       {/* ── Header ── */}
       <div className="flex items-center justify-between pt-1">
         <div>
@@ -226,7 +226,7 @@ export const LawyerFeesPage: React.FC<LawyerFeesPageProps> = ({
               'केस नंबर या मुवक्किल से खोजें...',
               'खटला क्रमांक किंवा पक्षकाराने शोधा...'
             )}
-            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-300 dark:border-white/[0.1] text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:border-amber-500 dark:focus:border-amber-400 focus:bg-white transition"
           />
         </div>
 

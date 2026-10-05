@@ -20,6 +20,7 @@ interface ChatMsg {
 }
 
 const SUGGESTED_PROMPTS = [
+  "Which number is larger, 9.11 or 9.8?",
   "What hearings do I have scheduled for this week?",
   "List all unpaid invoices and outstanding fees",
   "Summarize urgent matters requiring immediate filing",
@@ -110,46 +111,53 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
       const parts = line.split(/(\*\*.*?\*\*)/g);
       const formattedParts = parts.map((part, pIdx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={pIdx} className="font-bold text-amber-300">{part.slice(2, -2)}</strong>;
+          return <strong key={pIdx} className="font-bold text-amber-800 dark:text-amber-300">{part.slice(2, -2)}</strong>;
         }
         return part;
       });
 
       if (line.startsWith('### ')) {
-        return <h4 key={idx} className="font-bold text-amber-300 mt-2 mb-1">{line.slice(4)}</h4>;
+        return <h4 key={idx} className="font-bold text-slate-950 dark:text-amber-300 mt-2 mb-1">{line.slice(4)}</h4>;
       }
       if (line.startsWith('## ')) {
-        return <h3 key={idx} className="font-bold text-amber-300 mt-2 mb-1 text-sm">{line.slice(3)}</h3>;
+        return <h3 key={idx} className="font-bold text-slate-950 dark:text-amber-300 mt-2 mb-1 text-sm">{line.slice(3)}</h3>;
       }
       if (line.startsWith('- ') || line.startsWith('• ')) {
         return (
-          <div key={idx} className="flex items-start gap-1.5 ml-2 my-0.5">
-            <span className="text-amber-400 font-bold">•</span>
+          <div key={idx} className="flex items-start gap-1.5 ml-2 my-0.5 text-slate-900 dark:text-slate-100">
+            <span className="text-amber-600 dark:text-amber-400 font-bold shrink-0">•</span>
             <span>{formattedParts}</span>
           </div>
         );
       }
-      return <p key={idx} className={line === '' ? 'h-2' : ''}>{formattedParts}</p>;
+      return (
+        <p key={idx} className={`leading-relaxed text-slate-900 dark:text-slate-100 ${line === '' ? 'h-2' : ''}`}>
+          {formattedParts}
+        </p>
+      );
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-in fade-in">
-      <div className="bg-neutral-950 border border-white/[0.12] rounded-t-3xl sm:rounded-3xl w-full max-w-2xl h-[90vh] sm:h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-black/40">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xl flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-in fade-in">
+      <div className="ai-chat-modal bg-[#F8FAFC] dark:bg-[#0B0F19] border border-slate-300 dark:border-white/[0.12] rounded-t-3xl sm:rounded-3xl w-full max-w-2xl h-[92vh] sm:h-[82vh] flex flex-col shadow-2xl overflow-hidden">
+        {/* Header - Solid High-Contrast Chambers Navy/Slate Bar */}
+        <div className="ai-chat-header p-4 border-b border-slate-800 flex items-center justify-between bg-[#0F172A] text-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+            <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-300 shrink-0">
               <Bot size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white tracking-tight">NYAAY AI Counsel</h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Grounded on Live Chambers Data
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm font-bold text-white tracking-tight font-display">NYAAY AI Counsel</h2>
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  openai/gpt-oss-20b
+                </span>
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Live NIM
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px] text-slate-300 font-medium">
                 {(groundingData.cases || []).length} cases · {(groundingData.hearings || []).length} hearings · {(groundingData.invoices || []).length} invoices
               </p>
             </div>
@@ -157,42 +165,43 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-neutral-400 hover:text-white flex items-center justify-center transition"
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white flex items-center justify-center transition border border-slate-700 ios-press"
+            aria-label="Close AI Counsel"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Message Thread */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Message Thread - Soft Eye-Comforting Canvas */}
+        <div className="ai-chat-feed flex-1 overflow-y-auto p-4 space-y-4 bg-slate-100/80 dark:bg-[#0B0F19]">
           {messages.map(msg => (
             <div
               key={msg.id}
               className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-400/15 dark:text-amber-300 dark:border-amber-400/30 flex items-center justify-center shrink-0">
                   <Bot size={16} />
                 </div>
               )}
               <div
-                className={`max-w-[85%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed ${
+                className={`max-w-[85%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed shadow-sm ${
                   msg.role === 'user'
-                    ? 'bg-amber-400 text-black font-medium rounded-tr-sm'
-                    : 'bg-neutral-900 border border-white/[0.08] text-white rounded-tl-sm shadow-md'
+                    ? 'ai-bubble-user bg-amber-400 text-neutral-950 font-medium rounded-tr-sm border border-amber-500/30'
+                    : 'ai-bubble-assistant bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-tl-sm'
                 }`}
               >
                 <div>{renderFormattedContent(msg.content)}</div>
                 <div
                   className={`text-[9px] mt-1.5 text-right font-mono ${
-                    msg.role === 'user' ? 'text-black/60' : 'text-neutral-500'
+                    msg.role === 'user' ? 'text-black/60 font-semibold' : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   {msg.timestamp}
                 </div>
               </div>
               {msg.role === 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-white/[0.08] border border-white/10 flex items-center justify-center text-white shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-white/[0.08] border border-slate-300 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-white shrink-0">
                   <User size={16} />
                 </div>
               )}
@@ -200,20 +209,20 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
           ))}
 
           {loading && (
-            <div className="flex gap-3 items-center text-neutral-400 text-xs pl-2 animate-pulse">
-              <div className="w-8 h-8 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 shrink-0">
+            <div className="flex gap-3 items-center text-slate-600 dark:text-neutral-400 text-xs pl-2 animate-pulse">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/20 flex items-center justify-center shrink-0">
                 <Loader2 size={16} className="animate-spin" />
               </div>
-              <span>Consulting chambers data & generating response...</span>
+              <span className="font-medium">Consulting chambers data & generating response...</span>
             </div>
           )}
           <div ref={scrollRef} />
         </div>
 
         {/* Suggested Prompts */}
-        <div className="px-4 py-2 border-t border-white/[0.06] bg-black/20">
-          <p className="text-[10px] font-mono text-neutral-400 mb-1.5 flex items-center gap-1">
-            <Sparkles size={11} className="text-amber-400" />
+        <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90">
+          <p className="text-[10px] font-mono font-medium text-slate-600 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+            <Sparkles size={11} className="text-amber-600 dark:text-amber-400" />
             <span>Suggested queries:</span>
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -222,7 +231,7 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
                 key={idx}
                 type="button"
                 onClick={() => handleSend(prompt)}
-                className="text-[11px] whitespace-nowrap px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-amber-400/15 text-neutral-300 hover:text-amber-300 border border-white/[0.08] hover:border-amber-400/30 transition shrink-0"
+                className="text-[11px] whitespace-nowrap px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-800 hover:text-amber-900 border border-slate-200 hover:border-amber-300 dark:bg-slate-800/80 dark:hover:bg-amber-400/20 dark:text-slate-200 dark:hover:text-amber-300 dark:border-slate-700 dark:hover:border-amber-400/40 transition shrink-0 ios-press"
               >
                 {prompt}
               </button>
@@ -231,7 +240,7 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
         </div>
 
         {/* Input Bar */}
-        <div className="p-3 border-t border-white/[0.08] bg-black/60 flex items-center gap-2">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 shrink-0">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -243,13 +252,13 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
             }}
             placeholder="Ask about hearings, fees, specific cases, or legal drafting..."
             rows={1}
-            className="flex-1 bg-white/[0.04] border border-white/[0.1] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 resize-none max-h-24"
+            className="flex-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:border-amber-500 resize-none max-h-24"
           />
           <button
             type="button"
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
-            className="w-10 h-10 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black flex items-center justify-center transition shrink-0 shadow-md shadow-amber-500/10"
+            className="w-10 h-10 rounded-2xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-bold flex items-center justify-center transition shrink-0 shadow-md shadow-amber-500/10 cursor-pointer ios-press"
           >
             <Send size={16} />
           </button>

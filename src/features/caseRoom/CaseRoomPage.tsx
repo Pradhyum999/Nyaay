@@ -24,7 +24,10 @@ import {
   HelpCircle,
   X,
   Send,
-  Loader2
+  Loader2,
+  Phone,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 
 interface CaseRoomPageProps {
@@ -64,6 +67,7 @@ export const CaseRoomPage: React.FC<CaseRoomPageProps> = ({
 
   const askCache = useRef(new Map<string, string>());
   const explainCache = useRef(new Map<string, string>());
+  const docInputRef = useRef<HTMLInputElement | null>(null);
 
   // If client has no cases yet
   if (!activeCase && cases.length === 0) {
@@ -317,6 +321,114 @@ export const CaseRoomPage: React.FC<CaseRoomPageProps> = ({
               />
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Hidden file input for seamless document upload */}
+      <input
+        type="file"
+        ref={docInputRef}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            onUploadDocument?.(file as any);
+            e.target.value = '';
+          }
+        }}
+      />
+
+      {/* ── Assigned Legal Counsel & Digital Chambers Card ── */}
+      <Card className="border-amber-400/25 bg-gradient-to-br from-amber-400/[0.06] via-transparent to-transparent space-y-3.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <img
+                src="https://images.unsplash.com/photo-1556157382-97eda2d62296?w=150&auto=format&fit=crop&q=80"
+                alt={currentCase.lawyerName || 'Assigned Counsel'}
+                className="w-12 h-12 rounded-2xl object-cover border border-amber-400/30 shadow-md"
+              />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-neutral-900 rounded-full" title="Counsel Available Online" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-sm font-bold text-main">{currentCase.lawyerName || 'Adv. Rajesh Sharma'}</h3>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                  <ShieldCheck size={10} />
+                  <span>{language === 'mr' ? 'प्रमाणित' : language === 'hi' ? 'सत्यापित' : 'Verified Counsel'}</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-sub font-mono mt-0.5">
+                BCI/D/1942/2012 • {language === 'mr' ? 'उच्च न्यायालय अधिवक्ता' : language === 'hi' ? 'उच्च न्यायालय अधिवक्ता' : 'High Court Counsel'}
+              </p>
+              <p className="text-[10px] text-faint mt-0.5">
+                {language === 'mr' ? 'शर्मा ॲण्ड असोसिएट्स चेंबर्स' : language === 'hi' ? 'शर्मा एंड एसोसिएट्स चैंबर्स' : 'Chambers of Rajesh Sharma & Associates'}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-amber-600 dark:text-amber-400 font-bold block">
+              {language === 'mr' ? 'थेट संपर्क' : language === 'hi' ? 'सीधा संपर्क' : 'Direct Line'}
+            </span>
+            <span className="text-[11px] text-sub font-mono">Encrypted • S.126 IEA</span>
+          </div>
+        </div>
+
+        {/* Quick Action Matrix */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-white/[0.08]">
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<MessageSquare size={13} />}
+            onClick={() => onMessageLawyer(currentCase.lawyerName || 'Adv. Rajesh Sharma')}
+            className="w-full text-xs font-semibold"
+          >
+            {language === 'mr' ? 'चॅट संदेश' : language === 'hi' ? 'चैट संदेश' : 'Direct Chat'}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Phone size={13} />}
+            onClick={() => onMessageLawyer(currentCase.lawyerName || 'Adv. Rajesh Sharma')}
+            className="w-full text-xs"
+          >
+            {language === 'mr' ? 'कॉल विनंती' : language === 'hi' ? 'परामर्श कॉल' : 'Consultation'}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<UploadCloud size={13} />}
+            onClick={() => docInputRef.current?.click()}
+            className="w-full text-xs"
+          >
+            {language === 'mr' ? 'कागदपत्र द्या' : language === 'hi' ? 'दस्तावेज भेजें' : 'Upload Files'}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<IndianRupee size={13} />}
+            onClick={() => setActiveTab('fees')}
+            className="w-full text-xs"
+          >
+            {language === 'mr' ? 'फी भरा' : language === 'hi' ? 'शुल्क विवरण' : 'Case Fees'}
+          </Button>
+        </div>
+
+        {/* Legal Privilege Note */}
+        <div className="text-[10px] text-faint flex items-center justify-between pt-0.5">
+          <span className="flex items-center gap-1">
+            <CheckCircle2 size={11} className="text-emerald-500" />
+            {language === 'mr'
+              ? 'भारतीय पुरावा कायदा कलम १२६ अन्वये वकील-अशील संवाद संरक्षित'
+              : language === 'hi'
+              ? 'भारतीय साक्ष्य अधिनियम धारा १२६ अंतर्गत वकील-मुवक्किल गोपनीयता सुरक्षित'
+              : 'Advocate-Client privilege protected under Section 126 Evidence Act / BSA S.132'}
+          </span>
+          <span className="text-[9px] font-mono text-amber-600 dark:text-amber-400 font-semibold">Privileged Channel</span>
         </div>
       </Card>
 
@@ -667,24 +779,81 @@ export const CaseRoomPage: React.FC<CaseRoomPageProps> = ({
       {/* Tab: Fees */}
       {activeTab === 'fees' && (
         <div className="space-y-3 animate-in fade-in">
+          {/* Summary Balance Card */}
+          <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-neutral-100 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/[0.08]">
+            <div className="text-center p-2">
+              <span className="text-[10px] font-mono uppercase text-sub block font-semibold">
+                {language === 'mr' ? 'एकूण आकारलेली फी' : language === 'hi' ? 'कुल बिल' : 'Total Billed'}
+              </span>
+              <span className="text-sm font-bold font-mono text-main">
+                ₹{caseInvoices.reduce((acc, i) => acc + (i.totalAmount || 0), 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="text-center p-2 border-x border-neutral-200 dark:border-white/[0.08]">
+              <span className="text-[10px] font-mono uppercase text-emerald-600 dark:text-emerald-400 block font-semibold">
+                {language === 'mr' ? 'भरलेली रक्कम' : language === 'hi' ? 'जमा की गई' : 'Paid'}
+              </span>
+              <span className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                ₹{caseInvoices.filter(i => i.status === 'Paid').reduce((acc, i) => acc + (i.totalAmount || 0), 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="text-center p-2">
+              <span className="text-[10px] font-mono uppercase text-amber-600 dark:text-amber-400 block font-semibold">
+                {language === 'mr' ? 'थकित बाकी' : language === 'hi' ? 'बकाया' : 'Due Balance'}
+              </span>
+              <span className="text-sm font-bold font-mono text-amber-700 dark:text-amber-300">
+                ₹{caseInvoices.filter(i => i.status !== 'Paid').reduce((acc, i) => acc + (i.totalAmount || 0), 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+
           {caseInvoices.length > 0 ? (
-            caseInvoices.map(inv => (
-              <Card key={inv.id} className="flex items-center justify-between p-4 border-amber-400/20">
-                <div>
-                  <span className="text-[10px] font-mono text-faint uppercase">{inv.invoiceNumber} • {inv.date}</span>
-                  <h3 className="text-base font-bold font-mono text-main">₹{inv.totalAmount.toLocaleString('en-IN')}</h3>
-                  <StatusBadge status={inv.status} />
-                </div>
-                {inv.status !== 'Paid' && (
-                  <Button variant="primary" size="sm" onClick={() => onPayInvoice?.(inv.id)}>
-                    {language === 'mr' ? 'UPI द्वारे भरा' : language === 'hi' ? 'UPI से भुगतान करें' : 'Pay via UPI'}
-                  </Button>
-                )}
-              </Card>
-            ))
+            <div className="space-y-2.5">
+              {caseInvoices.map(inv => (
+                <Card key={inv.id} className="flex items-center justify-between p-4 border-neutral-200 dark:border-amber-400/20 shadow-sm">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-sub uppercase font-semibold">{inv.invoiceNumber}</span>
+                      <span className="text-[10px] text-faint">• {inv.date}</span>
+                    </div>
+                    <h3 className="text-base font-bold font-mono text-main mt-0.5">₹{inv.totalAmount.toLocaleString('en-IN')}</h3>
+                    <div className="mt-1">
+                      <StatusBadge status={inv.status} />
+                    </div>
+                  </div>
+                  <div>
+                    {inv.status !== 'Paid' ? (
+                      <Button variant="primary" size="sm" onClick={() => onPayInvoice?.(inv.id)} className="shadow-sm">
+                        {language === 'mr' ? 'UPI द्वारे भरा' : language === 'hi' ? 'UPI से भुगतान करें' : 'Pay via UPI'}
+                      </Button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                        <CheckCircle2 size={12} />
+                        <span>{language === 'mr' ? 'भरणा पूर्ण' : language === 'hi' ? 'भुगतान सफल' : 'Settled & Verified'}</span>
+                      </span>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
           ) : (
-            <div className="text-xs text-sub py-6 text-center">
-              {language === 'mr' ? 'कोणतीही प्रलंबित फी नाही.' : language === 'hi' ? 'कोई बकाया शुल्क नहीं है।' : 'No invoices billed for this matter.'}
+            <div className="text-center py-8 space-y-3">
+              <IndianRupee size={28} className="mx-auto text-faint" />
+              <p className="text-xs text-sub max-w-xs mx-auto">
+                {language === 'mr'
+                  ? 'या खटल्यासाठी कोणतीही प्रलंबित पावती किंवा बिल नाही.'
+                  : language === 'hi'
+                  ? 'इस केस के लिए कोई बकाया बिल या चालान नहीं है।'
+                  : 'No invoices billed for this matter yet.'}
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onMessageLawyer(currentCase.lawyerName || 'Adv. Rajesh Sharma')}
+              >
+                <MessageSquare size={13} />
+                <span>{language === 'mr' ? 'फी अंदाज विचारा' : language === 'hi' ? 'शुल्क विवरण पूछें' : 'Request Retainer Quote'}</span>
+              </Button>
             </div>
           )}
         </div>

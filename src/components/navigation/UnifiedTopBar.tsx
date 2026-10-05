@@ -99,40 +99,39 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full bg-black/90 backdrop-blur-2xl border-b border-white/[0.08] px-4 py-1.5 sm:py-2">
+      <header className="sticky top-0 z-30 w-full bg-white/95 dark:bg-black/90 backdrop-blur-2xl border-b border-neutral-200 dark:border-white/[0.08] px-4 py-1.5 sm:py-2 text-neutral-900 dark:text-white">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
-          {/* Brand as Dropdown Menu Trigger - Only Edit Profile per user request */}
           {/* Brand as Dropdown Menu Trigger - Displays logged-in lawyer name prominently */}
           <div className="relative" ref={menuRef}>
             <button
               type="button"
               onClick={() => setShowMenu(prev => !prev)}
-              className="flex items-center gap-2 p-0.5 rounded-xl hover:bg-white/[0.06] transition text-left ios-press focus:outline-none"
+              className="flex items-center gap-2 p-0.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition text-left ios-press focus:outline-none"
               title={displayName}
             >
-              <div className="w-7 h-7 rounded-lg bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-300 shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
                 <Scale size={15} />
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="flex flex-col text-left">
-                  <span className="text-xs sm:text-sm font-bold text-white tracking-tight font-display truncate max-w-[150px] sm:max-w-[220px] leading-tight">
+                  <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white tracking-tight font-display truncate max-w-[150px] sm:max-w-[220px] leading-tight">
                     {displayName}
                   </span>
-                  <span className="text-[9.5px] font-mono text-amber-400 font-semibold tracking-wider flex items-center gap-1 leading-tight">
+                  <span className="text-[9.5px] font-mono text-amber-600 dark:text-amber-400 font-semibold tracking-wider flex items-center gap-1 leading-tight">
                     NYAAYNEETI {userTag || (userRole === 'lawyer' ? (language === 'hi' ? 'काउंसिल' : language === 'mr' ? 'कौन्सिल' : 'Counsel') : (language === 'hi' ? 'नागरिक' : language === 'mr' ? 'नागरिक' : 'Client'))}
                   </span>
                 </div>
                 <ChevronDown
                   size={13}
-                  className={`text-neutral-400 transition-transform ${showMenu ? 'rotate-180 text-amber-300' : ''}`}
+                  className={`text-neutral-400 transition-transform ${showMenu ? 'rotate-180 text-amber-600 dark:text-amber-300' : ''}`}
                 />
               </div>
             </button>
 
             {/* ── Nyaayneeti Menu Dropdown: ONLY Edit Profile (per user request) ── */}
             {showMenu && (
-              <div className="absolute top-11 left-0 z-50 w-64 bg-neutral-950 border border-white/[0.16] rounded-3xl p-3 shadow-2xl backdrop-blur-2xl space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between px-2 py-1 border-b border-white/[0.06] text-[11px] font-mono text-neutral-400">
+              <div className="absolute top-11 left-0 z-50 w-64 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-white/[0.16] rounded-3xl p-3 shadow-2xl backdrop-blur-2xl space-y-2 animate-in fade-in text-neutral-900 dark:text-white">
+                <div className="flex items-center justify-between px-2 py-1 border-b border-neutral-200 dark:border-white/[0.06] text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
                   <span className="font-bold text-amber-400">
                     {language === 'hi' ? 'न्यायनीति मेनू' : language === 'mr' ? 'न्यायनीती मेनू' : 'NYAAYNEETI MENU'}
                   </span>
@@ -164,8 +163,20 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             )}
           </div>
 
-          {/* Action Icons: Universal Search + Bell */}
-          <div className="flex items-center gap-1.5">
+          {/* Action Icons: Ask NYAAY AI + Universal Search + Bell */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenLawyerAI && (
+              <button
+                type="button"
+                onClick={onOpenLawyerAI}
+                aria-label="Ask NYAAY AI"
+                title="Ask NYAAY AI"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-bold text-xs shadow-md transition ios-press shrink-0 cursor-pointer"
+              >
+                <Sparkles size={14} className="text-black animate-pulse shrink-0" />
+                <span className="font-sans font-bold text-xs tracking-tight whitespace-nowrap">Ask NYAAY AI</span>
+              </button>
+            )}
 
             {onOpenSearch && (
               <button
@@ -208,17 +219,6 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 : hasNotifications
                 ? `${notifications.length} ${language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'notifications'}`
                 : (language === 'hi' ? 'कोई अपठित सूचना नहीं है' : language === 'mr' ? 'कोणतीही न वाचलेली सूचना नाही' : 'No unread notifications')
-            }
-            primary={
-              hasNotifications && onDismissAllNotifications
-                ? {
-                    label: language === 'hi' ? 'सभी हटाएं' : language === 'mr' ? 'सर्व काढा' : 'Dismiss All',
-                    onClick: () => {
-                      onDismissAllNotifications();
-                      setShowNotifications(false);
-                    },
-                  }
-                : undefined
             }
           >
             {/* Top Toolbar with count & Dismiss All button */}

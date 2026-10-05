@@ -17,10 +17,12 @@ import {
   Phone,
   Video,
   Camera,
+  Contact,
+  Plus,
+  ChevronDown,
+  ChevronUp,
   Image as ImageIcon,
   MapPin,
-  Contact,
-  Plus
 } from 'lucide-react';
 import {
   subscribeToThreadMessages,
@@ -30,6 +32,7 @@ import {
 } from '../../services/firestoreService';
 import { DirectMessage, Language, UserRole } from '../../types';
 import { CallModal } from './CallModal';
+import { normalize12HourTime, isSameDayIST } from '../../lib/istDate';
 
 interface DirectChatViewProps {
   threadId: string;
@@ -74,6 +77,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
 
   // Enhanced Attachment Sharing (Suggestion 7)
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [isCaseBannerExpanded, setIsCaseBannerExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -93,15 +97,17 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
+      const sizeStr = formatFileSize(file.size);
       await sendDirectMessage(threadId, {
         senderId: currentUserId,
         senderName: currentUserName,
         senderRole: currentUserRole,
-        text: `📄 ${file.name} (${formatFileSize(file.size)})`,
+        text: `📄 ${file.name} (${sizeStr})`,
         hasAttachment: true,
         attachmentType: 'file',
         attachmentName: file.name,
         attachmentUrl: dataUrl,
+        attachmentSize: sizeStr,
       });
       setShowAttachmentMenu(false);
     };
@@ -285,10 +291,10 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full max-h-full overflow-hidden bg-black text-white relative">
+    <div className="flex flex-col h-full min-h-0 max-h-full overflow-hidden bg-neutral-100/70 dark:bg-black text-neutral-900 dark:text-white relative">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="absolute top-16 left-4 right-4 z-40 bg-neutral-900/95 border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
+        <div className="absolute top-16 left-4 right-4 z-40 bg-neutral-900/95 dark:bg-neutral-900/95 border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
           <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
           <span className="text-emerald-200">{toastMessage}</span>
         </div>
@@ -307,122 +313,166 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
       )}
 
-      {/* Header (Pinned Lawyer Header - BUGS_20261002 Item 2) */}
-      <div className="sticky top-0 z-30 flex-shrink-0 bg-neutral-950/98 border-b border-white/[0.08] px-4 py-3 flex items-center justify-between backdrop-blur-2xl shadow-md">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-9 h-9 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] flex items-center justify-center text-neutral-300 transition ios-press border border-white/[0.06]"
-            aria-label="Back to conversations"
-          >
-            <ArrowLeft size={16} />
-          </button>
+      {/* Header - Compact Single Bar with Safe-Area Inset (Bugs 4, 12, 13, 14, 16) */}
+      {(() => {
+        const cleanRecipientName = (recipientName || 'Advocate')
+          .replace(/^Adv\.?\s*/i, '')
+          .replace(/^Advocate\s+/i, '')
+          .trim();
+        const displayRecipient = currentUserRole === 'client' ? `Adv. ${cleanRecipientName}` : cleanRecipientName;
 
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              {recipientPhoto ? (
-                <img
-                  src={recipientPhoto}
-                  alt={recipientName}
-                  className="w-10 h-10 rounded-2xl object-cover border border-white/10 shadow-md"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-2xl bg-neutral-800 border border-white/10 flex items-center justify-center text-amber-300 shadow-md">
-                  {currentUserRole === 'client' ? <Scale size={18} /> : <User size={18} />}
+        return (
+          <div className="sticky top-0 z-30 flex-shrink-0 bg-white/95 dark:bg-neutral-950/98 border-b border-neutral-200 dark:border-white/[0.08] px-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2.5 flex items-center justify-between backdrop-blur-2xl shadow-sm dark:shadow-md gap-2 text-neutral-900 dark:text-white">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <button
+                onClick={onBack}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] flex items-center justify-center text-neutral-800 dark:text-neutral-200 transition ios-press border border-neutral-200 dark:border-white/[0.08] shrink-0"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="relative shrink-0">
+                  {recipientPhoto ? (
+                    <img
+                      src={recipientPhoto}
+                      alt={displayRecipient}
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover border border-neutral-200 dark:border-white/10 shadow-sm dark:shadow-md"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-100 dark:bg-neutral-800 border border-amber-300 dark:border-white/10 flex items-center justify-center text-amber-800 dark:text-amber-300 shadow-sm">
+                      {currentUserRole === 'client' ? <Scale size={18} /> : <User size={18} />}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-black" />
                 </div>
-              )}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black" />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white tracking-tight truncate">
+                      {displayRecipient}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
+                    {currentUserRole === 'client' ? 'Verified Legal Counsel' : 'Direct Consultation'}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-white tracking-tight">
-                  {currentUserRole === 'client' ? `Adv. ${recipientName}` : recipientName}
-                </span>
-                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-400 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  Active
-                </span>
-              </div>
-              <p className="text-[10px] text-neutral-400 font-mono line-clamp-1">
-                {currentUserRole === 'client' ? 'Verified Legal Counsel' : 'Direct Consultation'}
-              </p>
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Collapsible Case Toggle Pill (Bug 12) */}
+              {matterSubject && (
+                <button
+                  type="button"
+                  onClick={() => setIsCaseBannerExpanded(prev => !prev)}
+                  className="hidden xs:flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.05] dark:hover:bg-white/[0.1] border border-neutral-200 dark:border-white/[0.08] text-[10px] text-neutral-700 dark:text-neutral-300 transition"
+                  title="Toggle attached case docket"
+                >
+                  <Paperclip size={11} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="max-w-[70px] sm:max-w-[120px] truncate font-medium">Matter</span>
+                  {isCaseBannerExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+              )}
+
+              {/* Audio Call Button (High contrast in Light & Dark modes) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCallType('audio');
+                  setCallModalOpen(true);
+                }}
+                className="w-8 h-8 rounded-xl bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border-emerald-500/40 flex items-center justify-center text-emerald-800 dark:text-emerald-300 transition ios-press shadow-sm"
+                title="Audio Call"
+              >
+                <Phone size={14} />
+              </button>
+
+              {/* Video Call Button (High contrast in Light & Dark modes) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCallType('video');
+                  setCallModalOpen(true);
+                }}
+                className="w-8 h-8 rounded-xl bg-amber-100 hover:bg-amber-200 border border-amber-300 dark:bg-amber-400/20 dark:hover:bg-amber-400/30 dark:border-amber-400/40 flex items-center justify-center text-amber-900 dark:text-amber-300 transition ios-press shadow-sm"
+                title="Video Call"
+              >
+                <Video size={14} />
+              </button>
+
+              {/* Transfer AI Brief pill button (for client) */}
+              {currentUserRole === 'client' && (
+                <button
+                  onClick={() => setShowTransferConfirm(true)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-semibold transition ios-press ${
+                    isAiBriefShared
+                      ? 'bg-emerald-100 border border-emerald-300 text-emerald-800 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300'
+                      : 'bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 dark:bg-amber-400/20 dark:hover:bg-amber-400/30 dark:border-amber-400/40 dark:text-amber-300'
+                  }`}
+                >
+                  <Sparkles size={11} className={isAiBriefShared ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-300 animate-pulse'} />
+                  <span>{isAiBriefShared ? 'Synced' : 'Sync'}</span>
+                </button>
+              )}
             </div>
           </div>
-        </div>
+        );
+      })()}
 
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* Audio Call Button (Bug 14) */}
-          <button
-            type="button"
-            onClick={() => {
-              setCallType('audio');
-              setCallModalOpen(true);
-            }}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition ios-press"
-            title="Audio Call"
+      {/* ── Collapsible Attached Case Banner (Bug 12) ── */}
+      <AnimatePresence>
+        {isCaseBannerExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-white/[0.08]"
           >
-            <Phone size={14} />
-          </button>
-
-          {/* Video Call Button (Bug 14) */}
-          <button
-            type="button"
-            onClick={() => {
-              setCallType('video');
-              setCallModalOpen(true);
-            }}
-            className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition ios-press"
-            title="Video Call"
-          >
-            <Video size={14} />
-          </button>
-
-          {/* Transfer AI Brief pill button (for client) */}
-          {currentUserRole === 'client' && (
-            <button
-              onClick={() => setShowTransferConfirm(true)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition ios-press ${
-                isAiBriefShared
-                  ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-                  : 'bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300'
-              }`}
-            >
-              <Sparkles size={11} className={isAiBriefShared ? 'text-emerald-400' : 'text-amber-300 animate-pulse'} />
-              <span>{isAiBriefShared ? 'Brief Synced' : 'Sync Brief'}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Attached Case Bar matching Image 5 ── */}
-      <div className="bg-neutral-900 border-b border-white/[0.08] px-4 py-2 flex items-center justify-between text-xs text-neutral-300">
-        <div className="flex items-center gap-2 truncate">
-          <Paperclip size={13} className="text-amber-400 shrink-0" />
-          <span className="font-semibold text-white truncate">
-            Attached Case: {matterSubject || 'General Legal Consultation'}
-          </span>
-        </div>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-neutral-400 shrink-0 ml-2">
-          Encrypted
-        </span>
-      </div>
+            <div className="px-4 py-2 flex items-center justify-between text-xs text-neutral-700 dark:text-neutral-300">
+              <div className="flex items-center gap-2 truncate">
+                <Paperclip size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="font-semibold text-neutral-900 dark:text-white truncate">
+                  Attached Case: {matterSubject || 'General Legal Consultation'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-neutral-200 dark:bg-white/[0.06] text-neutral-700 dark:text-neutral-400 font-medium">
+                  Encrypted
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCaseBannerExpanded(false)}
+                  className="p-1 hover:text-neutral-900 dark:hover:text-white text-neutral-500 dark:text-neutral-400"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Persistent AI Transfer Reminder Banner (if not transferred yet) */}
       {currentUserRole === 'client' && !isAiBriefShared && (
-        <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border-b border-amber-500/20 px-4 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-amber-300 flex-shrink-0" />
-            <p className="text-[11px] text-amber-200/90 leading-tight">
+        <div className="bg-amber-50 dark:bg-gradient-to-r dark:from-amber-500/15 dark:via-amber-500/5 dark:to-transparent border-b border-amber-200 dark:border-amber-500/20 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles size={13} className="text-amber-600 dark:text-amber-300 flex-shrink-0" />
+            <p className="text-[11px] text-amber-900 dark:text-amber-200/90 leading-tight truncate">
               {t(
-                'Share your AI consultation brief with the advocate to save initial discussion time.',
-                'आप कभी भी वकील को AI केस सारांश भेज सकते हैं।'
+                'Share your AI consultation brief with the advocate to save time.',
+                'वकील को AI केस सारांश भेजें।'
               )}
             </p>
           </div>
           <button
             onClick={handleTransferAIBrief}
-            className="px-2.5 py-1 bg-amber-400 text-black font-bold text-[10px] rounded-lg ios-press flex-shrink-0 ml-2 shadow-sm"
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[10px] rounded-lg ios-press flex-shrink-0 ml-2 shadow-sm"
           >
             {t('Transfer Now', 'अभी भेजें')}
           </button>
@@ -430,7 +480,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
       )}
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative">
         {/* One-time Transfer Case Popup (citizen only, after 4+ messages) */}
         <AnimatePresence>
           {showTransferPopup && (
@@ -508,114 +558,176 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
-            const isMe = msg.senderRole ? msg.senderRole === currentUserRole : msg.senderId === currentUserId;
-            const isAiBriefMsg =
-              msg.text?.includes('[Transferred AI Consultation Summary]') ||
-              msg.text?.includes('📋 AI Legal Brief:');
+          (() => {
+            // Sort messages strictly chronologically (Bug 2)
+            const sortedMessages = [...messages].sort((a, b) => {
+              const getMs = (m: DirectMessage) => {
+                if ((m.createdAt as any)?.toMillis) return (m.createdAt as any).toMillis();
+                if ((m.createdAt as any)?.seconds) return (m.createdAt as any).seconds * 1000;
+                if (typeof m.createdAt === 'string') {
+                  const t = new Date(m.createdAt).getTime();
+                  if (!isNaN(t)) return t;
+                }
+                return 0;
+              };
+              return getMs(a) - getMs(b);
+            });
 
-            return (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                className={`flex gap-2.5 items-end ${isMe ? 'justify-end' : 'justify-start'}`}
-              >
-                {/* Left Avatar for other person (matching Image 5) */}
-                {!isMe && (
-                  <div className="w-8 h-8 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0 mb-1">
-                    {recipientName.charAt(0) || 'L'}
-                  </div>
-                )}
+            const getMessageDateLabel = (msg: DirectMessage): string => {
+              const raw = (msg.createdAt as any)?.toDate?.() || (typeof msg.createdAt === 'string' ? new Date(msg.createdAt) : null);
+              if (raw && !isNaN(raw.getTime())) {
+                const today = new Date();
+                if (isSameDayIST(raw, today)) return t('Today', 'आज');
+                const yest = new Date(today);
+                yest.setDate(yest.getDate() - 1);
+                if (isSameDayIST(raw, yest)) return t('Yesterday', 'कल');
+                return raw.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-US', {
+                  timeZone: 'Asia/Kolkata',
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short'
+                });
+              }
+              return t('Today', 'आज');
+            };
 
-                {isAiBriefMsg ? (
-                  /* Special AI Brief Card */
-                  <div className="max-w-[85%] rounded-3xl p-4 bg-gradient-to-br from-amber-500/15 via-neutral-900 to-neutral-950 border border-amber-400/30 shadow-lg space-y-2 text-left">
-                    <div className="flex items-center gap-2 border-b border-amber-400/20 pb-2">
-                      <Sparkles size={14} className="text-amber-300" />
-                      <span className="text-xs font-bold text-amber-200 tracking-wide">
-                        {t('AI Legal Consultation Brief', 'AI विधिक परामर्श सारांश')}
+            return sortedMessages.map((msg, idx) => {
+              const isMe = msg.senderRole ? msg.senderRole === currentUserRole : msg.senderId === currentUserId;
+              const isAiBriefMsg =
+                msg.text?.includes('[Transferred AI Consultation Summary]') ||
+                msg.text?.includes('📋 AI Legal Brief:');
+
+              const currentDateLabel = getMessageDateLabel(msg);
+              const prevMsg = idx > 0 ? sortedMessages[idx - 1] : null;
+              const prevDateLabel = prevMsg ? getMessageDateLabel(prevMsg) : null;
+              const showDateSeparator = currentDateLabel !== prevDateLabel;
+
+              const displayTime = normalize12HourTime(msg.timestamp) || 'Just now';
+
+              return (
+                <React.Fragment key={msg.id}>
+                  {showDateSeparator && (
+                    <div className="flex items-center justify-center my-2">
+                      <span className="text-[10px] font-sans font-semibold text-neutral-400 bg-neutral-900/90 border border-white/[0.08] px-3 py-0.5 rounded-full shadow-sm">
+                        {currentDateLabel}
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap">
-                      {msg.text
-                        .replace('⚡ [Transferred AI Consultation Summary]', '')
-                        .replace('📋 AI Legal Brief:', '')
-                        .trim()}
-                    </p>
-                  </div>
-                ) : (
-                  /* Standard Chat Bubble matching Image 5 */
-                  <div
-                    className={`max-w-[82%] sm:max-w-[72%] rounded-2xl px-4 py-3 space-y-1.5 shadow-md ${
-                      isMe
-                        ? 'bg-neutral-900 text-white rounded-br-sm border border-white/[0.08]'
-                        : 'bg-white text-black rounded-bl-sm border border-neutral-200 shadow-sm'
-                    }`}
+                  )}
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    className={`flex gap-2.5 items-end ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
-                    {/* Image Attachment Rendering */}
-                    {msg.attachmentUrl && msg.attachmentType === 'image' && (
-                      <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black/40">
-                        <img
-                          src={msg.attachmentUrl}
-                          alt={msg.attachmentName || 'Shared photo'}
-                          className="w-full max-h-72 object-cover"
-                        />
+                    {/* Left Avatar for other person */}
+                    {!isMe && (
+                      <div className="w-8 h-8 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center text-xs font-bold text-amber-300 shrink-0 mb-1">
+                        {(recipientName || 'Client').charAt(0) || 'C'}
                       </div>
                     )}
 
-                    {/* Document / File Attachment */}
-                    {msg.attachmentUrl && msg.attachmentType === 'file' && (
+                    {isAiBriefMsg ? (
+                      /* Special AI Brief Card */
+                      <div className="max-w-[85%] rounded-3xl p-4 bg-gradient-to-br from-amber-500/15 via-neutral-900 to-neutral-950 border border-amber-400/30 shadow-lg space-y-2 text-left">
+                        <div className="flex items-center gap-2 border-b border-amber-400/20 pb-2">
+                          <Sparkles size={14} className="text-amber-300" />
+                          <span className="text-xs font-bold text-amber-200 tracking-wide">
+                            {t('AI Legal Consultation Brief', 'AI विधिक परामर्श सारांश')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                          {msg.text
+                            .replace('⚡ [Transferred AI Consultation Summary]', '')
+                            .replace('📋 AI Legal Brief:', '')
+                            .trim()}
+                        </p>
+                      </div>
+                    ) : (
+                      /* Standard Chat Bubble (Fix Bug 1: No white on white) */
                       <div
-                        className={`p-2.5 rounded-xl flex items-center justify-between gap-3 border ${
+                        className={`chat-bubble max-w-[82%] sm:max-w-[72%] rounded-2xl px-4 py-2.5 space-y-1.5 shadow-md ${
                           isMe
-                            ? 'bg-neutral-800 border-white/10 text-white'
-                            : 'bg-neutral-100 border-neutral-200 text-black'
+                            ? '!bg-amber-400 !text-neutral-950 rounded-br-sm border border-amber-500/40 shadow-amber-500/10'
+                            : '!bg-white dark:!bg-neutral-800 !text-neutral-900 dark:!text-white rounded-bl-sm border border-neutral-200 dark:border-white/10 shadow-sm'
                         }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText size={16} className={isMe ? 'text-amber-400' : 'text-neutral-700'} />
-                          <p className="text-xs font-semibold truncate leading-tight">
-                            {msg.attachmentName || 'Document.pdf'}
+                        {/* Image Attachment Rendering */}
+                        {msg.attachmentUrl && msg.attachmentType === 'image' && (
+                          <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black/40">
+                            <img
+                              src={msg.attachmentUrl}
+                              alt={msg.attachmentName || 'Shared photo'}
+                              className="w-full max-h-72 object-cover"
+                            />
+                          </div>
+                        )}
+
+                        {/* Document / File Attachment with Type Badge & Size (Bug 16) */}
+                        {msg.attachmentUrl && msg.attachmentType === 'file' && (
+                          <div
+                            className={`p-2.5 rounded-xl flex items-center justify-between gap-3 border ${
+                              isMe
+                                ? 'bg-black/15 border-black/20 text-neutral-900'
+                                : 'bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-400 flex items-center justify-center shrink-0 font-mono text-[9px] font-bold uppercase">
+                                {(msg.attachmentName || 'FILE').split('.').pop()?.slice(0, 4) || 'FILE'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate leading-tight">
+                                  {msg.attachmentName || 'Document.pdf'}
+                                </p>
+                                <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-mono">
+                                  {msg.attachmentSize || 'PDF Document · 1.2 MB'}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadAttachment(msg.attachmentUrl!, msg.attachmentName || 'doc.pdf')}
+                              className="p-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 transition shrink-0"
+                              title="Download document"
+                            >
+                              <Download size={13} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Text Message */}
+                        {msg.text && (
+                          <p className={`text-xs leading-relaxed whitespace-pre-wrap select-text font-sans font-medium ${
+                            isMe ? '!text-neutral-950' : '!text-neutral-900 dark:!text-neutral-100'
+                          }`}>
+                            {msg.text}
                           </p>
+                        )}
+
+                        {/* Timestamp + Double Checks (Bug 2: Normalized 12h format) */}
+                        <div className={`chat-time flex items-center justify-end gap-1 text-[9px] pt-0.5 ${
+                          isMe ? '!text-neutral-800 font-medium' : 'text-neutral-500 dark:text-neutral-400'
+                        }`}>
+                          <span className="font-mono">{displayTime}</span>
+                          {isMe && (
+                            <span
+                              className={`inline-flex items-center text-[11px] font-bold tracking-[-3px] ml-0.5 select-none ${
+                                msg.read ? 'text-blue-700 font-black' : 'text-neutral-900 font-bold'
+                              }`}
+                              title={msg.read ? 'Read' : 'Delivered'}
+                            >
+                              ✓✓
+                            </span>
+                          )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadAttachment(msg.attachmentUrl!, msg.attachmentName || 'doc.pdf')}
-                          className={`p-1.5 rounded-lg ${isMe ? 'bg-white text-black' : 'bg-black text-white'}`}
-                        >
-                          <Download size={12} />
-                        </button>
                       </div>
                     )}
-
-                    {/* Text Message */}
-                    {msg.text && (
-                      <p className="text-xs leading-relaxed whitespace-pre-wrap select-text">
-                        {msg.text}
-                      </p>
-                    )}
-
-                    {/* Timestamp + Double Checks (grey when delivered, blue when read - WhatsApp style) */}
-                    <div className={`flex items-center justify-end gap-1 text-[9px] font-mono ${isMe ? 'text-neutral-400' : 'text-neutral-500'} pt-0.5`}>
-                      <span>{msg.timestamp || 'Just now'}</span>
-                      {isMe && (
-                        <span
-                          className={`inline-flex items-center text-[12px] font-bold tracking-[-3px] ml-0.5 select-none ${
-                            msg.read ? 'text-blue-400' : 'text-neutral-400'
-                          }`}
-                          title={msg.read ? 'Read (Double Blue Tick)' : 'Delivered (Double Grey Tick)'}
-                        >
-                          ✓✓
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })
+                  </motion.div>
+                </React.Fragment>
+              );
+            });
+          })()
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -666,7 +778,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
       {/* ── Input Bar with WhatsApp-style + button & Camera (Suggestion 7) ── */}
       <form
         onSubmit={handleSend}
-        className="flex-shrink-0 bg-neutral-950/95 border-t border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl relative"
+        className="flex-shrink-0 bg-white/95 dark:bg-neutral-950/95 border-t border-neutral-200 dark:border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl relative"
       >
         {/* Hidden File Inputs for Mobile & Desktop (BUGS_20261002 Item 8) */}
         <input
@@ -697,15 +809,15 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
 
         {/* WhatsApp-Style Circular Attachment Drawer Menu (Suggestion 7) */}
         {showAttachmentMenu && (
-          <div className="absolute bottom-16 left-3 z-50 bg-neutral-950/95 border border-white/[0.18] rounded-3xl p-4 shadow-2xl backdrop-blur-2xl w-80 sm:w-88 animate-in slide-in-from-bottom-2 space-y-3">
-            <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
-              <span className="text-[11px] font-bold text-neutral-400 font-mono uppercase tracking-wider">
+          <div className="absolute bottom-16 left-3 z-50 bg-white/98 dark:bg-neutral-950/95 border border-neutral-200 dark:border-white/[0.18] rounded-3xl p-4 shadow-2xl backdrop-blur-2xl w-80 sm:w-88 animate-in slide-in-from-bottom-2 space-y-3 text-neutral-900 dark:text-white">
+            <div className="flex items-center justify-between pb-1 border-b border-neutral-200 dark:border-white/[0.06]">
+              <span className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 font-mono uppercase tracking-wider">
                 Share with Case
               </span>
               <button
                 type="button"
                 onClick={() => setShowAttachmentMenu(false)}
-                className="text-neutral-400 hover:text-white p-1 text-xs"
+                className="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white p-1 text-xs"
               >
                 ✕
               </button>
@@ -715,60 +827,60 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
               <label
                 htmlFor="chat-file-input"
                 onClick={() => setShowAttachmentMenu(false)}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition cursor-pointer ios-press"
               >
-                <div className="w-11 h-11 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center shadow-md">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-100 text-indigo-700 border border-indigo-300 dark:bg-indigo-500/20 dark:text-indigo-400 dark:border-indigo-500/40 flex items-center justify-center shadow-sm">
                   <FileText size={20} />
                 </div>
-                <span className="text-[10px] text-neutral-300 font-medium">Document</span>
+                <span className="text-[10px] text-neutral-800 dark:text-neutral-300 font-medium">Document</span>
               </label>
 
               {/* Camera */}
               <label
                 htmlFor="chat-camera-input"
                 onClick={() => setShowAttachmentMenu(false)}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition cursor-pointer ios-press"
               >
-                <div className="w-11 h-11 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center shadow-md">
+                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/40 flex items-center justify-center shadow-sm">
                   <Camera size={20} />
                 </div>
-                <span className="text-[10px] text-neutral-300 font-medium">Camera</span>
+                <span className="text-[10px] text-neutral-800 dark:text-neutral-300 font-medium">Camera</span>
               </label>
 
               {/* Gallery */}
               <label
                 htmlFor="chat-gallery-input"
                 onClick={() => setShowAttachmentMenu(false)}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition cursor-pointer ios-press"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition cursor-pointer ios-press"
               >
-                <div className="w-11 h-11 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center shadow-md">
+                <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 border border-purple-300 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/40 flex items-center justify-center shadow-sm">
                   <ImageIcon size={20} />
                 </div>
-                <span className="text-[10px] text-neutral-300 font-medium">Gallery</span>
+                <span className="text-[10px] text-neutral-800 dark:text-neutral-300 font-medium">Gallery</span>
               </label>
 
               {/* Location */}
               <button
                 type="button"
                 onClick={handleShareLocation}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition"
               >
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shadow-md">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/40 flex items-center justify-center shadow-sm">
                   <MapPin size={20} />
                 </div>
-                <span className="text-[10px] text-neutral-300 font-medium">Location</span>
+                <span className="text-[10px] text-neutral-800 dark:text-neutral-300 font-medium">Location</span>
               </button>
 
               {/* Contact */}
               <button
                 type="button"
                 onClick={handleShareContact}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-white/[0.06] transition"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition"
               >
-                <div className="w-11 h-11 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/40 flex items-center justify-center shadow-md">
+                <div className="w-11 h-11 rounded-2xl bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/40 flex items-center justify-center shadow-sm">
                   <Contact size={20} />
                 </div>
-                <span className="text-[10px] text-neutral-300 font-medium">Contact</span>
+                <span className="text-[10px] text-neutral-800 dark:text-neutral-300 font-medium">Contact</span>
               </button>
             </div>
           </div>
@@ -781,7 +893,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
           className={`w-9 h-9 rounded-full flex items-center justify-center transition shrink-0 ios-press border ${
             showAttachmentMenu
               ? 'bg-amber-400 text-black border-amber-300 shadow-md rotate-45'
-              : 'bg-white/[0.06] hover:bg-white/[0.12] text-neutral-300 hover:text-white border-white/10'
+              : 'bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white border-neutral-300 dark:border-white/10'
           }`}
           title="Share document, photo, location, contact"
         >
@@ -791,14 +903,14 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         {/* Quick Camera Icon Button (Suggestion 7 & BUGS_20261002 Item 8) */}
         <label
           htmlFor="chat-camera-input"
-          className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.12] text-neutral-300 hover:text-white flex items-center justify-center transition shrink-0 ios-press border border-white/10 cursor-pointer"
+          className="w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.12] text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center justify-center transition shrink-0 ios-press border border-neutral-300 dark:border-white/10 cursor-pointer"
           title="Quick Camera Photo"
         >
           <Camera size={16} />
         </label>
 
         {/* Pill-shaped text input */}
-        <div className="flex-1 bg-white/[0.08] rounded-full flex items-center px-4 py-2 border border-white/10 focus-within:border-white/30 transition shadow-inner">
+        <div className="flex-1 bg-neutral-100 dark:bg-white/[0.08] rounded-full flex items-center px-4 py-2 border border-neutral-300 dark:border-white/10 focus-within:border-amber-500 dark:focus-within:border-white/30 transition shadow-inner">
           <input
             type="text"
             value={inputText}
@@ -808,7 +920,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
                 ? t('Type a message...', 'संदेश लिखें...')
                 : t('Type a message...', 'संदेश लिखें...')
             }
-            className="flex-1 bg-transparent text-xs text-white placeholder-neutral-400 outline-none"
+            className="flex-1 bg-transparent text-xs text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400 outline-none"
           />
         </div>
 
@@ -816,7 +928,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         <button
           type="submit"
           disabled={!inputText.trim() || isSending}
-          className="w-10 h-10 rounded-full bg-white hover:bg-neutral-200 text-black flex items-center justify-center font-bold disabled:opacity-30 ios-press transition flex-shrink-0 shadow-lg cursor-pointer"
+          className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 dark:bg-white dark:hover:bg-neutral-200 dark:text-black flex items-center justify-center font-bold disabled:opacity-30 ios-press transition flex-shrink-0 shadow-lg cursor-pointer"
         >
           {isSending ? (
             <div className="w-4 h-4 rounded-full border-2 border-black/30 border-t-black animate-spin" />

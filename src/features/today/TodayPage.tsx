@@ -8,9 +8,9 @@ import { Button } from '../../design/ui/Button';
 import { EmptyState } from '../../design/ui/EmptyState';
 import { HearingCalendar } from '../../components/HearingCalendar';
 import { HearingItem, CaseFile, LimitationAlert, Language } from '../../types';
-import { Calendar, AlertTriangle, CheckSquare, Plus, ChevronLeft, ChevronRight, Clock, CalendarDays, Trash2, Gavel } from 'lucide-react';
+import { Sparkles, Calendar, AlertTriangle, CheckSquare, Plus, ChevronLeft, ChevronRight, Clock, CalendarDays, Trash2, Gavel, CheckCircle2 } from 'lucide-react';
 import { TimePicker } from '../../design/ui/TimePicker';
-import { getISTDateString, isSameDayIST } from '../../lib/istDate';
+import { getISTDateString, isSameDayIST, getHearingCountdown } from '../../lib/istDate';
 
 interface TodayPageProps {
   hearings: HearingItem[];
@@ -32,6 +32,7 @@ interface TodayPageProps {
     stage: string;
     orderNotes: string;
   }) => void;
+  onSummarizeDay?: (prompt?: string) => void;
 }
 
 function parseTimeToMinutes(timeStr?: string): number {
@@ -78,6 +79,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
   onAddHearing,
   onEditHearing,
   onSendHearingChatUpdate,
+  onSummarizeDay,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<'timeline' | 'list' | 'month'>('timeline');
@@ -241,6 +243,33 @@ export const TodayPage: React.FC<TodayPageProps> = ({
     }).length;
   };
 
+  // Helper for tasks count on a given date (for day indicator in week strip)
+  const getTaskCountForDate = (date: Date) => {
+    const dStr = getISTDateString(date);
+    return dailyTasks.filter(t => t.date === dStr).length;
+  };
+
+  // Smart Daily Overview metrics
+  const todayISTStr = getISTDateString(new Date());
+  const todayHearingsCount = useMemo(() => {
+    return hearings.filter(h => {
+      if (!h.hearingDate) return false;
+      return h.hearingDate.startsWith('Today') || h.hearingDate.includes('Today') || h.hearingDate.includes(todayISTStr);
+    }).length;
+  }, [hearings, todayISTStr]);
+
+  const pendingTasksCount = useMemo(() => {
+    return dailyTasks.filter(t => !t.completed).length;
+  }, [dailyTasks]);
+
+  const overdueTasksCount = useMemo(() => {
+    return dailyTasks.filter(t => !t.completed && t.date < todayISTStr).length;
+  }, [dailyTasks, todayISTStr]);
+
+  const upcomingDeadlinesCount = useMemo(() => {
+    return limitationAlerts.filter(a => a.severity === 'critical' || a.daysRemaining <= 7).length;
+  }, [limitationAlerts]);
+
   const handleSaveOrder = (data: LogOrderData) => {
     if (activeLogOrderHearing && onUpdateHearingOrder) {
       onUpdateHearingOrder(activeLogOrderHearing.id, data.orderNotes, data.nextDate);
@@ -277,17 +306,17 @@ export const TodayPage: React.FC<TodayPageProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-28 text-main max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-36 text-main max-w-4xl mx-auto w-full">
       {/* ── Top Header Date & Mode Toggle ── */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <span className="text-xs font-mono font-medium text-amber-500 dark:text-amber-300">
+          <span className="text-xs font-semibold text-amber-500 dark:text-amber-400">
             {selectedDate.toLocaleDateString(language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN', {
               weekday: 'long',
               year: 'numeric',
             })}
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-main font-display mt-0.5">
+          <h1 className="text-2xl sm:text-[30px] font-bold tracking-tight text-main font-display mt-0.5 leading-none">
             {selectedDate.toLocaleDateString(language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN', {
               day: 'numeric',
               month: 'short',
@@ -295,41 +324,152 @@ export const TodayPage: React.FC<TodayPageProps> = ({
           </h1>
         </div>
 
-        {/* View Mode Toggle: Timeline | Agenda | Month (Bug 7) */}
-        <div className="flex items-center p-1 rounded-2xl bg-white/[0.06] border border-white/[0.1]">
-          <button
-            type="button"
-            onClick={() => setViewMode('timeline')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-              viewMode === 'timeline'
-                ? 'bg-amber-400 text-black font-bold shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            {t('Timeline', 'समयरेखा', 'वेळापत्रक')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-              viewMode === 'list'
-                ? 'bg-amber-400 text-black font-bold shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            {t('Agenda', 'वाद सूची', 'यादी')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('month')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-              viewMode === 'month'
-                ? 'bg-amber-400 text-black font-bold shadow-sm'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            {t('Month', 'माह', 'महिना')}
-          </button>
+        <div className="flex items-center gap-2">
+          {onSummarizeDay && (
+            <button
+              type="button"
+              onClick={() => {
+                const dateLabel = selectedDate.toLocaleDateString(language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                });
+                const hearingBriefs = dayHearings.map(h => `• Case ${h.caseNumber} (${h.purposeEn || h.clientName || 'Hearing'}): Court: ${h.courtName || 'Court'}, Room: ${h.courtRoom || 'N/A'}, Time: ${h.hearingTime || h.hearingDate}, Stage: ${h.stage || 'Hearing'}, Item: ${h.itemNumber || 'N/A'}`).join('\n');
+                const taskBriefs = tasksForSelectedDate.map(t => `• [${t.completed ? 'Completed' : 'Pending'}] ${t.title}${t.time ? ' (' + t.time + ')' : ''}`).join('\n');
+                const prompt = `Please provide a strategic, actionable daily summary and preparation briefing for ${dateLabel}:\n\n` +
+                  `📅 Hearings Scheduled (${dayHearings.length}):\n${hearingBriefs || 'No court hearings listed for this date.'}\n\n` +
+                  `📋 Chamber Tasks (${tasksForSelectedDate.length}):\n${taskBriefs || 'No specific daily tasks recorded.'}\n\n` +
+                  `Please summarize key court timings, procedural priorities, critical preparation steps before appearance, and action items for today.`;
+                onSummarizeDay(prompt);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-md transition ios-press"
+              title={t('Summarize Day with AI', 'दिन का सारांश', 'दिवसाचा सारांश')}
+            >
+              <Sparkles size={13} className="text-black animate-pulse shrink-0" />
+              <span className="hidden xs:inline">{t('Summarize Day', 'दिन का सारांश', 'दिवसाचा सारांश')}</span>
+              <span className="xs:hidden">{t('Summary', 'सारांश', 'सारांश')}</span>
+            </button>
+          )}
+
+          {/* View Mode Toggle: Timeline | Agenda | Month (Bug 7) */}
+          <div className="flex items-center p-1 rounded-2xl bg-white/[0.06] border border-white/[0.1]">
+            <button
+              type="button"
+              onClick={() => setViewMode('timeline')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                viewMode === 'timeline'
+                  ? 'bg-amber-400 text-black font-bold shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              {t('Timeline', 'समयरेखा', 'वेळापत्रक')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                viewMode === 'list'
+                  ? 'bg-amber-400 text-black font-bold shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              {t('Agenda', 'वाद सूची', 'यादी')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                viewMode === 'month'
+                  ? 'bg-amber-400 text-black font-bold shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              {t('Month', 'माह', 'महिना')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Smart Daily Overview (Compact Summary Tiles) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div
+          onClick={() => {
+            setSelectedDate(new Date());
+            setViewMode('timeline');
+          }}
+          className="p-3 rounded-2xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] hover:border-amber-400/40 cursor-pointer transition ios-press flex flex-col justify-between gap-1 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-neutral-400">{t('Hearings Today', 'आज की सुनवाई', 'आजची सुनावणी')}</span>
+            <span className="w-6 h-6 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center">
+              <Gavel size={12} />
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-xl font-bold font-mono text-main">{todayHearingsCount}</span>
+            <span className="text-[10px] text-amber-400 font-medium">{t('listed', 'सूचीबद्ध', 'नोंदणी')}</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            setSelectedDate(new Date());
+            setViewMode('timeline');
+          }}
+          className="p-3 rounded-2xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] hover:border-sky-400/40 cursor-pointer transition ios-press flex flex-col justify-between gap-1 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-neutral-400">{t('Pending Tasks', 'लंबित कार्य', 'प्रलंबित कामे')}</span>
+            <span className="w-6 h-6 rounded-lg bg-sky-400/10 text-sky-400 flex items-center justify-center">
+              <CheckSquare size={12} />
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-xl font-bold font-mono text-main">{pendingTasksCount}</span>
+            <span className="text-[10px] text-sky-400 font-medium">{t('to do', 'बाकी', 'शिल्लक')}</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            setSelectedDate(new Date());
+            setViewMode('timeline');
+          }}
+          className="p-3 rounded-2xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] hover:border-red-400/40 cursor-pointer transition ios-press flex flex-col justify-between gap-1 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-neutral-400">{t('Overdue Tasks', 'अतिदेय कार्य', 'मुदत संपलेली कामे')}</span>
+            <span className="w-6 h-6 rounded-lg bg-red-400/10 text-red-400 flex items-center justify-center">
+              <AlertTriangle size={12} />
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className={`text-xl font-bold font-mono ${overdueTasksCount > 0 ? 'text-red-400' : 'text-main'}`}>
+              {overdueTasksCount}
+            </span>
+            <span className={`text-[10px] font-medium ${overdueTasksCount > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
+              {overdueTasksCount > 0 ? t('urgent', 'तत्काल', 'तातडीचे') : t('none', 'शून्य', 'नाहीत')}
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            if (urgentNowItems[0]) onOpenCase(urgentNowItems[0].caseNumber);
+          }}
+          className="p-3 rounded-2xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] hover:border-amber-400/40 cursor-pointer transition ios-press flex flex-col justify-between gap-1 shadow-sm"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-neutral-400">{t('Limitation Alerts', 'समय सीमा अलर्ट', 'मुदत सूचना')}</span>
+            <span className="w-6 h-6 rounded-lg bg-amber-400/10 text-amber-400 flex items-center justify-center">
+              <Clock size={12} />
+            </span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-xl font-bold font-mono text-main">{upcomingDeadlinesCount}</span>
+            <span className="text-[10px] text-amber-400 font-medium">{t('critical', 'महत्वपूर्ण', 'महत्त्वाचे')}</span>
+          </div>
         </div>
       </div>
 
@@ -367,8 +507,8 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                         <AlertTriangle size={16} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-white font-mono truncate">
-                          {alert.caseNumber} · {alert.titleEn}
+                        <p className="text-xs font-bold text-main truncate">
+                          <span className="font-mono text-red-600 dark:text-red-400">{alert.caseNumber}</span> · <span>{alert.titleEn}</span>
                         </p>
                         <p className="text-[11px] text-neutral-400 truncate mt-0.5">
                           {alert.statutoryAct} · {t('Deadline:', 'अंतिम तिथि:', 'अंतिम तारीख:')} {alert.deadlineDate} ({alert.daysRemaining} {t('days left', 'दिन शेष', 'दिवस शिल्लक')})
@@ -388,7 +528,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider font-mono">
+                <span className="text-sm font-semibold text-main tracking-tight">
                   {t('Week Strip', 'साप्ताहिक समयरेखा', 'आठवड्याची समयरेखा')}
                 </span>
                 <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5 border border-white/[0.06]">
@@ -416,11 +556,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                   setWeekOffset(0);
                   setSelectedDate(new Date());
                 }}
-                className={`text-xs font-semibold transition ${
-                  !isSameDay(selectedDate, new Date()) || weekOffset !== 0
-                    ? 'text-amber-300 hover:underline'
-                    : 'text-neutral-500 opacity-60'
-                }`}
+                className="text-xs font-semibold text-amber-500 dark:text-amber-400 hover:underline transition"
               >
                 {t('Jump to Today', 'आज पर जाएं', 'आजच्या दिवसावर जा')}
               </button>
@@ -430,36 +566,42 @@ export const TodayPage: React.FC<TodayPageProps> = ({
               {weekDays.map(day => {
                 const isSelected = isSameDay(day, selectedDate);
                 const isCurrentToday = isSameDay(day, new Date());
-                const count = getHearingCountForDate(day);
+                const hearingCount = getHearingCountForDate(day);
+                const taskCount = getTaskCountForDate(day);
 
                 return (
                   <button
                     key={getISTDateString(day)}
                     type="button"
                     onClick={() => setSelectedDate(day)}
-                    className={`flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-2xl border transition ios-press select-none ${
+                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl border transition ios-press select-none w-full ${
                       isSelected
-                        ? 'bg-amber-400 border-amber-300 text-black shadow-lg shadow-amber-400/20'
+                        ? 'bg-[#111216] dark:bg-white text-white dark:text-black border-2 border-amber-400 shadow-md scale-[1.02]'
                         : isCurrentToday
-                        ? 'bg-white/[0.08] border-amber-400/50 text-white'
+                        ? 'border-2 border-amber-400/60 bg-amber-400/10 text-main'
                         : 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06] text-neutral-300'
                     }`}
                   >
-                    <span className={`text-[10px] sm:text-[11px] font-medium uppercase font-mono ${
-                      isSelected ? 'text-black/80 font-bold' : 'text-neutral-400'
+                    <span className={`text-[10px] sm:text-[11px] font-semibold uppercase ${
+                      isSelected ? 'text-amber-400 dark:text-amber-600 font-bold' : isCurrentToday ? 'text-amber-500 font-semibold' : 'text-neutral-400'
                     }`}>
                       {day.toLocaleDateString('en-IN', { weekday: 'short' })}
                     </span>
                     <span className={`text-sm sm:text-base font-bold font-mono mt-0.5 ${
-                      isSelected ? 'text-black' : 'text-white'
+                      isSelected ? 'text-white dark:text-black' : 'text-main'
                     }`}>
                       {day.getDate()}
                     </span>
-                    {count > 0 && (
-                      <span className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                        isSelected ? 'bg-black' : 'bg-amber-400 animate-pulse'
-                      }`} />
-                    )}
+
+                    {/* Event indicators: gold for hearings, sky for tasks */}
+                    <div className="flex items-center gap-1 mt-1 h-2">
+                      {hearingCount > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm" title={`${hearingCount} hearings`} />
+                      )}
+                      {taskCount > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shadow-sm" title={`${taskCount} tasks`} />
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -469,40 +611,63 @@ export const TodayPage: React.FC<TodayPageProps> = ({
           {/* ── Integrated Chronological Timeline (Bug 7 & Suggestion 3) ── */}
           {viewMode === 'timeline' ? (
             <div className="space-y-4">
-              <SectionHeader
-                title={
-                  isSameDay(selectedDate, new Date())
-                    ? t("Today's Chronological Schedule", 'आज की कालानुक्रमिक समयरेखा', 'आजचे कालक्रमानुसार वेळापत्रक')
-                    : `${selectedDate.toLocaleDateString(language === 'hi' ? 'hi-IN' : 'en-IN', { month: 'short', day: 'numeric' })} ${t('Schedule', 'समयरेखा', 'वेळापत्रक')}`
-                }
-                count={timelineItems.length}
-                countLabel={timelineItems.length === 1 ? t('Matter/Task', 'मामला/कार्य', 'खटला/काम') : t('Matters & Tasks', 'मामले व कार्य', 'खटले व कामे')}
-              />
+              {/* Redesigned Schedule Section Header - Eliminates Awkward Truncation */}
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-1 pb-1">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-main tracking-tight">
+                    {isSameDay(selectedDate, new Date())
+                      ? t("Today's Schedule", "आज की समयरेखा", "आजचे वेळापत्रक")
+                      : `${selectedDate.toLocaleDateString(language === 'hi' ? 'hi-IN' : language === 'mr' ? 'mr-IN' : 'en-IN', { month: 'short', day: 'numeric' })} ${t('Schedule', 'समयरेखा', 'वेळापत्रक')}`}
+                  </h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {selectedDate.toLocaleDateString(language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+                  {t('Your chronological agenda', 'आपकी कालानुक्रमिक सूची', 'आपली कालक्रमानुसार यादी')} · <span className="font-semibold text-amber-500 dark:text-amber-400">{timelineItems.length} {timelineItems.length === 1 ? t('item', 'मामला/कार्य', 'नोंद') : t('tasks & matters', 'मामले व कार्ये', 'नोंदी')}</span>
+                </div>
+              </div>
 
-              {/* Suggestion 3: Separate Add Cause List & Add New Task buttons */}
+              {/* Action Buttons Hierarchy */}
               <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
                 <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-amber-400" />
-                  <span className="text-xs font-semibold text-neutral-300">
+                  <Clock size={15} className="text-amber-400" />
+                  <span className="text-sm font-semibold text-main">
                     {t('Schedule & Tasks Grid', 'कालक्रमानुसार ग्रिड सूची', 'वेळापत्रक आणि कामे ग्रिड')}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Primary Action: + Add Court Hearing (Gold) */}
                   <Button
                     variant="primary"
                     size="sm"
-                    icon={<Gavel size={13} />}
+                    icon={<Gavel size={14} />}
                     onClick={() => setShowAddHearingSheet(true)}
+                    className="font-semibold shadow-md shadow-amber-400/15"
                   >
-                    {t('+ Add Cause List', '+ वाद सूची जोड़ें', '+ वाद सूची जोडा')}
+                    {t('+ Add Court Hearing', '+ अदालत सुनवाई जोड़ें', '+ कोर्ट सुनावणी जोडा')}
                   </Button>
+
+                  {/* Secondary Action: + Add New Task (Outlined) */}
                   <Button
                     variant="secondary"
                     size="sm"
-                    icon={<CheckSquare size={13} />}
+                    icon={<CheckSquare size={14} />}
                     onClick={() => setShowAddTaskInput(prev => !prev)}
+                    className="font-medium"
                   >
                     {showAddTaskInput ? t('Cancel Task', 'रद्द करें', 'रद्द करा') : t('+ Add New Task', '+ नया कार्य जोड़ें', '+ नवीन काम जोडा')}
+                  </Button>
+
+                  {/* Secondary Action: Add Cause List (Outlined) */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowAddHearingSheet(true)}
+                    title={t('Import or Add Cause List', 'वाद सूची जोड़ें', 'वाद सूची जोडा')}
+                    className="text-xs text-neutral-400 hover:text-white"
+                  >
+                    {t('Add Cause List', 'वाद सूची', 'वाद सूची')}
                   </Button>
                 </div>
               </div>
@@ -544,18 +709,32 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                 </form>
               )}
 
+              {/* Refined Empty State - Reduced Height by 25% with Clear Hierarchy */}
               {timelineItems.length === 0 ? (
-                <EmptyState
-                  icon={<Clock size={24} />}
-                  title={
-                    isSameDay(selectedDate, new Date())
-                      ? t('No hearings or tasks scheduled for today', 'आज कोई सुनवाई या कार्य निर्धारित नहीं है', 'आज कोणतीही सुनावणी किंवा कामे नियोजित नाहीत')
-                      : t('No events scheduled for this date', 'इस तारीख के लिए कुछ भी निर्धारित नहीं है', 'या तारखेसाठी काहीही नियोजित नाही')
-                  }
-                  description={t('Your day is clear. Schedule a hearing or create action tasks below.', 'अपनी वाद सूची और कार्यों को व्यवस्थित रखने के लिए सुनवाई या कार्य जोड़ें।', 'सुनावणी जोडा किंवा कामे नोंदवा.')}
-                  actionLabel="+ Add Court Hearing"
-                  onAction={() => setShowAddHearingSheet(true)}
-                />
+                <div className="py-7 px-4 sm:py-8 sm:px-6 rounded-3xl border border-dashed border-white/[0.12] bg-white/[0.02] flex flex-col items-center justify-center text-center">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 mb-3 shadow-inner">
+                    <Clock size={20} />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-main mb-1">
+                    {isSameDay(selectedDate, new Date())
+                      ? t('Your day is clear!', 'आपका दिन रिक्त है!', 'तुमचा दिवस मोकळा आहे!')
+                      : t('No events scheduled', 'कुछ भी निर्धारित नहीं है', 'काहीही नियोजित नाही')}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-neutral-400 max-w-sm mb-4 leading-relaxed">
+                    {isSameDay(selectedDate, new Date())
+                      ? t("No hearings or tasks scheduled for today. You're all caught up.", 'आज कोई सुनवाई या कार्य निर्धारित नहीं है। आप पूरी तरह अपडेट हैं।', 'आज कोणतीही सुनावणी किंवा कामे नियोजित नाहीत. सर्व कामे पूर्ण आहेत.')
+                      : t('No hearings or tasks scheduled for this date.', 'इस तारीख के लिए कोई सुनवाई या कार्य निर्धारित नहीं है।', 'या तारखेसाठी कोणतीही सुनावणी किंवा कामे नियोजित नाहीत.')}
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Plus size={14} />}
+                    onClick={() => setShowAddHearingSheet(true)}
+                    className="font-semibold shadow-md shadow-amber-400/20"
+                  >
+                    + Add Court Hearing
+                  </Button>
+                </div>
               ) : (
                 <div className="relative pl-6 sm:pl-8 space-y-4 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-white/10">
                   {timelineItems.map((item) => (
@@ -564,22 +743,55 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                       <div className={`absolute -left-6 sm:-left-8 top-1.5 w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
                         item.type === 'hearing'
                           ? 'bg-neutral-950 border-amber-400 text-amber-300 shadow-md shadow-amber-400/20'
+                          : item.task?.completed
+                          ? 'bg-neutral-900 border-neutral-700 text-neutral-400'
+                          : item.task && item.task.date < todayISTStr
+                          ? 'bg-neutral-950 border-red-500 text-red-400 shadow-md shadow-red-500/20'
                           : 'bg-neutral-950 border-sky-400 text-sky-300'
                       }`}>
-                        {item.type === 'hearing' ? '⚖️' : '✓'}
+                        {item.type === 'hearing' ? '⚖️' : item.task?.completed ? '✓' : '•'}
                       </div>
 
-                      {/* Header row with time and tag */}
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-xs font-bold font-mono text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
+                      {/* Header row with time and urgency-based tag */}
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-xs font-bold font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
                           {item.displayTime}
                         </span>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        {item.type === 'hearing' && item.hearing && (() => {
+                          const cd = getHearingCountdown(item.hearing.hearingDate, item.hearing.hearingTime);
+                          if (!cd) return null;
+                          return (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                              ⏳ {cd.label}
+                            </span>
+                          );
+                        })()}
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                           item.type === 'hearing'
                             ? 'bg-amber-400/15 border-amber-400/30 text-amber-300'
+                            : item.task?.completed
+                            ? 'bg-neutral-800 border-neutral-700 text-neutral-400'
+                            : item.task && item.task.date < todayISTStr
+                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
                             : 'bg-sky-400/15 border-sky-400/30 text-sky-300'
                         }`}>
-                          {item.type === 'hearing' ? t('Court Hearing', 'अदालत सुनवाई', 'कोर्ट सुनावणी') : t('Action Task', 'कार्य', 'काम')}
+                          {item.type === 'hearing' ? (
+                            <>
+                              <Gavel size={11} /> {t('Court Hearing', 'अदालत सुनवाई', 'कोर्ट सुनावणी')}
+                            </>
+                          ) : item.task?.completed ? (
+                            <>
+                              <CheckCircle2 size={11} /> {t('Completed', 'पूर्ण', 'पूर्ण')}
+                            </>
+                          ) : item.task && item.task.date < todayISTStr ? (
+                            <>
+                              <AlertTriangle size={11} /> {t('Overdue Task', 'अतिदेय कार्य', 'मुदत संपलेले काम')}
+                            </>
+                          ) : (
+                            <>
+                              <Clock size={11} /> {t('Action Task', 'कार्य', 'काम')}
+                            </>
+                          )}
                         </span>
                       </div>
 
@@ -633,7 +845,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                       : `${selectedDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} Cause List`
                   }
                   count={dayHearings.length}
-                  countLabel={dayHearings.length === 1 ? 'Matter' : 'Matters'}
+                  countLabel={dayHearings.length === 1 ? 'matter' : 'matters'}
                   action={{
                     label: '+ Add Hearing',
                     onClick: () => setShowAddHearingSheet(true),

@@ -5,6 +5,7 @@ import { CourtAnalyticsAndForum } from './components/CourtAnalyticsAndForum';
 import { LawyerProfileModal } from './components/LawyerProfileModal';
 import { ClientProfileModal } from './components/client/ClientProfileModal';
 import { AdminVerificationDashboard } from './components/admin/AdminVerificationDashboard';
+import { AdminSecurityGateModal } from './components/admin/AdminSecurityGateModal';
 import { AuthScreen } from './components/auth/AuthScreen';
 
 import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory';
@@ -17,6 +18,7 @@ import { TodayPage } from './features/today/TodayPage';
 import { CaseListPage } from './features/cases/CaseListPage';
 import { CaseDetailPage } from './features/cases/CaseDetailPage';
 import { NewCaseSheet } from './features/cases/NewCaseSheet';
+import { EvidentiaryUploadModal } from './features/cases/EvidentiaryUploadModal';
 import { LawyerFeesPage } from './features/fees/LawyerFeesPage';
 import { InboxPage } from './features/inbox/InboxPage';
 import { LawyerMePage } from './features/me/LawyerMePage';
@@ -49,6 +51,7 @@ import {
   deleteNotificationRecord,
   updateHearingRecord,
   addHearingRecord,
+  addDocumentRecord,
   createInvoiceRecord,
   markInvoiceRecordPaid,
   updateInvoiceStatus,
@@ -75,6 +78,7 @@ import { FirmPortal } from './components/firm/FirmPortal';
 import { FirmRegistration } from './components/firm/FirmRegistration';
 import { UniversalSearchModal } from './components/UniversalSearchModal';
 import { LawyerAIChat } from './features/ai/LawyerAIChat';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 import {
   Language,
@@ -160,12 +164,26 @@ function AppContent() {
   const [clientActiveTab, setClientActiveTab] = useState<string>('case');
   const [selectedCaseNumber, setSelectedCaseNumber] = useState<string | null>(null);
   const [showNewCaseSheet, setShowNewCaseSheet] = useState<boolean>(false);
+  const [newCaseInitialMode, setNewCaseInitialMode] = useState<'standard' | 'ecourts'>('standard');
+  const [showEvidentiaryUploadModal, setShowEvidentiaryUploadModal] = useState<boolean>(false);
   const [showGlobalAddHearing, setShowGlobalAddHearing] = useState<boolean>(false);
   const [verifiedLawyers, setVerifiedLawyers] = useState<UserProfile[]>([]);
   const [showFullDirectory, setShowFullDirectory] = useState<boolean>(false);
 
   // Inquiries for Lawyer Inbox (§2.5)
   const [inquiries, setInquiries] = useState<AIInquiryBrief[]>([]);
+
+  // Floating AI Button scroll shrink state
+  const [isScrolling, setIsScrolling] = useState<boolean>(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMainScroll = () => {
+    setIsScrolling(true);
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 1000);
+  };
 
   useEffect(() => {
     const fetchVerifiedLawyers = async () => {
@@ -209,11 +227,11 @@ function AppContent() {
       caseNumber: newCaseNum,
       clientName: inq.clientName || inq.profile?.clientName || 'Client',
       clientPhone: inq.clientPhone || inq.profile?.clientPhone || '',
-      opponentName: inq.profile?.opponentName || 'State / Respondent',
+      opponentName: inq.profile?.opponentName || 'Respondent',
       courtLocation: court,
       court,
       caseType: inq.profile?.caseType || inq.legalArea || 'Legal Matter',
-      actSections: inq.profile?.actSections || ['Relevant Legal Sections'],
+      actSections: inq.profile?.actSections || [],
       status: 'Active',
       stage: inq.profile?.stage || 'Admission',
       filingDate: new Date().toISOString().split('T')[0],
@@ -253,13 +271,56 @@ function AppContent() {
   const [isLawyerProfileOpen, setIsLawyerProfileOpen] = useState<boolean>(false);
   const [isClientProfileOpen, setIsClientProfileOpen] = useState<boolean>(false);
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState<boolean>(false);
+  const [isAdminGateOpen, setIsAdminGateOpen] = useState<boolean>(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('nyaay_admin_portal_authenticated') === 'true' ||
+           localStorage.getItem('nyaay_admin_portal_authenticated') === 'true';
+  });
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
   const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState<boolean>(false);
   const [isFirmPortalOpen, setIsFirmPortalOpen] = useState<boolean>(false);
 
-  // Sync theme with HTML data attribute and storage
+  // Direct Admin Portal URL Listener (?admin=portal, ?admin=true, #admin)
+  useEffect(() => {
+    const checkAdminUrlAccess = () => {
+      const params = new URLSearchParams(window.location.search);
+      const hasAdminQuery = params.has('admin') || params.get('portal') === 'admin';
+      const hasAdminHash = window.location.hash.toLowerCase() === '#admin' || window.location.hash.toLowerCase() === '#admin-portal';
+      const isDirectAdminUrl = hasAdminQuery || hasAdminHash;
+
+      if (isDirectAdminUrl) {
+        const userEmail = (user?.email || profile?.email || '').toLowerCase();
+        const isDesignatedAdmin = userEmail === 'pradhumb1998@gmail.com';
+        const isAlreadyUnlocked = sessionStorage.getItem('nyaay_admin_portal_authenticated') === 'true' ||
+                                  localStorage.getItem('nyaay_admin_portal_authenticated') === 'true';
+
+        if (isDesignatedAdmin || isAlreadyUnlocked) {
+          setIsAdminAuthenticated(true);
+          setIsAdminDashboardOpen(true);
+          setIsAdminGateOpen(false);
+        } else {
+          setIsAdminGateOpen(true);
+        }
+      }
+    };
+
+    checkAdminUrlAccess();
+    window.addEventListener('popstate', checkAdminUrlAccess);
+    window.addEventListener('hashchange', checkAdminUrlAccess);
+    return () => {
+      window.removeEventListener('popstate', checkAdminUrlAccess);
+      window.removeEventListener('hashchange', checkAdminUrlAccess);
+    };
+  }, [user?.email, profile?.email]);
+
+  // Sync theme with HTML data attribute, class and storage
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
     localStorage.setItem('nyaay_theme', theme);
   }, [theme]);
 
@@ -267,8 +328,12 @@ function AppContent() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  // Admin authorization: strictly checked via role or custom claim (S4/S5/§12.2)
-  const isAdmin = (profile as any)?.role === 'admin' || (profile as any)?.admin === true;
+  // Admin authorization: strictly checked via role or designated email or unlocked gate
+  const isAdmin =
+    (profile as any)?.role === 'admin' ||
+    (profile as any)?.admin === true ||
+    (user?.email?.toLowerCase() === 'pradhumb1998@gmail.com') ||
+    isAdminAuthenticated;
 
   // Active Direct Chat state
   const [activeThread, setActiveThread] = useState<{
@@ -507,6 +572,16 @@ function AppContent() {
       } else {
         setFirmMembers([]);
       }
+      if (demoData.threads) {
+        setUserThreads(demoData.threads);
+      } else {
+        setUserThreads([]);
+      }
+      if (demoData.inquiries) {
+        setInquiries(demoData.inquiries);
+      } else {
+        setInquiries([]);
+      }
     } else if (!isDemoUser) {
       // Clear demo firm data when not in demo mode
       if (currentFirm?.id?.startsWith('firm-sharma')) {
@@ -514,6 +589,12 @@ function AppContent() {
       }
       if (firmMembers.some(m => m.id?.startsWith('mem-'))) {
         setFirmMembers([]);
+      }
+      if (userThreads.some(t => t.id?.startsWith('thread-'))) {
+        setUserThreads([]);
+      }
+      if (inquiries.some(i => i.id?.startsWith('inq-'))) {
+        setInquiries([]);
       }
     }
   }, [user?.uid, isDemoUser, demoType]);
@@ -615,6 +696,24 @@ function AppContent() {
 
   const handleCloseAdminDashboard = () => {
     setIsAdminDashboardOpen(false);
+    if (window.location.search.includes('admin') || window.location.hash.includes('admin')) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState(null, '', cleanUrl);
+    }
+  };
+
+  const handleCloseAdminGate = () => {
+    setIsAdminGateOpen(false);
+    if (window.location.search.includes('admin') || window.location.hash.includes('admin')) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState(null, '', cleanUrl);
+    }
+  };
+
+  const handleAdminGateSuccess = () => {
+    setIsAdminAuthenticated(true);
+    setIsAdminGateOpen(false);
+    setIsAdminDashboardOpen(true);
   };
 
   // ── Mandatory Authentication & Onboarding Gate ──────────────────────────────
@@ -643,6 +742,15 @@ function AppContent() {
             setShowAuth(false);
           }}
         />
+
+        {isAdminGateOpen && (
+          <AdminSecurityGateModal
+            isOpen={isAdminGateOpen}
+            onClose={handleCloseAdminGate}
+            onAuthenticated={handleAdminGateSuccess}
+            language={language}
+          />
+        )}
 
         {isAdmin && (
           <AdminVerificationDashboard
@@ -1055,70 +1163,71 @@ function AppContent() {
       hideRoleToggle={true}
     >
       {/* Slim Top Bar */}
-      <UnifiedTopBar
-        userRole={userRole}
-        language={language}
-        userTag={
-          profile?.role === 'firm_admin'
-            ? 'Chambers'
-            : profile?.role === 'student'
-              ? 'Intern'
-              : userRole === 'lawyer'
-                ? 'Counsel'
-                : 'Citizen'
-        }
-        notifications={notifications}
-        unreadAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
-        userName={profile?.name || user?.displayName || (userRole === 'lawyer' ? 'Adv. Rajesh Sharma' : undefined)}
-        barCouncilId={profile?.barCouncilId || (userRole === 'lawyer' ? 'BCI/D/1942/2012' : undefined)}
-        onOpenLawyerAI={handleAskLawyerAI}
-        onOpenSearch={() => setIsUniversalSearchOpen(true)}
-        onOpenProfile={() => (userRole === 'lawyer' ? setIsLawyerProfileOpen(true) : setIsClientProfileOpen(true))}
-        deleteAccount={async () => {
-          await deleteAccount();
-        }}
-        onOpenFirmPortal={() => setIsFirmPortalOpen(true)}
-        onOpenAdminDashboard={isAdmin ? () => setIsAdminDashboardOpen(true) : undefined}
-        onOpenFeedback={() => setIsFeedbackOpen(true)}
-        onSelectLanguage={setLanguage}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-        onSwitchDemo={isDemoUser ? (type: 'firm' | 'student') => loginAsDemo(type) : undefined}
-        onSignOut={() => logout()}
-        onDismissNotification={async (id) => {
-          setNotifications(prev => prev.filter(n => n.id !== id));
-          try {
-            await markNotificationRead(id);
-            await deleteNotificationRecord(id);
-          } catch {}
-        }}
-        onDismissAllNotifications={async () => {
-          const toDismiss = [...notifications];
-          setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-          setNotifications([]);
-          try {
-            await Promise.all(toDismiss.map(n => markNotificationRead(n.id).catch(() => {})));
-            await Promise.all(toDismiss.map(n => deleteNotificationRecord(n.id).catch(() => {})));
-          } catch {}
-        }}
-        onNotificationClick={(n) => {
-          if (n.threadId) {
-            setActiveThread({
-              threadId: n.threadId,
-              recipientName: n.senderName || 'Client',
-              matterSubject: n.message,
-            });
-          } else if (userRole === 'lawyer') {
-            setLawyerActiveTab('today');
-          } else {
-            setClientActiveTab('case');
+      {!activeThread && (
+        <UnifiedTopBar
+          userRole={userRole}
+          language={language}
+          userTag={
+            profile?.role === 'firm_admin'
+              ? 'Chambers'
+              : profile?.role === 'student'
+                ? 'Intern'
+                : userRole === 'lawyer'
+                  ? 'Counsel'
+                  : 'Citizen'
           }
-        }}
-      />
+          notifications={notifications}
+          unreadAlertCount={limitationAlerts.filter(a => a.severity === 'critical').length}
+          userName={profile?.name || user?.displayName || (userRole === 'lawyer' ? 'Adv. Rajesh Sharma' : undefined)}
+          barCouncilId={profile?.barCouncilId || (userRole === 'lawyer' ? 'BCI/D/1942/2012' : undefined)}
+          onOpenLawyerAI={handleAskLawyerAI}
+          onOpenSearch={() => setIsUniversalSearchOpen(true)}
+          onOpenProfile={() => (userRole === 'lawyer' ? setIsLawyerProfileOpen(true) : setIsClientProfileOpen(true))}
+          deleteAccount={async () => {
+            await deleteAccount();
+          }}
+          onOpenFirmPortal={() => setIsFirmPortalOpen(true)}
+          onOpenFeedback={() => setIsFeedbackOpen(true)}
+          onSelectLanguage={setLanguage}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onSwitchDemo={isDemoUser ? (type: 'firm' | 'student') => loginAsDemo(type) : undefined}
+          onSignOut={() => logout()}
+          onDismissNotification={async (id) => {
+            setNotifications(prev => prev.filter(n => n.id !== id));
+            try {
+              await markNotificationRead(id);
+              await deleteNotificationRecord(id);
+            } catch {}
+          }}
+          onDismissAllNotifications={async () => {
+            const toDismiss = [...notifications];
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setNotifications([]);
+            try {
+              await Promise.all(toDismiss.map(n => markNotificationRead(n.id).catch(() => {})));
+              await Promise.all(toDismiss.map(n => deleteNotificationRecord(n.id).catch(() => {})));
+            } catch {}
+          }}
+          onNotificationClick={(n) => {
+            if (n.threadId) {
+              setActiveThread({
+                threadId: n.threadId,
+                recipientName: n.senderName || 'Client',
+                matterSubject: n.message,
+              });
+            } else if (userRole === 'lawyer') {
+              setLawyerActiveTab('today');
+            } else {
+              setClientActiveTab('case');
+            }
+          }}
+        />
+      )}
 
       {/* Main View: Direct Chat View or Role Views */}
       {activeThread ? (
-        <div className="flex-1 flex flex-col h-[calc(100vh-120px)] overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden">
           <DirectChatView
             threadId={activeThread.threadId}
             currentUserId={user?.uid || 'guest'}
@@ -1135,7 +1244,7 @@ function AppContent() {
           />
         </div>
       ) : (
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto" onScroll={handleMainScroll}>
           {userRole === 'lawyer' ? (
             <>
               {lawyerActiveTab === 'today' && (
@@ -1169,6 +1278,7 @@ function AppContent() {
                   onAddHearing={handleAddHearing}
                   onEditHearing={handleAddHearing}
                   onSendHearingChatUpdate={handleSendHearingChatUpdate}
+                  onSummarizeDay={handleAskLawyerAI}
                 />
               )}
 
@@ -1225,33 +1335,57 @@ function AppContent() {
                 ) : (
                   <CaseListPage
                     cases={cases}
+                    hearings={hearings}
                     language={language}
                     onSelectCase={(cNum) => setSelectedCaseNumber(cNum)}
-                    onNewCase={() => setShowNewCaseSheet(true)}
+                    onNewCase={(mode = 'standard') => {
+                      setNewCaseInitialMode(mode);
+                      setShowNewCaseSheet(true);
+                    }}
+                    onUploadEvidentiary={() => setShowEvidentiaryUploadModal(true)}
                   />
                 )
               )}
 
               {lawyerActiveTab === 'inbox' && (
-                <InboxPage
-                  threads={userThreads}
-                  inquiries={inquiries}
-                  language={language}
-                  onSelectThread={(thread) => {
-                    setUserThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unreadCount: 0 } : t));
-                    markThreadMessagesRead(thread.id, user?.uid || 'guest', 'lawyer');
-                    setActiveThread({
-                      threadId: thread.id,
-                      recipientName: thread.clientName,
-                      recipientPhoto: thread.clientPhoto,
-                      matterSubject: thread.matterSubject,
-                      aiBriefAttached: thread.aiBriefAttached,
-                      aiBriefText: thread.aiBriefText,
-                    });
-                  }}
-                  onAcceptInquiry={handleAcceptInquiry}
-                  onDeclineInquiry={handleDeclineInquiry}
-                />
+                <ErrorBoundary fallbackTitle="Could not load Inbox">
+                  <InboxPage
+                    threads={userThreads}
+                    inquiries={inquiries}
+                    cases={cases}
+                    language={language}
+                    onSelectThread={(thread) => {
+                      setUserThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unreadCount: 0 } : t));
+                      markThreadMessagesRead(thread.id, user?.uid || 'guest', 'lawyer').catch(() => {});
+                      setActiveThread({
+                        threadId: thread.id,
+                        recipientName: thread.clientName || 'Client',
+                        recipientPhoto: thread.clientPhoto,
+                        matterSubject: thread.matterSubject || `Matter with ${thread.clientName || 'Client'}`,
+                        aiBriefAttached: thread.aiBriefAttached,
+                        aiBriefText: thread.aiBriefText,
+                      });
+                    }}
+                    onStartCaseChat={async (caseNumber, clientName) => {
+                      const matched = cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(caseNumber));
+                      const threadId = await createOrGetDirectThread({
+                        lawyerId: user?.uid || 'lawyer',
+                        lawyerName: profile?.name || 'Advocate',
+                        clientId: matched?.clientId || 'client',
+                        clientName,
+                        matterSubject: `Matter: ${caseNumber}`,
+                        caseNumber,
+                      });
+                      setActiveThread({
+                        threadId,
+                        recipientName: clientName,
+                        matterSubject: `Matter: ${caseNumber}`,
+                      });
+                    }}
+                    onAcceptInquiry={handleAcceptInquiry}
+                    onDeclineInquiry={handleDeclineInquiry}
+                  />
+                </ErrorBoundary>
               )}
 
               {lawyerActiveTab === 'fees' && (
@@ -1284,10 +1418,7 @@ function AppContent() {
                   userProfile={profile || undefined}
                   language={language}
                   onOpenProfile={() => setIsLawyerProfileOpen(true)}
-                  onOpenLawyerAI={handleAskLawyerAI}
-                  onOpenSearch={() => setIsUniversalSearchOpen(true)}
                   onOpenFirmPortal={() => setIsFirmPortalOpen(true)}
-                  onOpenAdminDashboard={isAdmin ? () => setIsAdminDashboardOpen(true) : undefined}
                   onOpenFeedback={() => setIsFeedbackOpen(true)}
                   onSelectLanguage={setLanguage}
                   theme={theme}
@@ -1311,10 +1442,57 @@ function AppContent() {
                   language={language}
                   onSelectCase={(cn) => setSelectedCaseNumber(cn)}
                   onNavigateToHelp={() => setClientActiveTab('help')}
-                  onMessageLawyer={() => {
-                    setClientActiveTab('messages');
+                  onMessageLawyer={async (lawyerName) => {
+                    const currentActiveCase = cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || '')) || cases[0];
+                    const advocateName = currentActiveCase?.lawyerName || lawyerName || 'Adv. Rajesh Sharma';
+                    const lawyerUid = currentActiveCase?.lawyerId || 'lawyer-rajesh-sharma';
+                    try {
+                      const threadId = await createOrGetDirectThread({
+                        lawyerId: lawyerUid,
+                        lawyerName: advocateName,
+                        clientId: user?.uid || 'client',
+                        clientName: profile?.name || 'Citizen Client',
+                        matterSubject: `Case Consultation: ${currentActiveCase?.caseNumber || 'Dossier'}`,
+                        caseNumber: currentActiveCase?.caseNumber,
+                      });
+                      setActiveThread({
+                        threadId,
+                        recipientName: advocateName,
+                        matterSubject: `Case Consultation: ${currentActiveCase?.caseNumber || 'Dossier'}`,
+                      });
+                    } catch {
+                      setClientActiveTab('messages');
+                    }
                   }}
-                  onUploadDocument={() => {}}
+                  onUploadDocument={async (file: any) => {
+                    if (!file) return;
+                    const currentActiveCase = cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || '')) || cases[0];
+                    const cNum = currentActiveCase?.caseNumber || 'CR/General/2026';
+                    const docId = `doc-${Date.now()}`;
+                    const fileName = file.name || (typeof file === 'string' ? file : 'Client-Case-Document.pdf');
+                    const fileSize = file.size ? `${(file.size / 1024).toFixed(1)} KB` : '1.4 MB';
+                    const newDoc: DocumentItem = {
+                      id: docId,
+                      caseNumber: cNum,
+                      title: fileName,
+                      size: fileSize,
+                      status: 'Pending',
+                      uploadedAt: new Date().toISOString(),
+                    };
+                    setDocuments(prev => [newDoc, ...prev]);
+                    setNotifications(prev => [
+                      {
+                        id: `notif-${Date.now()}`,
+                        recipientId: user?.uid || 'client',
+                        title: 'Document Transmitted to Chambers',
+                        message: `"${fileName}" sent for advocate inspection for ${cNum}.`,
+                        read: false,
+                        type: 'system',
+                        createdAt: new Date().toISOString(),
+                      },
+                      ...prev,
+                    ]);
+                  }}
                   onPayInvoice={handlePayInvoice}
                 />
               )}
@@ -1357,7 +1535,7 @@ function AppContent() {
                         courtLocation: profileData.location || 'Court of Jurisdiction',
                         court: 'District Court',
                         caseType: profileData.legalArea || profileData.matterType || 'Consultation Matter',
-                        actSections: ['Relevant Legal Sections'],
+                        actSections: (profileData as any).actSections || [],
                         status: 'Active',
                         stage: 'Admission',
                         filingDate: new Date().toISOString().split('T')[0],
@@ -1397,27 +1575,29 @@ function AppContent() {
               )}
 
               {clientActiveTab === 'messages' && (
-                <ChatInboxView
-                  currentUserId={user?.uid || ''}
-                  currentUserRole="client"
-                  currentUserName={profile?.name || 'Client'}
-                  language={language}
-                  cases={cases}
-                  hearings={hearings}
-                  onSelectThread={(thread) => {
-                    setUserThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unreadCount: 0 } : t));
-                    markThreadMessagesRead(thread.id, user?.uid || 'guest', 'client');
-                    setActiveThread({
-                      threadId: thread.id,
-                      recipientName: thread.lawyerName,
-                      recipientPhoto: thread.lawyerPhoto,
-                      matterSubject: thread.matterSubject,
-                      aiBriefAttached: thread.aiBriefAttached,
-                      aiBriefText: thread.aiBriefText,
-                    });
-                  }}
-                  onOpenDirectory={() => setClientActiveTab('help')}
-                />
+                <ErrorBoundary fallbackTitle="Could not load Messages">
+                  <ChatInboxView
+                    currentUserId={user?.uid || ''}
+                    currentUserRole="client"
+                    currentUserName={profile?.name || 'Client'}
+                    language={language}
+                    cases={cases}
+                    hearings={hearings}
+                    onSelectThread={(thread) => {
+                      setUserThreads(prev => prev.map(t => t.id === thread.id ? { ...t, unreadCount: 0 } : t));
+                      markThreadMessagesRead(thread.id, user?.uid || 'guest', 'client').catch(() => {});
+                      setActiveThread({
+                        threadId: thread.id,
+                        recipientName: thread.lawyerName || 'Advocate',
+                        recipientPhoto: thread.lawyerPhoto,
+                        matterSubject: thread.matterSubject || `Matter with ${thread.lawyerName || 'Advocate'}`,
+                        aiBriefAttached: thread.aiBriefAttached,
+                        aiBriefText: thread.aiBriefText,
+                      });
+                    }}
+                    onOpenDirectory={() => setClientActiveTab('help')}
+                  />
+                </ErrorBoundary>
               )}
 
               {clientActiveTab === 'me' && (
@@ -1484,37 +1664,6 @@ function AppContent() {
         </div>
       )}
 
-      {/* Context-Aware Floating NYAAY AI Button for Lawyer Mode */}
-      {userRole === 'lawyer' && !activeThread && (() => {
-        let label = 'Ask NYAAY AI';
-        let prompt = 'How can I optimize my legal chamber workflow today?';
-
-        if (lawyerActiveTab === 'today') {
-          label = language === 'hi' ? 'आज का विवरण' : language === 'mr' ? 'आजचा आढावा' : 'Summarize my day';
-          prompt = 'Please summarize all my hearings, listing times, courtrooms and tasks scheduled for today.';
-        } else if (lawyerActiveTab === 'cases') {
-          label = language === 'hi' ? 'केस विश्लेषण' : language === 'mr' ? 'केस विश्लेषण' : 'Analyze this case';
-          prompt = 'Analyze active cases, upcoming hearing dates, pending stages, and critical limitation deadlines.';
-        } else if (lawyerActiveTab === 'fees') {
-          label = language === 'hi' ? 'लंबित फीस' : language === 'mr' ? 'प्रलंबित फी' : 'Show pending payments';
-          prompt = 'Show all pending client invoices, uncollected professional fees, and outstanding balances.';
-        } else if (lawyerActiveTab === 'inbox') {
-          label = language === 'hi' ? 'संदेश सारांश' : language === 'mr' ? 'संदेश सारांश' : 'Summarize messages';
-          prompt = 'Summarize recent client inquiries, unread messages, and pending responses.';
-        }
-
-        return (
-          <button
-            type="button"
-            onClick={() => handleAskLawyerAI(prompt)}
-            className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-400 text-black font-semibold text-xs shadow-xl shadow-amber-500/25 hover:from-amber-400 hover:to-amber-300 transition-transform active:scale-95"
-            title={label}
-          >
-            <Sparkles size={15} className="text-black animate-pulse" />
-            <span>{label}</span>
-          </button>
-        );
-      })()}
 
       {/* Unified Bottom TabBar */}
       {!activeThread && (
@@ -1541,11 +1690,42 @@ function AppContent() {
         onOpenChange={setShowNewCaseSheet}
         cases={cases}
         language={language}
+        initialMode={newCaseInitialMode}
         onSave={async (caseData: Omit<CaseFile, 'id'>) => {
           await handleCreateCase(caseData);
           setShowNewCaseSheet(false);
         }}
       />
+
+      {/* Evidentiary Document Upload Modal */}
+      {showEvidentiaryUploadModal && (
+        <EvidentiaryUploadModal
+          isOpen={showEvidentiaryUploadModal}
+          onClose={() => setShowEvidentiaryUploadModal(false)}
+          cases={cases}
+          language={language}
+          onUploadDocument={async (caseNumber, file, docType, note) => {
+            const docId = `doc-${Date.now()}`;
+            const newDoc: DocumentItem = {
+              id: docId,
+              caseNumber,
+              title: file.name,
+              titleEn: file.name,
+              size: `${(file.size / 1024).toFixed(1)} KB`,
+              status: 'Verified',
+              requiredFormat: docType,
+              uploadedAt: new Date().toISOString(),
+              validationNoteEn: note || `Evidentiary document (${docType}) attached to dossier`,
+            };
+            setDocuments(prev => [newDoc, ...prev]);
+            try {
+              await addDocumentRecord(newDoc);
+            } catch (dErr) {
+              console.warn("Could not persist document to firestore:", dErr);
+            }
+          }}
+        />
+      )}
 
       {/* Global Add Hearing Form Sheet */}
       <HearingFormSheet
@@ -1573,6 +1753,15 @@ function AppContent() {
         <ClientProfileModal
           isOpen={isClientProfileOpen}
           onClose={() => setIsClientProfileOpen(false)}
+          language={language}
+        />
+      )}
+
+      {isAdminGateOpen && (
+        <AdminSecurityGateModal
+          isOpen={isAdminGateOpen}
+          onClose={handleCloseAdminGate}
+          onAuthenticated={handleAdminGateSuccess}
           language={language}
         />
       )}
@@ -1660,10 +1849,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AppContent />
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary fallbackTitle="NYAAY Legal Application">
+      <AuthProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

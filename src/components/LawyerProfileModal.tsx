@@ -170,7 +170,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
   };
 
   // eCourts CNR Search Handler
-  const handleSearchCNR = () => {
+  const handleSearchCNR = async () => {
     setCnrSearchError(null);
     setCnrSearchResult(null);
     if (!cnrInput.trim()) {
@@ -179,7 +179,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
     }
     setIsSearchingCNR(true);
     try {
-      const res = lookupECourtsByCNR(cnrInput);
+      const res = await lookupECourtsByCNR(cnrInput);
       if (res.success && res.data) {
         setCnrSearchResult(res.data);
       } else {
@@ -837,21 +837,7 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
           </div>
         )}
 
-        {/* Dedicated Admin Dashboard Shortcut */}
-        {isAdmin && onOpenAdminDashboard && (
-          <div className="pt-2 border-t border-amber-500/20">
-            <button
-              onClick={() => {
-                onClose();
-                onOpenAdminDashboard();
-              }}
-              className="w-full py-2.5 rounded-2xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 ios-press transition"
-            >
-              <ShieldAlert size={14} />
-              <span>Open Admin Verification Console</span>
-            </button>
-          </div>
-        )}
+
 
         {/* Regulatory disclaimer */}
         <div className="bg-black/40 p-3 rounded-2xl border border-white/[0.06] text-[10px] text-neutral-500 leading-relaxed italic">
@@ -1079,9 +1065,9 @@ export const LawyerProfileModal: React.FC<LawyerProfileModalProps> = ({
                         <button
                           key={sample}
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             setCnrInput(sample);
-                            const res = lookupECourtsByCNR(sample);
+                            const res = await lookupECourtsByCNR(sample);
                             if (res.success && res.data) setCnrSearchResult(res.data);
                           }}
                           className="px-2 py-0.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.12] text-amber-300 font-mono text-[10px] border border-white/10"

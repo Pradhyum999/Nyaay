@@ -5,7 +5,7 @@ import { CaseFile, Language } from '../../types';
 import { normaliseCaseNumber } from '../../lib/caseNumber';
 import { parseCaseText } from '../../lib/caseAI';
 import { getStarterTasksForStage } from '../../config/stages';
-import { addCaseTask } from '../../services/firestoreService';
+import { addCaseTask, addHearingRecord } from '../../services/firestoreService';
 import { auth } from '../../lib/firebase';
 import {
   Sparkles,
@@ -18,7 +18,16 @@ import {
   Building,
   Check,
   PlusCircle,
+  ExternalLink,
+  Key,
 } from 'lucide-react';
+import {
+  lookupECourtsByCNR,
+  parseAndValidateCNR,
+  SAMPLE_ECOURTS_CNRS,
+  getECourtsIndiaApiKey,
+  saveECourtsIndiaApiKey,
+} from '../../services/ecourtsService';
 import {
   INDIAN_COURT_COMPLEXES,
   COURT_HALLS_BY_COMPLEX,
@@ -34,6 +43,7 @@ interface NewCaseSheetProps {
   cases?: CaseFile[];
   initialData?: Partial<CaseFile>;
   language?: Language;
+  initialMode?: 'standard' | 'ecourts';
   onSave: (caseData: Omit<CaseFile, 'id'> & { id?: string }) => Promise<void> | void;
 }
 
@@ -43,6 +53,7 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
   cases = [],
   initialData,
   language = 'en',
+  initialMode = 'standard',
   onSave,
 }) => {
   const isEditMode = Boolean(initialData?.caseNumber);
@@ -75,7 +86,9 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
   const [showActSuggestions, setShowActSuggestions] = useState(false);
 
   // AI & eCourts assist states
-  const [activeAssistMode, setActiveAssistMode] = useState<'none' | 'ai' | 'ecourts'>('none');
+  const [activeAssistMode, setActiveAssistMode] = useState<'none' | 'ai' | 'ecourts'>(
+    initialMode === 'ecourts' ? 'ecourts' : 'none'
+  );
   const [aiInputText, setAiInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [aiExtracting, setAiExtracting] = useState(false);
@@ -86,6 +99,9 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
   const [cnrLoading, setCnrLoading] = useState(false);
   const [cnrError, setCnrError] = useState<string | null>(null);
   const [cnrSourceVerified, setCnrSourceVerified] = useState(false);
+  const [retrievedDocket, setRetrievedDocket] = useState<any | null>(null);
+  const [ecourtsApiKey, setEcourtsApiKey] = useState(getECourtsIndiaApiKey());
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   const resetForm = () => {
     setCaseNumber(initialData?.caseNumber || '');
@@ -102,8 +118,9 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
     setPriority(initialData?.priority || 'Normal');
     setStatus(initialData?.status === 'Closed' ? 'Closed' : 'Active');
     setAiInputText('');
-    setCnrInput('');
-    setCnrSourceVerified(false);
+    setCnrInput(initialData?.cnrNumber || '');
+    setCnrSourceVerified(Boolean(initialData?.cnrNumber));
+    setRetrievedDocket(null);
     setCnrError(null);
     setAiError(null);
     setCaseError(null);
@@ -114,8 +131,13 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
   useEffect(() => {
     if (open) {
       resetForm();
+      if (initialMode === 'ecourts') {
+        setActiveAssistMode('ecourts');
+      } else {
+        setActiveAssistMode('none');
+      }
     }
-  }, [open, initialData]);
+  }, [open, initialData, initialMode]);
 
   // Voice recording toggle for AI intake
   const handleToggleVoice = () => {
@@ -192,43 +214,55 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
     }
   };
 
-  // eCourts lookup handler
-  const handleLookupCNR = () => {
-    const trimmed = cnrInput.trim().toUpperCase();
-    if (!trimmed || trimmed.length < 10) {
-      setCnrError('Please enter a valid eCourts CNR number (e.g. DLHC010041282026).');
+  // eCourts lookup handler (Supports 16-char CNR, Case Number, or Party Name)
+  const handleLookupCNR = async (targetCnr?: string) => {
+    const rawToLookup = targetCnr || cnrInput;
+    const trimmed = rawToLookup.trim();
+    if (!trimmed) {
+      setCnrError('Please enter an eCourts CNR (16-char), Case Number (e.g. 4920/2022), or Party Name.');
       return;
     }
     setCnrLoading(true);
     setCnrError(null);
 
-    setTimeout(() => {
-      setCnrLoading(false);
-      const isDelhi = trimmed.startsWith('DL') || trimmed.includes('HC');
-      const isMumbai = trimmed.startsWith('MH');
+    try {
+      const res = await lookupECourtsByCNR(trimmed);
+      if (!res.success || !res.data) {
+        setCnrError(res.error || `No eCourts docket found for "${trimmed}".`);
+        setCnrLoading(false);
+        return;
+      }
 
-      const mockNumber = `CNR-${trimmed.slice(0, 4)}/${trimmed.slice(-4)}`;
-      const mockClient = isDelhi ? 'Sunita Sharma' : isMumbai ? 'Priya Deshmukh' : 'Amitabh Roy';
-      const mockOpponent = isDelhi ? 'State of NCT Delhi' : 'Union of India';
-      const mockCourt = isDelhi
-        ? 'Delhi High Court, Sher Shah Road'
-        : isMumbai
-        ? 'Bombay High Court, Fort, Mumbai'
-        : 'District & Sessions Court';
-      const mockStage = 'Framing of Issues / Charges';
-      const mockType = 'Criminal Defense & Trial';
-      const mockActs = 'Section 420 IPC / 318 BNS, Section 120B IPC';
-
-      setCaseNumber(mockNumber);
-      setClientName(mockClient);
-      setOpponentName(mockOpponent);
-      setCourtLocation(mockCourt);
-      setStage(mockStage);
-      setCaseType(mockType);
-      setActSections(mockActs);
+      const caseData = res.data;
+      setRetrievedDocket(caseData);
+      setCnrInput(caseData.cnrNumber || trimmed.toUpperCase());
+      setCaseNumber(caseData.caseNumber);
+      setClientName(caseData.petitioner || 'Petitioner');
+      setOpponentName(caseData.respondent || 'State / Respondent');
+      setCourtLocation(caseData.court);
+      if (caseData.caseType) {
+        setCaseType(caseData.caseType);
+      }
+      if (caseData.stage) {
+        setStage(caseData.stage);
+      }
+      if (caseData.actSections && caseData.actSections.length) {
+        setActSections(caseData.actSections.join(', '));
+      }
+      if (caseData.caseStatus) {
+        if (caseData.caseStatus.toUpperCase() === 'DISPOSED') {
+          setStatus('Closed');
+        } else {
+          setStatus('Active');
+        }
+      }
       setCnrSourceVerified(true);
-      setActiveAssistMode('none');
-    }, 850);
+      setActiveAssistMode('ecourts');
+    } catch (err: any) {
+      setCnrError(err?.message || 'Error importing CNR from eCourts.');
+    } finally {
+      setCnrLoading(false);
+    }
   };
 
   // Court Complex Autocomplete filter
@@ -281,9 +315,13 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
       await onSave({
         ...(initialData?.id ? { id: initialData.id } : {}),
         caseNumber: normalised,
+        cnrNumber: cnrSourceVerified ? cnrInput.trim().toUpperCase() : initialData?.cnrNumber,
         clientName: clientName.trim(),
         clientPhone: initialData?.clientPhone || '',
         opponentName: opponentName.trim() || 'State',
+        petitioner: clientName.trim(),
+        respondent: opponentName.trim() || 'State',
+        accused: opponentName.trim() || 'State',
         courtLocation,
         court: (courtLocation.includes('Supreme Court')
           ? 'Supreme Court'
@@ -299,13 +337,38 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
         status: status as any,
         priority,
         stage: (stage || PREDEFINED_INITIAL_STAGES[0]) as any,
-        filingDate: initialData?.filingDate || getISTDateString(),
-        nextHearingDate: initialData?.nextHearingDate || 'TBD',
+        filingDate: retrievedDocket?.filingDate || initialData?.filingDate || getISTDateString(),
+        nextHearingDate: retrievedDocket?.nextHearingDate || initialData?.nextHearingDate || 'TBD',
+        orderNotes: retrievedDocket?.aiSummary || retrievedDocket?.advocateNotes || initialData?.orderNotes,
         unreadDocuments: initialData?.unreadDocuments || 0,
         pendingChecklistItems: initialData?.pendingChecklistItems || 0,
         totalBilled: initialData?.totalBilled || 0,
         totalCollected: initialData?.totalCollected || 0,
       });
+
+      // Auto-import historical and scheduled hearings from official eCourts docket
+      if (!isEditMode && retrievedDocket?.historyOfHearings?.length && auth.currentUser) {
+        for (const h of retrievedDocket.historyOfHearings.slice(-15)) {
+          try {
+            await addHearingRecord({
+              caseId: normalised,
+              caseNumber: normalised,
+              clientName: clientName.trim(),
+              lawyerId: auth.currentUser.uid,
+              courtName: courtLocation,
+              judgeName: h.judge || 'Bench',
+              stage: (stage || 'Evidence') as any,
+              hearingDate: h.hearingDate || getISTDateString(),
+              purposeEn: h.purposeOfListing || 'Hearing / Listing',
+              purposeHi: h.purposeOfListing || 'सुनवाई',
+              previousOrderSummaryEn: h.businessOnDate ? `Business on date: ${h.businessOnDate}` : undefined,
+              previousOrderSummaryHi: h.businessOnDate ? `तारीख पर कार्यवाही: ${h.businessOnDate}` : undefined,
+            });
+          } catch (hErr) {
+            console.warn('Could not auto-import docket hearing:', hErr);
+          }
+        }
+      }
 
       // Starter procedural tasks if opted in (New cases only)
       if (!isEditMode && createStarterTasks && auth.currentUser) {
@@ -378,118 +441,348 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
           </div>
         )}
 
-        {/* CNR Verified Badge */}
+        {/* CNR Verified Docket Card */}
         {cnrSourceVerified && (
-          <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs text-blue-300">
-            <div className="flex items-center gap-2">
-              <Landmark size={14} className="text-blue-400" />
-              <span>eCourts CNR Verified Record Imported</span>
+          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-500/15 via-sky-500/10 to-indigo-500/10 border border-sky-500/30 space-y-2.5 text-xs text-sky-200 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Landmark size={16} className="text-sky-400" />
+                <span className="font-bold text-white text-xs tracking-tight">eCourts CNR Live Record Imported</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  retrievedDocket?.caseStatus?.toUpperCase() === 'DISPOSED'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                }`}>
+                  {retrievedDocket?.caseStatus?.toUpperCase() === 'DISPOSED'
+                    ? `DISPOSED (${retrievedDocket?.disposalType || 'Disposed'})`
+                    : 'ACTIVE / UNDER TRIAL'}
+                </span>
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                  ✓ LIVE API
+                </span>
+              </div>
             </div>
-            <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/20">
-              OFFICIAL
-            </span>
+
+            {/* Matter Caption / Title */}
+            <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400">Matter Caption:</span>
+                <span className="text-[10px] font-mono text-amber-300 font-bold">
+                  {retrievedDocket?.caseNumber || caseNumber}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-white">
+                {retrievedDocket?.title || `${clientName} v. ${opponentName}`}
+              </div>
+              <div className="text-[11px] text-neutral-300 flex items-center gap-2 flex-wrap pt-0.5">
+                <span>🏛️ {retrievedDocket?.court || courtLocation}</span>
+                {retrievedDocket?.courtNo && <span>(Court #{retrievedDocket.courtNo})</span>}
+                {retrievedDocket?.district && <span>• {retrievedDocket.district}</span>}
+                {retrievedDocket?.filingDate && <span>• Filed: {retrievedDocket.filingDate}</span>}
+              </div>
+            </div>
+
+            {/* Parties Disclosed */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-sky-950/40 border border-sky-500/20">
+                <span className="text-[10px] uppercase font-bold text-sky-300 block mb-0.5">Petitioner / Complainant</span>
+                <span className="font-semibold text-white break-words">{clientName}</span>
+                {retrievedDocket?.petitionerAdvocate && (
+                  <span className="block text-[10px] text-sky-300/80 mt-0.5">Adv: {retrievedDocket.petitionerAdvocate}</span>
+                )}
+                <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-200 font-medium">✓ Auto-filled</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/20">
+                <span className="text-[10px] uppercase font-bold text-purple-300 block mb-0.5">Respondent / Accused</span>
+                <span className="font-semibold text-white break-words">{opponentName}</span>
+                {retrievedDocket?.respondentAdvocate && (
+                  <span className="block text-[10px] text-purple-300/80 mt-0.5">Adv: {retrievedDocket.respondentAdvocate}</span>
+                )}
+                <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-200 font-medium">✓ Auto-filled</span>
+              </div>
+            </div>
+
+            {/* FIR Details if applicable */}
+            {retrievedDocket?.firDetails?.policeStation && (
+              <div className="p-2 rounded-xl bg-amber-950/30 border border-amber-500/20 text-[11px] text-amber-200 flex items-center justify-between">
+                <span>🚨 <strong>Police Station:</strong> {retrievedDocket.firDetails.policeStation}</span>
+                {retrievedDocket.firDetails.caseNumber && (
+                  <span><strong>FIR No:</strong> {retrievedDocket.firDetails.caseNumber} {retrievedDocket.firDetails.year ? `(${retrievedDocket.firDetails.year})` : ''}</span>
+                )}
+              </div>
+            )}
+
+            {/* What Happened in Court - AI Summary */}
+            {retrievedDocket?.aiSummary && (
+              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-amber-400/25 space-y-1">
+                <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]">
+                  <Sparkles size={12} className="text-amber-400" />
+                  <span>What Happened in Court (Official Case Summary):</span>
+                </div>
+                <p className="text-[11px] text-slate-200 leading-relaxed">
+                  {retrievedDocket.aiSummary}
+                </p>
+              </div>
+            )}
+
+            {/* Hearing & Orders Summary Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px]">
+              <div className="p-2 rounded-lg bg-black/25 border border-white/5">
+                <span className="text-neutral-400 block">Stage / Purpose</span>
+                <span className="font-semibold text-white">{retrievedDocket?.stage || stage || 'Under Trial'}</span>
+              </div>
+              <div className="p-2 rounded-lg bg-black/25 border border-white/5">
+                <span className="text-neutral-400 block">Next / Last Listing</span>
+                <span className="font-semibold text-amber-300">{retrievedDocket?.nextHearingDate || retrievedDocket?.lastHearingDate || 'TBD'}</span>
+              </div>
+              <div className="p-2 rounded-lg bg-black/25 border border-white/5 col-span-2 sm:col-span-1">
+                <span className="text-neutral-400 block">Dossier Records</span>
+                <span className="font-semibold text-sky-300">
+                  {retrievedDocket?.historyOfHearings?.length || 0} hearings · {retrievedDocket?.orders?.length || 0} orders
+                </span>
+              </div>
+            </div>
+
+            {/* Recent Hearings History Preview */}
+            {retrievedDocket?.historyOfHearings && retrievedDocket.historyOfHearings.length > 0 && (
+              <div className="p-2 rounded-xl bg-black/25 border border-white/5 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                  Recent Hearings on Record ({retrievedDocket.historyOfHearings.length}):
+                </span>
+                <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                  {retrievedDocket.historyOfHearings.slice(-3).reverse().map((h: any, hIdx: number) => (
+                    <div key={hIdx} className="flex items-center justify-between text-[10px] text-slate-300 border-b border-white/5 pb-0.5">
+                      <span className="font-mono text-amber-200/90">{h.hearingDate || h.businessOnDate}</span>
+                      <span className="truncate max-w-[150px] text-neutral-300">{h.purposeOfListing || 'Hearing'}</span>
+                      <span className="text-[9px] text-neutral-400 truncate max-w-[100px]">{h.judge || 'Bench'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-[11px] text-neutral-300 pt-1 border-t border-white/10">
+              <span className="font-mono text-amber-300 font-bold">{cnrInput}</span>
+              <a
+                href={parseAndValidateCNR(cnrInput).officialUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 underline font-medium"
+              >
+                <span>Verify on Official Portal</span>
+                <ExternalLink size={12} />
+              </a>
+            </div>
           </div>
         )}
 
-        {/* ── Optional Fast Assist Modes (AI or CNR) for New Case ── */}
+        {/* ── Mode Selection Header ── */}
         {!isEditMode && (
-          <div className="space-y-2">
-            {/* AI Assistant Block */}
-            <div className="rounded-2xl border hairline overflow-hidden bg-neutral-900/50">
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/[0.08] rounded-2xl">
               <button
                 type="button"
-                onClick={() => setActiveAssistMode(prev => (prev === 'ai' ? 'none' : 'ai'))}
-                className="w-full flex items-center justify-between p-3 text-xs font-bold text-main hover:bg-white/[0.04] transition"
+                onClick={() => setActiveAssistMode('none')}
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+                  activeAssistMode === 'none'
+                    ? 'bg-amber-400 text-black shadow-md font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
               >
-                <div className="flex items-center gap-2">
-                  <Sparkles size={15} className="text-amber-400" />
-                  <span>🤖 Voice or Paste Case Summary (AI Auto-Fill)</span>
-                </div>
-                {activeAssistMode === 'ai' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <span>✍️ Standard Dossier</span>
               </button>
-
-              {activeAssistMode === 'ai' && (
-                <div className="p-3 pt-0 space-y-2.5 animate-in fade-in">
-                  <p className="text-[11px] text-sub">
-                    Speak or paste case facts, court name, or client statements. AI will extract and pre-fill all fields below.
-                  </p>
-                  <div className="relative">
-                    <textarea
-                      rows={3}
-                      value={aiInputText}
-                      onChange={e => setAiInputText(e.target.value)}
-                      placeholder="e.g. Ramesh Gupta filed for bail under 420 IPC in Tis Hazari Court before ASJ Sharma..."
-                      className="w-full surface-inset border hairline rounded-xl p-2.5 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-amber-400 pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleToggleVoice}
-                      className={`absolute right-2.5 bottom-2.5 p-1.5 rounded-lg transition ${
-                        isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-white'
-                      }`}
-                      title="Speak case details"
-                    >
-                      <Mic size={15} />
-                    </button>
-                  </div>
-                  {aiError && <p className="text-[11px] text-red-400">{aiError}</p>}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleExtractWithAI}
-                    loading={aiExtracting}
-                    disabled={!aiInputText.trim() || aiExtracting}
-                    className="w-full"
-                  >
-                    <Sparkles size={14} className="mr-1.5" />
-                    <span>Extract & Auto-Fill Fields</span>
-                  </Button>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setActiveAssistMode('ecourts')}
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+                  activeAssistMode === 'ecourts'
+                    ? 'bg-sky-400 text-black shadow-md font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span>🏛️ eCourts (CNR)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveAssistMode('ai')}
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+                  activeAssistMode === 'ai'
+                    ? 'bg-purple-400 text-black shadow-md font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span>🤖 AI / Voice</span>
+              </button>
             </div>
+
+            {/* AI Assistant Block */}
+            {activeAssistMode === 'ai' && (
+              <div className="rounded-2xl border border-purple-500/30 overflow-hidden bg-purple-500/5 p-3 space-y-2.5 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-bold text-purple-300">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-purple-400" />
+                    <span>Voice or Paste Case Summary (AI Auto-Fill)</span>
+                  </div>
+                  <span className="text-[10px] text-purple-400 font-mono">ASSIST MODE</span>
+                </div>
+                <p className="text-[11px] text-neutral-300">
+                  Speak or paste case facts, court name, or client statements. AI will extract and pre-fill all fields below.
+                </p>
+                <div className="relative">
+                  <textarea
+                    rows={3}
+                    value={aiInputText}
+                    onChange={e => setAiInputText(e.target.value)}
+                    placeholder="e.g. Ramesh Gupta filed for bail under 420 IPC in Tis Hazari Court before ASJ Sharma..."
+                    className="w-full surface-inset border hairline rounded-xl p-2.5 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-purple-400 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleToggleVoice}
+                    className={`absolute right-2.5 bottom-2.5 p-1.5 rounded-lg transition ${
+                      isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-white'
+                    }`}
+                    title="Speak case details"
+                  >
+                    <Mic size={15} />
+                  </button>
+                </div>
+                {aiError && <p className="text-[11px] text-red-400">{aiError}</p>}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExtractWithAI}
+                  loading={aiExtracting}
+                  disabled={!aiInputText.trim() || aiExtracting}
+                  className="w-full"
+                >
+                  <Sparkles size={14} className="mr-1.5 text-purple-400" />
+                  <span>Extract & Auto-Fill Fields</span>
+                </Button>
+              </div>
+            )}
 
             {/* eCourts CNR Import Block */}
-            <div className="rounded-2xl border hairline overflow-hidden bg-neutral-900/50">
-              <button
-                type="button"
-                onClick={() => setActiveAssistMode(prev => (prev === 'ecourts' ? 'none' : 'ecourts'))}
-                className="w-full flex items-center justify-between p-3 text-xs font-bold text-main hover:bg-white/[0.04] transition"
-              >
-                <div className="flex items-center gap-2">
-                  <Landmark size={15} className="text-blue-400" />
-                  <span>🏛️ Import from eCourts (CNR)</span>
-                </div>
-                {activeAssistMode === 'ecourts' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-
-              {activeAssistMode === 'ecourts' && (
-                <div className="p-3 pt-0 space-y-2.5 animate-in fade-in">
-                  <p className="text-[11px] text-sub">
-                    Enter 16-character Case Record Number (CNR) to pull official parties, stage, and court details.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={cnrInput}
-                      onChange={e => setCnrInput(e.target.value.toUpperCase())}
-                      placeholder="DLHC010041282026"
-                      className="flex-1 surface-inset border hairline rounded-xl px-3 py-2 text-xs font-mono text-main placeholder-neutral-500 focus:outline-none focus:border-blue-400"
-                    />
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={handleLookupCNR}
-                      loading={cnrLoading}
-                    >
-                      Import
-                    </Button>
+            {activeAssistMode === 'ecourts' && (
+              <div className="rounded-2xl border border-sky-500/30 overflow-hidden bg-sky-500/5 p-3.5 space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Landmark size={16} className="text-sky-400" />
+                    <span className="text-xs font-bold text-white tracking-tight">Official eCourts Docket Importer</span>
                   </div>
-                  {cnrError && <p className="text-[11px] text-red-400">{cnrError}</p>}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-mono font-semibold">
+                    16-DIGIT CNR / CIS
+                  </span>
                 </div>
-              )}
-            </div>
+
+                <p className="text-[11px] text-neutral-300 leading-relaxed">
+                  Enter the 16-character official eCourts <strong>CNR</strong> (e.g. <span className="font-mono text-sky-300">DLHC010049202022</span>), <strong>Case Number</strong> (e.g. <span className="font-mono text-amber-300">4920/2022</span>), or <strong>Party Name</strong> to auto-fill all court, registry, and party records.
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={cnrInput}
+                    onChange={e => setCnrInput(e.target.value)}
+                    placeholder="Enter 16-char CNR, Case No. (e.g. 4920/2022), or Party..."
+                    className="flex-1 surface-inset border border-sky-500/30 rounded-xl px-3 py-2 text-xs font-mono text-main placeholder-neutral-500 focus:outline-none focus:border-sky-400"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleLookupCNR()}
+                    loading={cnrLoading}
+                  >
+                    Import Docket
+                  </Button>
+                </div>
+
+                {cnrError && (
+                  <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle size={14} className="shrink-0 text-red-400" />
+                    <span>{cnrError}</span>
+                  </div>
+                )}
+
+                {/* Live eCourts API Key configuration */}
+                <div className="pt-2 border-t border-sky-500/20">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKeyInput(prev => !prev)}
+                      className="text-[11px] text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+                    >
+                      <Key size={12} />
+                      <span>
+                        {ecourtsApiKey ? '✓ eCourts Live API Key Connected' : '🔑 Connect Live eCourts API (ecourtsindia.com)'}
+                      </span>
+                    </button>
+                    <a
+                      href="https://ecourtsindia.com/api"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-amber-300 hover:text-amber-200 underline inline-flex items-center gap-0.5"
+                    >
+                      <span>Get Free ₹200 Token</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  </div>
+
+                  {showApiKeyInput && (
+                    <div className="mt-2 space-y-2 p-2.5 rounded-xl bg-black/40 border border-sky-500/30">
+                      <label className="text-[10px] font-semibold text-neutral-300 block">
+                        Enter eCourtsIndia API Bearer Token (<code className="text-sky-300">eci_live_...</code>):
+                      </label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="password"
+                          value={ecourtsApiKey}
+                          onChange={e => setEcourtsApiKey(e.target.value)}
+                          placeholder="eci_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                          className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-mono text-white placeholder-neutral-500 focus:outline-none focus:border-sky-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveECourtsIndiaApiKey(ecourtsApiKey);
+                            setShowApiKeyInput(false);
+                          }}
+                          className="px-3 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs"
+                        >
+                          Save
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 leading-normal">
+                        Token is securely saved locally and enables live, 100% authentic real-time CNR fetching across Indian High Courts, District Courts, and Supreme Court via <a href="https://ecourtsindia.com" target="_blank" rel="noopener noreferrer" className="text-sky-300 underline">ecourtsindia.com</a>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sample CNR Chips for Quick 1-Click Import */}
+                <div className="space-y-1.5 pt-1">
+                  <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">
+                    Quick-Test Real Dockets (Tap to Auto-Fill):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SAMPLE_ECOURTS_CNRS.map(sample => (
+                      <button
+                        key={sample.cnr}
+                        type="button"
+                        onClick={() => handleLookupCNR(sample.cnr)}
+                        className="px-2 py-1 rounded-lg bg-white/[0.05] hover:bg-sky-400/20 border border-white/[0.1] hover:border-sky-400/50 text-[10px] text-neutral-300 hover:text-sky-300 transition text-left font-medium"
+                      >
+                        {sample.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -516,27 +809,41 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
           {/* Client & Opponent */}
           <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="text-xs font-semibold text-sub block mb-1">
-                {t('Client Name *', 'मुवक्किल (Client) *', 'पक्षकार (Client) *')}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-sub block">
+                  {t('Petitioner / Complainant (Client) *', 'याचिकाकर्ता / परिवादी (मुवक्किल) *', 'अर्जदार / तक्रारदार (पक्षकार) *')}
+                </label>
+                {cnrSourceVerified && (
+                  <span className="text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    eCourts Auto-filled
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 required
                 value={clientName}
                 onChange={e => setClientName(e.target.value)}
-                placeholder="e.g. Ramesh Gupta"
+                placeholder="e.g. Suresh Patil"
                 className="w-full surface-inset border hairline rounded-xl px-3 py-2 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-amber-400"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-sub block mb-1">
-                {t('Opponent / State', 'विपक्षी पक्षकार', 'विरुद्ध पक्षकार')}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-sub block">
+                  {t('Respondent / Accused (Opponent)', 'प्रतिवादी / अभियुक्त (विपक्षी)', 'प्रतिवादी / आरोपी (विरुद्ध पक्ष)')}
+                </label>
+                {cnrSourceVerified && (
+                  <span className="text-[9px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    eCourts Auto-filled
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={opponentName}
                 onChange={e => setOpponentName(e.target.value)}
-                placeholder="e.g. State of NCT Delhi"
+                placeholder="e.g. Ramesh Gupta"
                 className="w-full surface-inset border hairline rounded-xl px-3 py-2 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-amber-400"
               />
             </div>

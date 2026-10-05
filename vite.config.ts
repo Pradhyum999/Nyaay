@@ -15,6 +15,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/nvidia/, ''),
       },
+      '/api/ecourts': {
+        target: 'https://webapi.ecourtsindia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ecourts/, ''),
+      },
     },
   },
 })

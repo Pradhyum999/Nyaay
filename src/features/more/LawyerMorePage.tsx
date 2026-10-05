@@ -44,8 +44,6 @@ export interface LawyerMorePageProps {
   userProfile?: UserProfile;
   language: Language;
   onOpenProfile?: () => void;
-  onOpenLawyerAI?: () => void;
-  onOpenSearch?: () => void;
   onOpenFirmPortal?: () => void;
   onOpenAdminDashboard?: () => void;
   onOpenFeedback?: () => void;
@@ -241,8 +239,6 @@ export const LawyerMorePage: React.FC<LawyerMorePageProps> = ({
   userProfile,
   language = 'en',
   onOpenProfile,
-  onOpenLawyerAI,
-  onOpenSearch,
   onOpenFirmPortal,
   onOpenAdminDashboard,
   onOpenFeedback,
@@ -483,7 +479,7 @@ Confidential Counsel-to-Counsel Brief.`;
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-28 text-main max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-5 p-4 sm:p-6 pb-36 text-main max-w-4xl mx-auto w-full">
       {/* ── Sub-Navigation Pill Header (When in sub-modules) ── */}
       {activeSection !== 'hub' && (
         <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.08]">
@@ -509,227 +505,220 @@ Confidential Counsel-to-Counsel Brief.`;
           MAIN CONTENT ROUTER BASED ON activeSection
          ───────────────────────────────────────────────────────────── */}
 
-      {/* ── 1. HUB: The Command Center of "More" ── */}
+      {/* ── 1. HUB: The Command Center of "More" (Item 20 Grouping & Hierarchy) ── */}
       {activeSection === 'hub' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-mono uppercase tracking-wider text-amber-300 font-bold">
-              {t('Practice Tools & Counsel Suite', 'प्रैक्टिस टूल्स और काउंसिल सुइट', 'वकिली साधने आणि कौन्सिल सुइट')}
-            </h2>
-            <span className="text-[11px] font-mono text-neutral-500">
-              {t('Practice Modules', 'कार्यप्रणाली मॉड्यूल', 'कार्यप्रणाली मॉड्यूल्स')}
-            </span>
+        <div className="space-y-6 animate-in fade-in">
+          {/* Section 1: Professional Practice & Collaboration */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                  {t('Professional Practice & Chambers', 'पेशेवर वकालत एवं चैंबर्स', 'व्यावसायिक वकिली आणि चेंबर्स')}
+                </h2>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  {t('Chambers portfolio, firm portal, peer referrals & video courtrooms', 'चैंबर प्रोफाइल, लॉ फर्म, रेफरल और वीडियो कॉन्फ्रेंस', 'चेंबर प्रोफाइल, लॉ फर्म, रेफरल आणि व्हिडिओ कक्ष')}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Digital Chambers Portfolio */}
+              <Card
+                onClick={() => setActiveSection('portfolio')}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Building2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {t('Digital Chambers Portfolio', 'डिजिटल चैंबर पोर्टफोलियो', 'डिजिटल चेंबर पोर्टफोलिओ')}
+                    </h3>
+                    <p className="text-xs text-neutral-400">
+                      {t('Courts of practice, bar enrolment, matters handled and chambers credentials', 'वकालत क्रेडेंशियल, बार नामांकन, न्यायालयीन अनुभव', 'वकिली प्रमाणपत्रे, बार नोंदणी, न्यायालयीन अनुभव')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
+
+              {/* Firm & Chambers Portal */}
+              <Card
+                onClick={() => {
+                  if (onOpenFirmPortal) {
+                    onOpenFirmPortal();
+                  } else {
+                    setActiveSection('portfolio');
+                  }
+                }}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-violet-500/15 border border-violet-500/30 text-violet-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Users size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {t('Chambers & Firm Portal', 'लॉ फर्म / चेंबर्स पोर्टल', 'लॉ फर्म / चेंबर्स पोर्टल')}
+                    </h3>
+                    <p className="text-xs text-neutral-400">
+                      {t('Manage associate advocates, clerks, and shared dossiers', 'सहयोगी वकील, क्लर्क और साझी फाइलों का प्रबंधन', 'सहयोगी वकील, क्लर्क आणि फाईल्सचे व्यवस्थापन')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
+
+              {/* Peer Referral */}
+              <Card
+                onClick={() => setActiveSection('referral')}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Share2 size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                        {t('Peer Referral', 'सहयोगी रेफरल', 'सहकारी रेफरल')}
+                      </h3>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                        {referrals.length} {t('Active', 'सक्रिय', 'सक्रिय')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      {t('Dispatch briefs to colleagues across Bar associations & courts', 'अन्य न्यायालयों में साथी वकीलों को ब्रीफ रेफर करें', 'इतर न्यायालयांमधील सहकारी वकिलांना केस रेफर करा')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
+
+              {/* Video Conferencing */}
+              <Card
+                onClick={() => setActiveSection('video')}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Video size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {t('Video Conferencing', 'व्हिडिओ कॉन्फरन्सिंग', 'व्हिडिओ कॉन्फरन्सिंग')}
+                    </h3>
+                    <p className="text-xs text-neutral-400">
+                      {t('Virtual consultation room with client invite links & camera controls', 'क्लाइंट के साथ वर्चुअल परामर्श कक्ष और इनवाइट लिंक', 'क्लायंटसोबत आभासी सल्लामसलत कक्ष आणि लिंक')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Skill Assessment */}
-            <Card
-              onClick={() => setActiveSection('assessment')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Award size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {t('Skill Assessment', 'कौशल्य मूल्यांकन', 'कौशल्य चाचणी')}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    {t('Interactive 5-MCQ Indian Law knowledge quiz with explanations', 'भारतीय कानून पर 5 वस्तुनिष्ठ प्रश्न और स्पष्टीकरण', 'भारतीय कायद्यावर ५ बहुपर्यायी प्रश्न आणि स्पष्टीकरण')}
-                  </p>
-                </div>
+          {/* Section 2: Legal Intelligence & Community */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-sky-500 dark:text-sky-400">
+                  {t('Legal Intelligence & Knowledge', 'विधिक ज्ञान एवं सहकर्मी समुदाय', 'कायदेशीर बुद्धिमत्ता व सहकारी समुदाय')}
+                </h2>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  {t('Skill mastery testing & peer discussion forum', 'कौशल्य मूल्यांकन और मंच परिचर्चा', 'कौशल्य चाचणी आणि कायदेशीर चर्चा')}
+                </p>
               </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
+            </div>
 
-            {/* Discussion Forum */}
-            <Card
-              onClick={() => setActiveSection('forum')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Users size={20} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {t('Discussion Forum', 'चर्चा मंच', 'चर्चा मंच')}
-                    </h3>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300">
-                      {threads.length} {t('Threads', 'थ्रेड्स', 'थ्रेड्स')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400">
-                    {t('Consult peers, ask legal queries, share citations & debates', 'सहकर्मियों से परामर्श, कानूनी प्रश्न और उद्धरण साझा करें', 'सहकारी वकिलांशी चर्चा, कायदेशीर प्रश्न आणि संदर्भ')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
-
-            {/* Peer Referral */}
-            <Card
-              onClick={() => setActiveSection('referral')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Share2 size={20} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {t('Peer Referral', 'सहयोगी रेफरल', 'सहकारी रेफरल')}
-                    </h3>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-teal-500/20 text-teal-300">
-                      {referrals.length} {t('Active', 'सक्रिय', 'सक्रिय')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-400">
-                    {t('Dispatch briefs to colleagues across Bar associations & courts', 'अन्य न्यायालयों में साथी वकीलों को ब्रीफ रेफर करें', 'इतर न्यायालयांमधील सहकारी वकिलांना केस रेफर करा')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
-
-            {/* Video Conferencing */}
-            <Card
-              onClick={() => setActiveSection('video')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Video size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {t('Video Conferencing', 'व्हिडिओ कॉन्फरन्सिंग', 'व्हिडिओ कॉन्फरन्सिंग')}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    {t('Virtual consultation room with client invite links & camera controls', 'क्लाइंट के साथ वर्चुअल परामर्श कक्ष और इनवाइट लिंक', 'क्लायंटसोबत आभासी सल्लामसलत कक्ष आणि लिंक')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
-
-            {/* Global Search */}
-            {onOpenSearch && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Skill Assessment */}
               <Card
-                onClick={onOpenSearch}
+                onClick={() => setActiveSection('assessment')}
                 className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <Search size={20} />
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Award size={20} />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {t('Global Search', 'ग्लोबल सर्च', 'ग्लोबल सर्च')}
+                      {t('Skill Assessment', 'कौशल्य मूल्यांकन', 'कौशल्य चाचणी')}
                     </h3>
                     <p className="text-xs text-neutral-400">
-                      {t('Search all case numbers, clients, CNR & diary entries', 'केस नंबर, क्लाइंट, सीएनआर और डायरी में खोजें', 'केस नंबर, क्लायंट, सीएनआर आणि डायरी शोधा')}
+                      {t('Interactive 5-MCQ Indian Law knowledge quiz with explanations', 'भारतीय कानून पर 5 वस्तुनिष्ठ प्रश्न और स्पष्टीकरण', 'भारतीय कायद्यावर ५ बहुपर्यायी प्रश्न आणि स्पष्टीकरण')}
                     </p>
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
               </Card>
-            )}
 
-            {/* Digital Chambers Portfolio */}
-            <Card
-              onClick={() => setActiveSection('portfolio')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {t('Digital Chambers Portfolio', 'डिजिटल चैंबर पोर्टफोलियो', 'डिजिटल चेंबर पोर्टफोलिओ')}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    {t('Courts of practice, bar enrolment, matters handled and chambers credentials', 'वकालत क्रेडेंशियल, बार नामांकन, न्यायालयीन अनुभव', 'वकिली प्रमाणपत्रे, बार नोंदणी, न्यायालयीन अनुभव')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
-
-            {/* Firm & Chambers Portal */}
-            <Card
-              onClick={() => {
-                if (onOpenFirmPortal) {
-                  onOpenFirmPortal();
-                } else {
-                  setActiveSection('portfolio');
-                }
-              }}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-violet-500/15 border border-violet-500/30 text-violet-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Users size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {t('Chambers & Firm Portal', 'लॉ फर्म / चेंबर्स पोर्टल', 'लॉ फर्म / चेंबर्स पोर्टल')}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    {t('Manage associate advocates, clerks, and shared dossiers', 'सहयोगी वकील, क्लर्क और साझी फाइलों का प्रबंधन', 'सहयोगी वकील, क्लर्क आणि फाईल्सचे व्यवस्थापन')}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
-
-            {/* Admin Verification Dashboard */}
-            {onOpenAdminDashboard && (
+              {/* Discussion Forum */}
               <Card
-                onClick={onOpenAdminDashboard}
+                onClick={() => setActiveSection('forum')}
                 className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <Shield size={20} />
+                  <div className="w-10 h-10 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Users size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {t('Bar ID & Verification', 'बार सत्यापन पोर्टल', 'बार पडताळणी पोर्टल')}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                        {t('Discussion Forum', 'चर्चा मंच', 'चर्चा मंच')}
+                      </h3>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">
+                        {threads.length} {t('Threads', 'थ्रेड्स', 'थ्रेड्स')}
+                      </span>
+                    </div>
                     <p className="text-xs text-neutral-400">
-                      {t('Review verified Bar credentials and audit status', 'बार काउंसिल क्रेडेंशियल्स और ऑडिट स्थिति', 'बार कौन्सिल प्रमाणपत्रे आणि ऑडिट स्थिती')}
+                      {t('Consult peers, ask legal queries, share citations & debates', 'सहकर्मियों से परामर्श, कानूनी प्रश्न और उद्धरण साझा करें', 'सहकारी वकिलांशी चर्चा, कायदेशीर प्रश्न आणि संदर्भ')}
                     </p>
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
               </Card>
-            )}
+            </div>
+          </div>
 
-            {/* Settings & Preferences */}
-            <Card
-              onClick={() => setActiveSection('settings')}
-              className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <SettingsIcon size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {t('Settings & Account', 'सेटिंग्ज और खाता', 'सेटिंग्ज आणि खाते')}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    {t('Language, theme, feedback, sign out & account purge', 'भाषा, थीम, प्रतिक्रिया, साइन आउट और खाता डेटा', 'भाषा, थीम, फीडबॅक, साइन आउट आणि डेटा नष्ट करणे')}
-                  </p>
-                </div>
+          {/* Section 3: Practice Settings & Verification */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400">
+                  {t('Account & Practice Settings', 'खाता एवं प्रैक्टिस सेटिंग्स', 'खाते आणि प्रॅक्टिस सेटिंग्ज')}
+                </h2>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  {t('Bar credentials audit, preferences, language & session controls', 'बार सत्यापन, भाषा, थीम व सत्र नियंत्रण', 'बार पडताळणी, भाषा, थीम आणि खाते नियंत्रण')}
+                </p>
               </div>
-              <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
-            </Card>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+
+              {/* Settings & Preferences */}
+              <Card
+                onClick={() => setActiveSection('settings')}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <SettingsIcon size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {t('Settings & Account', 'सेटिंग्ज और खाता', 'सेटिंग्ज आणि खाते')}
+                    </h3>
+                    <p className="text-xs text-neutral-400">
+                      {t('Language, theme, feedback, sign out & account purge', 'भाषा, थीम, प्रतिक्रिया, साइन आउट और खाता डेटा', 'भाषा, थीम, फीडबॅक, साइन आउट आणि डेटा नष्ट करणे')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
+            </div>
           </div>
         </div>
       )}

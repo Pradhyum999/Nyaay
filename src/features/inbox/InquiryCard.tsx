@@ -18,7 +18,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
   onDecline,
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const profile = inquiry.profile;
+  const profile = inquiry?.profile;
 
   const urgency = profile?.urgency || 'medium';
   const urgencyBadgeClass =
@@ -37,7 +37,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
             <Bot size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-main">{inquiry.clientName}</h3>
+            <h3 className="text-sm font-bold text-main">{inquiry?.clientName || 'Prospective Client'}</h3>
             <p className="text-xs text-sub font-mono">
               {profile?.legalArea || profile?.matterType || 'Legal Inquiry'}
             </p>
@@ -72,13 +72,13 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
         <p className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-1 font-mono">
           {language === 'mr' ? 'एआय केस सारांश:' : language === 'hi' ? 'एआई केस सारांश:' : 'AI Structured Matter Brief:'}
         </p>
-        <p className="text-main">{profile?.summaryText || inquiry.preparedPacket?.slice(0, 200) || 'Client consultation brief submitted.'}</p>
+        <p className="text-main">{profile?.summaryText || (typeof inquiry?.preparedPacket === 'string' ? inquiry.preparedPacket.slice(0, 200) : '') || 'Client consultation brief submitted.'}</p>
       </div>
 
       {/* Expandable Facts & Missing Info */}
       {expanded && profile && (
         <div className="space-y-3 pt-2 border-t border-white/[0.06] text-xs animate-in fade-in">
-          {profile.facts && profile.facts.length > 0 && (
+          {profile.facts && Array.isArray(profile.facts) && profile.facts.length > 0 && (
             <div>
               <span className="font-semibold text-sub block mb-1">
                 {language === 'mr' ? 'प्रमुख तथ्य:' : language === 'hi' ? 'प्रमुख तथ्य:' : 'Key Facts:'}
@@ -91,7 +91,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
             </div>
           )}
 
-          {profile.missingInfo && profile.missingInfo.length > 0 && (
+          {profile.missingInfo && Array.isArray(profile.missingInfo) && profile.missingInfo.length > 0 && (
             <div>
               <span className="font-semibold text-amber-400 block mb-1 flex items-center gap-1">
                 <AlertCircle size={12} />
@@ -105,7 +105,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
             </div>
           )}
 
-          {profile.documentsRequired && profile.documentsRequired.length > 0 && (
+          {profile.documentsRequired && Array.isArray(profile.documentsRequired) && profile.documentsRequired.length > 0 && (
             <div>
               <span className="font-semibold text-sub block mb-1 flex items-center gap-1">
                 <FileText size={12} />
@@ -129,7 +129,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-sub hover:text-main font-medium"
+            className="flex items-center gap-1 text-xs text-sub hover:text-main font-medium cursor-pointer"
           >
             {expanded ? (
               <>
@@ -150,7 +150,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
             variant="ghost"
             size="sm"
             icon={<X size={13} />}
-            onClick={() => onDecline(inquiry.id)}
+            onClick={() => inquiry?.id && onDecline(inquiry.id)}
           >
             {language === 'mr' ? 'नाकारा' : language === 'hi' ? 'अस्वीकार' : 'Decline'}
           </Button>
@@ -158,7 +158,7 @@ export const InquiryCard: React.FC<InquiryCardProps> = ({
             variant="primary"
             size="sm"
             icon={<Check size={13} />}
-            onClick={() => onAccept(inquiry)}
+            onClick={() => inquiry && onAccept(inquiry)}
           >
             {language === 'mr' ? 'स्वीकारा' : language === 'hi' ? 'स्वीकारें' : 'Accept Case'}
           </Button>

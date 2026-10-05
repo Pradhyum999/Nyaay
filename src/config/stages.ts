@@ -27,6 +27,17 @@ export const MATTER_STAGES: Record<string, StageDefinition[]> = {
     { id: 'final_arguments', name: 'Final Arguments', nameHi: 'अंतिम बहस', nameMr: 'अंतिम युक्तिवाद', description: 'Comprehensive legal argument by advocates.' },
     { id: 'decree_judgment', name: 'Judgment & Decree', nameHi: 'निर्णय व डिक्री', nameMr: 'निकाल व हुकूमनामा', description: 'Formal judicial determination of rights.' },
   ],
+  ni_act_138: [
+    { id: 'legal_notice', name: 'Legal Demand Notice', nameHi: 'विधिक मांग नोटिस', nameMr: 'कायदेशीर मागणी नोटीस', description: 'Statutory 15-day notice dispatched within 30 days of bank return memo.' },
+    { id: 'complaint_filing', name: 'Complaint Filing (S.142)', nameHi: 'परिवाद / शिकायत फाइलिंग', nameMr: 'तक्रार दाखल (कलम १४२)', description: 'Criminal complaint filed before Judicial Magistrate under Section 142 NI Act.' },
+    { id: 'cognizance_pse', name: 'Cognizance & Pre-Summoning', nameHi: 'संज्ञान व प्राथमिक साक्ष्य', nameMr: 'दखल व प्राथमिक पुरावा', description: 'Magistrate takes cognizance; verification of complainant affidavit (S.145).' },
+    { id: 'summons_appearance', name: 'Summons & Appearance', nameHi: 'समन व उपस्थिति', nameMr: 'समन्स व हजेरी', description: 'Service of court summons; appearance / bail of the accused drawer.' },
+    { id: 'notice_plea', name: 'Notice of Accusation (Plea)', nameHi: 'आरोप सूचना (प्लिया)', nameMr: 'आरोपांची नोटीस', description: 'Notice framed under Section 251 CrPC / BNSS; plea of defense recorded.' },
+    { id: 'complainant_ce', name: 'Cross-Exam of Complainant', nameHi: 'परिवादी से जिरह', nameMr: 'तक्रारदाराची उलटतपासणी', description: 'Application under S.145(2) and cross-examination of complainant on debt liability.' },
+    { id: 'defense_evidence', name: 'Defense Evidence (DE)', nameHi: 'बचाव साक्ष्य', nameMr: 'बचाव पुरावा', description: 'Accused statement (S.313/351) and defense witnesses on rebuttal of presumption.' },
+    { id: 'final_arguments', name: 'Final Arguments', nameHi: 'अंतिम बहस', nameMr: 'अंतिम युक्तिवाद', description: 'Submissions on statutory presumptions (S. 118, 139 NI Act) and legally enforceable debt.' },
+    { id: 'judgment_sentence', name: 'Judgment & Sentence', nameHi: 'फैसला व सजा / क्षतिपूर्ति', nameMr: 'निकाल व शिक्षा', description: 'Verdict, compensation up to double cheque amount, or imprisonment.' },
+  ],
   default: [
     { id: 'institution', name: 'Filing & Admission', nameHi: 'फाइलिंग व प्रवेश', nameMr: 'दाखल व प्रवेश', description: 'Initial petition presentation.' },
     { id: 'notice_issued', name: 'Notice / Appearance', nameHi: 'नोटिस / उपस्थिति', nameMr: 'नोटीस / हजेरी', description: 'Opposite party notified.' },
@@ -40,7 +51,11 @@ export const MATTER_STAGES: Record<string, StageDefinition[]> = {
 export function getStagesForMatter(matterType?: string): StageDefinition[] {
   if (!matterType) return MATTER_STAGES.default;
   const mt = matterType.toLowerCase();
-  if (mt.includes('crim') || mt.includes('bail') || mt.includes('police') || mt.includes('cheque') || mt.includes('138')) {
+  // Check Cheque Dishonour / Section 138 first
+  if (mt.includes('cheque') || mt.includes('138') || mt.includes('dishonour') || mt.includes('negotiable')) {
+    return MATTER_STAGES.ni_act_138;
+  }
+  if (mt.includes('crim') || mt.includes('bail') || mt.includes('police')) {
     return MATTER_STAGES.criminal;
   }
   if (mt.includes('civ') || mt.includes('prop') || mt.includes('rent') || mt.includes('contract') || mt.includes('suit')) {
@@ -63,6 +78,12 @@ export const STAGE_KEYWORDS: Record<string, string[]> = {
 export function getStarterTasksForStage(stage?: string): string[] {
   if (!stage) return ['Initial review of case brief', 'Verify court filing documents'];
   const s = stage.toLowerCase();
+  if (s.includes('notice') && s.includes('demand')) {
+    return ['Dispatch Section 138 statutory demand notice via Registered Post AD', 'Collect bank return memo with official dishonour seal', 'Track speed post consignment tracking delivery report'];
+  }
+  if (s.includes('142') || s.includes('complaint')) {
+    return ['Draft Section 142 NI Act criminal complaint', 'Prepare pre-summoning evidence affidavit under Section 145 NI Act', 'File within 30 days of notice grace period expiration'];
+  }
   if (s.includes('bail')) {
     return ['Draft bail petition under Sec 480 BNSS', 'Obtain certified copy of FIR / remand order', 'Verify surety and local solvency certificate'];
   }

@@ -123,7 +123,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
           </div>
         )}
 
-        <div className="flex-1 flex flex-col overflow-y-auto surface-page text-main relative">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden surface-page text-main relative">
           {children}
         </div>
 

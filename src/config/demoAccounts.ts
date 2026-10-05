@@ -1,4 +1,4 @@
-import { UserProfile, FirmProfile, FirmMember, CaseFile, HearingItem, InvoiceItem } from '../types';
+import { UserProfile, FirmProfile, FirmMember, CaseFile, HearingItem, InvoiceItem, DirectThread, AIInquiryBrief } from '../types';
 
 export interface DemoAccountDefinition {
   id: 'firm' | 'student';
@@ -17,6 +17,8 @@ export interface DemoAccountDefinition {
   cases: CaseFile[];
   hearings: HearingItem[];
   invoices: InvoiceItem[];
+  threads?: DirectThread[];
+  inquiries?: AIInquiryBrief[];
 }
 
 export const DEMO_ACCOUNTS: Record<'firm' | 'student', DemoAccountDefinition> = {
@@ -238,6 +240,108 @@ export const DEMO_ACCOUNTS: Record<'firm' | 'student', DemoAccountDefinition> = 
         date: '2026-09-05',
       },
     ],
+    threads: [
+      {
+        id: 'thread-apex-1',
+        lawyerId: 'demo-chambers-sharma',
+        lawyerName: 'Adv. Rajesh Sharma & Associates',
+        clientId: 'client-apex',
+        clientName: 'Apex Infrastructure Ltd',
+        matterSubject: 'ARB/402/2026: Section 34 Final Arguments',
+        caseNumber: 'ARB/402/2026',
+        courtName: 'Delhi High Court',
+        lastMessage: 'Advocate Sir, we have dispatched the signed rejoinder affidavit to your chambers block.',
+        lastMessageAt: '10:15 AM',
+        lastMessageSenderId: 'client-apex',
+        unreadCount: 1,
+        status: 'active',
+      },
+      {
+        id: 'thread-singhal-2',
+        lawyerId: 'demo-chambers-sharma',
+        lawyerName: 'Adv. Rajesh Sharma & Associates',
+        clientId: 'client-singhal',
+        clientName: 'Singhal Metal & Alloys',
+        matterSubject: 'WP(C)/8120/2025: Customs & Central GST Writ',
+        caseNumber: 'WP(C)/8120/2025',
+        courtName: 'Delhi High Court',
+        lastMessage: 'The reconciliation statement for FY 2024-25 has been uploaded for your inspection.',
+        lastMessageAt: 'Yesterday',
+        lastMessageSenderId: 'client-singhal',
+        unreadCount: 0,
+        status: 'active',
+      },
+      {
+        id: 'thread-delta-3',
+        lawyerId: 'demo-chambers-sharma',
+        lawyerName: 'Adv. Rajesh Sharma & Associates',
+        clientId: 'client-delta',
+        clientName: 'Delta BioSciences Pvt Ltd',
+        matterSubject: 'CS(COMM)/129/2026: Trademark Injunction',
+        caseNumber: 'CS(COMM)/129/2026',
+        courtName: 'Patiala House Commercial Court',
+        lastMessage: 'Draft injunction application reviewed. We are ready for filing.',
+        lastMessageAt: '28 Sep',
+        lastMessageSenderId: 'demo-chambers-sharma',
+        unreadCount: 0,
+        status: 'active',
+      },
+    ],
+    inquiries: [
+      {
+        id: 'inq-suresh-patil',
+        clientId: 'client-suresh',
+        clientName: 'Suresh Patil',
+        clientPhone: '+91 98220 12345',
+        lawyerId: 'demo-chambers-sharma',
+        profile: {
+          matterType: 'Section 138 NI Act Cheque Dishonour',
+          legalArea: 'Negotiable Instruments & Banking Law',
+          location: 'New Delhi',
+          facts: [
+            'Notice received on 25th September alleging dishonour of cheque for ₹12,50,000.',
+            'Cheque was issued as security for machinery supply which was defective and returned.',
+            'Stop payment instructions were given prior to presentation.'
+          ],
+          missingInfo: ['Bank return memo copy', 'Written contract with machinery supplier'],
+          documentsAvailable: ['Cheque copy', 'Legal Notice from complainant'],
+          documentsRequired: ['Reply to Legal Notice', 'Bank statement showing stop payment'],
+          urgency: 'high',
+          confidenceScore: 94,
+          summaryText: 'Client needs urgent reply to statutory notice under Section 138 NI Act within 15 days limitation window.',
+          generatedAt: new Date().toISOString(),
+        },
+        preparedPacket: 'Matter: Section 138 NI Act Defense | Amount: ₹12.5L | Defense: Security cheque for defective equipment.',
+        status: 'new',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'inq-mehra-logistics',
+        clientId: 'client-mehra',
+        clientName: 'Mehra Logistics Pvt Ltd',
+        clientPhone: '+91 98118 76543',
+        lawyerId: 'demo-chambers-sharma',
+        profile: {
+          matterType: 'Commercial Freight Arbitration',
+          legalArea: 'Commercial Law & Arbitration',
+          location: 'Delhi High Court Jurisdiction',
+          facts: [
+            'Dispute arising from interstate logistics contract with container terminal operator.',
+            'Unilateral demurrage charges levied exceeding agreed cap of ₹4,20,000.'
+          ],
+          missingInfo: ['Arbitration agreement clause reference'],
+          documentsAvailable: ['Master Services Agreement', 'Demurrage Invoices'],
+          documentsRequired: ['Section 21 Arbitration Invocation Notice'],
+          urgency: 'medium',
+          confidenceScore: 91,
+          summaryText: 'Drafting invocation notice under Section 21 of the Arbitration & Conciliation Act 1996 for appointment of sole arbitrator.',
+          generatedAt: new Date().toISOString(),
+        },
+        preparedPacket: 'Matter: Demurrage Claim Arbitration | Claim Value: ₹28L | Forum: Sole Arbitrator / Section 11',
+        status: 'new',
+        createdAt: new Date().toISOString(),
+      },
+    ],
   },
 
   student: {
@@ -354,5 +458,22 @@ export const DEMO_ACCOUNTS: Record<'firm' | 'student', DemoAccountDefinition> = 
       },
     ],
     invoices: [],
+    threads: [
+      {
+        id: 'thread-student-1',
+        lawyerId: 'demo-student-aarav',
+        lawyerName: 'Aarav Patel',
+        clientId: 'client-ramesh',
+        clientName: 'State vs Ramesh Kumar (Legal Aid)',
+        matterSubject: 'BAIL/108/2026: Section 480 BNSS Bail Compilation',
+        caseNumber: 'BAIL/108/2026',
+        courtName: 'Tis Hazari District Courts',
+        lastMessage: 'Case citations from Delhi High Court on Section 480 BNSS compiled for Senior Advocate.',
+        lastMessageAt: 'Today, 9:30 AM',
+        lastMessageSenderId: 'demo-student-aarav',
+        unreadCount: 0,
+        status: 'active',
+      }
+    ],
   },
 };
