@@ -12,6 +12,7 @@ interface HelpPageProps {
   onOpenDirectory: () => void;
   onMessageLawyer: (lawyer: UserProfile, preparedSummary?: string) => void;
   onSaveCase?: (profile: CaseProfile) => void;
+  onCaseCreated?: (caseId: string) => void;
 }
 
 export const HelpPage: React.FC<HelpPageProps> = ({
@@ -20,6 +21,7 @@ export const HelpPage: React.FC<HelpPageProps> = ({
   onOpenDirectory,
   onMessageLawyer,
   onSaveCase,
+  onCaseCreated,
 }) => {
   const [profile, setProfile] = useState<CaseProfile | null>(null);
   const [matches, setMatches] = useState<LawyerMatch[]>([]);
@@ -78,6 +80,7 @@ export const HelpPage: React.FC<HelpPageProps> = ({
           <div className="h-[620px] rounded-3xl overflow-hidden border border-slate-200 dark:border-white/[0.1] bg-[#EEF2F6] dark:bg-neutral-950/80 shadow-lg flex flex-col">
             <ClientAIConsultation
               language={language}
+              onCaseCreated={onCaseCreated}
               onCaseProfileReady={handleProfileReady}
               onDirectToDirectory={onOpenDirectory}
             />

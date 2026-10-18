@@ -1516,6 +1516,8 @@ function AppContent() {
                     </button>
                     <ClientLawyerDirectory
                       language={language}
+                      profile={cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || ''))?.profile}
+                      activeCase={cases.find(c => normaliseCaseNumber(c.caseNumber) === normaliseCaseNumber(selectedCaseNumber || '')) || cases[0]}
                       onOpenChat={(threadId, lawyer) => {
                         setClientActiveTab('messages');
                         setActiveThread({
@@ -1532,6 +1534,10 @@ function AppContent() {
                     lawyers={verifiedLawyers}
                     language={language}
                     onOpenDirectory={() => setShowFullDirectory(true)}
+                    onCaseCreated={(caseId) => {
+                      setSelectedCaseNumber(caseId);
+                      setClientActiveTab('case');
+                    }}
                     onSaveCase={async (profileData) => {
                       const newCaseNum = `CR/${Math.floor(1000 + Math.random() * 9000)}/2026`;
                       const newCase: Omit<CaseFile, 'id'> = {

@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   Building,
-  Star,
   ArrowUpRight,
   CheckCircle2,
   X,
@@ -14,26 +13,33 @@ import {
   FileCheck,
   AlertCircle,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getLawyerDirectory,
   engageAdvocate,
-  DEFAULT_VERIFIED_ADVOCATES
+  DEFAULT_VERIFIED_ADVOCATES,
 } from '../../services/firestoreService';
-import { Language, UserProfile, PublicCourtCase } from '../../types';
+import { Language, UserProfile, CaseProfile, CaseFile } from '../../types';
+import { matchLawyers, LawyerMatch } from '../../services/lawyerMatching';
+import { renderPreparedClientPacket, CaseRoomContext } from '../../lib/ai';
 
 interface ClientLawyerDirectoryProps {
   language: Language;
+  profile?: CaseProfile | null;
+  activeCase?: CaseFile | null;
   onOpenChat?: (threadId: string, lawyer: UserProfile) => void;
 }
 
 export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
   language,
-  onOpenChat
+  profile,
+  activeCase,
+  onOpenChat,
 }) => {
-  const { user, profile } = useAuth();
+  const { user, profile: userProfile } = useAuth();
 
   const [lawyers, setLawyers] = useState<UserProfile[]>(DEFAULT_VERIFIED_ADVOCATES);
   const [loading, setLoading] = useState(false);
@@ -41,18 +47,62 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
   const [isEngageModalOpen, setIsEngageModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Filter state
+  const [selectedPracticeArea, setSelectedPracticeArea] = useState<string>('All');
+
+  // Effective case profile from props
+  const effectiveProfile: CaseProfile | undefined = profile || activeCase?.profile;
+
+  // Compute objective verified-profile matching (BCI-compliant)
+  const matchesMap = useMemo(() => {
+    if (!effectiveProfile) return new Map<string, LawyerMatch>();
+    const matches = matchLawyers(effectiveProfile, lawyers, lawyers.length);
+    const map = new Map<string, LawyerMatch>();
+    matches.forEach(m => {
+      const key = m.lawyer.uid || m.lawyer.name;
+      map.set(key, m);
+    });
+    return map;
+  }, [effectiveProfile, lawyers]);
+
+  // Sort lawyers: matched advocates with highest score first, then by experience
+  const sortedLawyers = useMemo(() => {
+    let list = [...lawyers];
+    if (selectedPracticeArea !== 'All') {
+      list = list.filter(l =>
+        l.practiceAreas?.some(p => p.toLowerCase().includes(selectedPracticeArea.toLowerCase()))
+      );
+    }
+
+    if (effectiveProfile && matchesMap.size > 0) {
+      list.sort((a, b) => {
+        const keyA = a.uid || a.name;
+        const keyB = b.uid || b.name;
+        const scoreA = matchesMap.get(keyA)?.score ?? 0;
+        const scoreB = matchesMap.get(keyB)?.score ?? 0;
+        return scoreB - scoreA;
+      });
+    }
+    return list;
+  }, [lawyers, selectedPracticeArea, effectiveProfile, matchesMap]);
+
   // Engagement Form
-  const [matterSubject, setMatterSubject] = useState('Urgent Consultation regarding Legal Rights');
+  const [matterSubject, setMatterSubject] = useState(
+    effectiveProfile?.matterType || 'Urgent Consultation regarding Legal Rights'
+  );
   const [attachAIBrief, setAttachAIBrief] = useState(true);
   const [engaging, setEngaging] = useState(false);
 
-  const t = (en: string, hi: string) => language === 'hi' ? hi : en;
+  const t = (en: string, hi: string, mr?: string) =>
+    language === 'mr' && mr ? mr : language === 'hi' ? hi : en;
 
   const loadLawyers = async () => {
     setLoading(true);
     try {
       const liveLawyers = await getLawyerDirectory();
-      const verifiedLawyers = liveLawyers.filter(l => l.role === 'lawyer' && l.verificationStatus === 'verified');
+      const verifiedLawyers = liveLawyers.filter(
+        l => l.role === 'lawyer' && l.verificationStatus === 'verified'
+      );
       setLawyers(verifiedLawyers.length > 0 ? verifiedLawyers : DEFAULT_VERIFIED_ADVOCATES);
     } catch (err) {
       console.warn("Failed to load lawyers from Firestore:", err);
@@ -66,6 +116,12 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
     loadLawyers();
   }, []);
 
+  useEffect(() => {
+    if (effectiveProfile?.matterType) {
+      setMatterSubject(effectiveProfile.matterType);
+    }
+  }, [effectiveProfile]);
+
   const handleOpenEngage = (lawyer: UserProfile) => {
     setSelectedLawyer(lawyer);
     setIsEngageModalOpen(true);
@@ -76,12 +132,50 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
     setEngaging(true);
     try {
       const clientId = user?.uid || `client-${Date.now()}`;
-      const clientName = profile?.name || 'Citizen Client';
-      const clientPhone = profile?.phone || '+91 98765 00000';
+      const clientName = userProfile?.name || 'Citizen Client';
+      const clientPhone = userProfile?.phone || '+91 98765 00000';
 
-      const briefText = attachAIBrief
-        ? `Legal Consultation Request: ${matterSubject}. Pre-screened by NYAAYNEETI Legal Intelligence with verified statutory provisions.`
-        : undefined;
+      // Generate structured packet if profile is present
+      let briefText: string | undefined = undefined;
+      if (attachAIBrief) {
+        if (effectiveProfile) {
+          const cNum = activeCase ? activeCase.caseNumber : 'Intake Docket';
+          const ctx: CaseRoomContext = {
+            caseFile: activeCase || ({
+              id: 'case-intake',
+              caseNumber: cNum,
+              clientName,
+              clientPhone,
+              opponentName: 'Opposing Party',
+              court: 'District Court',
+              courtLocation: effectiveProfile.location || 'India',
+              actSections: [],
+              caseType: effectiveProfile.matterType || 'Legal Matter',
+              filingDate: new Date().toISOString().split('T')[0],
+              nextHearingDate: 'TBD',
+              status: 'Active',
+              unreadDocuments: 0,
+              pendingChecklistItems: effectiveProfile.documentsRequired?.length || 0,
+              totalBilled: 0,
+              totalCollected: 0,
+              profile: effectiveProfile,
+            } as any),
+            hearings: [],
+            documents: (effectiveProfile.documentsRequired || []).map((d, i) => ({
+              id: `doc-${i}`,
+              caseNumber: 'Intake',
+              titleEn: d,
+              status: 'Required',
+            })),
+            invoices: [],
+            tasks: [],
+            timeline: [],
+          };
+          briefText = renderPreparedClientPacket(ctx);
+        } else {
+          briefText = `Legal Consultation Request: ${matterSubject}. Pre-screened by NYAAYNEETI Legal Intelligence with verified statutory provisions.`;
+        }
+      }
 
       const threadId = await engageAdvocate({
         lawyerId: selectedLawyer.uid,
@@ -96,17 +190,20 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
       });
 
       setIsEngageModalOpen(false);
-      setToastMessage(t(
-        `Engagement confirmed with ${selectedLawyer.name}! Opening direct chat room.`,
-        `${selectedLawyer.name} के साथ परामर्श प्रारंभ! चैट खुल रही है।`
-      ));
+      setToastMessage(
+        t(
+          `Engagement confirmed with ${selectedLawyer.name}! Opening direct chat room.`,
+          `${selectedLawyer.name} के साथ परामर्श प्रारंभ! चैट खुल रही है।`,
+          `${selectedLawyer.name} यांच्याशी थेट संपर्क सुरू झाला आहे!`
+        )
+      );
 
       setTimeout(() => {
         setToastMessage(null);
         if (onOpenChat) {
           onOpenChat(threadId, selectedLawyer);
         }
-      }, 1400);
+      }, 1200);
     } catch (err) {
       console.warn("Engagement error:", err);
     } finally {
@@ -114,164 +211,232 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
     }
   };
 
+  // Practice areas for filter pills
+  const allPracticeAreas = [
+    'All',
+    'Criminal',
+    'Civil',
+    'Commercial',
+    'Family',
+    'Property',
+    'Labor',
+  ];
+
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-5 pb-24">
+    <div className="flex flex-col gap-4 p-4 sm:p-5 pb-24 text-main max-w-4xl mx-auto w-full">
       {/* Toast */}
       {toastMessage && (
-        <div className="sticky top-2 z-40 bg-neutral-900/95 text-white border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
-          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold animate-in fade-in flex items-center gap-2">
+          <CheckCircle2 size={16} />
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-200 dark:border-white/[0.08] pb-4">
         <div>
-          <span className="text-[11px] font-semibold tracking-wider uppercase text-neutral-500 dark:text-neutral-400 font-mono">
-            {t('Live Directory', 'सत्यापित अधिवक्ता')}
-          </span>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white mt-0.5">
-            {t('Registered Advocates', 'पंजीकृत अधिवक्ता')}
+          <h1 className="text-xl font-bold font-display text-main">
+            {t('Verified Advocate Directory', 'सत्यापित अधिवक्ता डायरेक्टरी', 'पडताळणी झालेले वकील')}
           </h1>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-xs text-sub mt-0.5">
             {t(
-              'Verified advocates practicing before High Courts and District Courts.',
-              'उच्च न्यायालयों एवं जिला न्यायालयों के सत्यापित अधिवक्ता।'
+              'Browse licensed advocates verified with the Bar Council of India',
+              'बार काउंसिल ऑफ इंडिया से सत्यापित वकीलों की सूची',
+              'बार कौन्सिल ऑफ इंडियाकडे नोंदणीकृत प्रमाणित वकील'
             )}
           </p>
         </div>
 
         <button
           onClick={loadLawyers}
-          className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.05] dark:hover:bg-white/[0.1] border border-neutral-200 dark:border-white/[0.08] flex items-center justify-center text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white transition ios-press"
-          title="Refresh Directory"
+          disabled={loading}
+          className="self-start sm:self-center px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.06] hover:bg-neutral-200 dark:hover:bg-white/[0.1] text-sub hover:text-main text-xs font-mono flex items-center gap-1.5 transition"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          <span>{t('Refresh', 'ताज़ा करें', 'रिफ्रेश')}</span>
         </button>
+      </div>
+
+      {/* Matched Matter Banner (if Case Profile is active) */}
+      {effectiveProfile && (
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+              <Sparkles size={16} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono uppercase font-bold text-amber-700 dark:text-amber-300 block">
+                {t('Algorithmic Matter Matching', 'केस पैरामीटर के आधार पर मिलान', 'खटल्यानुसार सुचवलेले वकील')}
+              </span>
+              <p className="text-xs font-bold text-main truncate">
+                {effectiveProfile.matterType}
+              </p>
+              <p className="text-[11px] text-sub truncate">
+                {effectiveProfile.location} • {effectiveProfile.legalArea}
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] text-faint font-mono sm:text-right shrink-0">
+            BCI Compliant Profile Match
+          </span>
+        </div>
+      )}
+
+      {/* Practice Area Filter Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+        <span className="text-xs text-sub font-semibold font-mono flex items-center gap-1 shrink-0 pr-1">
+          <SlidersHorizontal size={12} />
+          {t('Area:', 'क्षेत्र:', 'विषय:')}
+        </span>
+        {allPracticeAreas.map(area => (
+          <button
+            key={area}
+            type="button"
+            onClick={() => setSelectedPracticeArea(area)}
+            className={`px-3 py-1 rounded-xl text-xs font-medium transition shrink-0 ${
+              selectedPracticeArea === area
+                ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
+                : 'bg-neutral-100 dark:bg-white/[0.05] text-sub hover:text-main border border-neutral-200 dark:border-white/[0.06]'
+            }`}
+          >
+            {area}
+          </button>
+        ))}
       </div>
 
       {/* Lawyers List */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-amber-400/40 border-t-amber-400 animate-spin" />
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 font-mono">{t('Connecting to advocate registry...', 'अधिवक्ता सूची लोड हो रही है...')}</p>
+        <div className="text-center py-16 space-y-2">
+          <RefreshCw size={24} className="animate-spin text-amber-500 mx-auto" />
+          <p className="text-xs text-sub">{t('Loading verified advocates…', 'वकीलों की सूची लोड हो रही है…', 'वकिलांची यादी लोड होत आहे…')}</p>
         </div>
-      ) : lawyers.length === 0 ? (
-        <div className="bg-neutral-50 dark:bg-white/[0.03] rounded-3xl p-8 text-center space-y-4 border border-neutral-200 dark:border-white/[0.08]">
-          <div className="w-14 h-14 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-300">
-            <Scale size={24} />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-neutral-900 dark:text-white">{t('No Advocates Found', 'कोई अधिवक्ता नहीं मिले')}</h3>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 max-w-xs mx-auto">
-              {t(
-                'Advocates registered with Bar Council credentials will appear in this directory.',
-                'बार काउंसिल साख के साथ पंजीकृत अधिवक्ता यहाँ दिखाई देंगे।'
-              )}
-            </p>
-          </div>
+      ) : sortedLawyers.length === 0 ? (
+        <div className="text-center py-16 space-y-2 bg-neutral-50 dark:bg-white/[0.02] rounded-3xl border border-neutral-200 dark:border-white/[0.06]">
+          <Scale size={28} className="mx-auto text-faint" />
+          <p className="text-xs text-sub">{t('No advocates found for this criteria.', 'इस श्रेणी में कोई अधिवक्ता नहीं मिले।', 'या श्रेणीत वकील उपलब्ध नाहीत.')}</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {lawyers.map(l => (
-            <div
-              key={l.uid}
-              className="bg-white dark:bg-[#0E0F14] rounded-3xl p-5 flex flex-col gap-3.5 border border-neutral-200 dark:border-white/[0.08] hover:border-neutral-300 dark:hover:border-white/20 transition-all shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={l.photoURL || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?w=150&auto=format&fit=crop&q=80'}
-                    alt={l.name}
-                    className="w-12 h-12 rounded-2xl object-cover border border-neutral-200 dark:border-white/10 shadow-sm"
-                  />
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-bold text-neutral-900 dark:text-white tracking-tight">{l.name}</h3>
-                      {l.verificationStatus === 'verified' ? (
-                        <div className="flex items-center gap-0.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full text-[9px] font-semibold">
-                          <ShieldCheck size={11} />
-                          <span>Verified</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-0.5 bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded-full text-[9px] font-semibold">
-                          <span>Pending Review</span>
-                        </div>
-                      )}
+        <div className="grid gap-3.5">
+          {sortedLawyers.map(l => {
+            const key = l.uid || l.name;
+            const match = matchesMap.get(key);
+
+            return (
+              <div
+                key={key}
+                className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/[0.08] hover:border-amber-400/40 transition shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <img
+                      src={l.photoURL || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?w=150&auto=format&fit=crop&q=80'}
+                      alt={l.name}
+                      className="w-12 h-12 rounded-2xl object-cover border border-neutral-200 dark:border-white/10 shrink-0 shadow-sm"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-bold text-main tracking-tight truncate">
+                          {l.name}
+                        </h3>
+                        {l.verificationStatus === 'verified' && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                            <ShieldCheck size={10} />
+                            <span>{t('BCI Verified', 'सत्यापित', 'प्रमाणित')}</span>
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-sub font-mono block mt-0.5">
+                        {l.barCouncilId || 'BCI Member'} • {l.state || 'High Court of Jurisdiction'}
+                      </span>
+                      <span className="text-xs text-sub mt-0.5 block">
+                        {l.experience || 8}+ {t('Years Active Practice', 'वर्ष अनुभव', 'वर्षे अनुभव')}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono block mt-0.5">
-                      {l.barCouncilId || 'BCI Member'} • {l.state || 'Delhi Bar'}
-                    </span>
-                    <span className="text-xs text-neutral-600 dark:text-neutral-300 mt-0.5 block">
-                      {l.experience || 5} {t('Years Active Practice', 'वर्ष अनुभव')}
-                    </span>
+                  </div>
+
+                  {/* Objective Match Pill (BCI compliant, no subjective star rating) */}
+                  <div className="shrink-0 text-right">
+                    {match ? (
+                      <div className="inline-flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full text-xs font-bold text-emerald-700 dark:text-emerald-400 font-mono">
+                        <CheckCircle2 size={12} />
+                        <span>{match.score}% Match</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1 bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/[0.08] px-2.5 py-1 rounded-full text-xs font-bold text-sub font-mono">
+                        <ShieldCheck size={12} className="text-emerald-500" />
+                        <span>Verified</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/[0.08] px-2.5 py-1 rounded-full text-xs font-bold text-neutral-900 dark:text-white font-mono">
-                  <Star size={12} className="text-amber-500 fill-amber-500" />
-                  <span>{l.rating || 4.9}</span>
+                {/* Match Reason Chips */}
+                {match?.reasons && match.reasons.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {match.reasons.map((reason, i) => (
+                      <span
+                        key={i}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                      >
+                        ✓ {reason}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Bio snippet */}
+                {l.bio && (
+                  <p className="text-xs text-sub line-clamp-2 leading-relaxed">
+                    {l.bio}
+                  </p>
+                )}
+
+                {/* Specialties */}
+                {l.practiceAreas && l.practiceAreas.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {l.practiceAreas.map((s, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.04] text-sub border border-neutral-200 dark:border-white/[0.06] font-medium"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t border-neutral-100 dark:border-white/[0.06]">
+                  <button
+                    onClick={() => setSelectedLawyer(l)}
+                    className="flex-1 py-2.5 rounded-2xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.07] dark:hover:bg-white/[0.12] text-main font-semibold text-xs border border-neutral-200 dark:border-white/10 transition ios-press"
+                  >
+                    {t('Inspect Portfolio & Cases', 'विवरण देखें', 'तपशील पहा')}
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenEngage(l)}
+                    className="flex-1 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm ios-press"
+                  >
+                    <span>{t('Engage Advocate', 'परामर्श व संपर्क', 'वकीलांशी जोडा')}</span>
+                    <ArrowUpRight size={13} />
+                  </button>
                 </div>
               </div>
-
-              {/* Bio snippet */}
-              {l.bio && (
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 leading-relaxed">
-                  {l.bio}
-                </p>
-              )}
-
-              {/* Specialties */}
-              {l.practiceAreas && l.practiceAreas.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {l.practiceAreas.map((s, idx) => (
-                    <span key={idx} className="text-[10px] px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/[0.06] font-medium">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Practice Courts */}
-              {l.practiceCourts && l.practiceCourts.length > 0 && (
-                <div className="text-[11px] text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5 pt-1 border-t border-neutral-100 dark:border-white/[0.04]">
-                  <Building size={12} className="text-neutral-400 dark:text-neutral-500" />
-                  <span className="line-clamp-1">{l.practiceCourts.join(' • ')}</span>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => setSelectedLawyer(l)}
-                  className="flex-1 py-2.5 rounded-2xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.07] dark:hover:bg-white/[0.12] text-neutral-800 dark:text-white font-semibold text-xs border border-neutral-200 dark:border-white/10 transition ios-press"
-                >
-                  {t('Inspect Past Cases & Portfolio', 'पिछले केस व विवरण देखें')}
-                </button>
-
-                <button
-                  onClick={() => handleOpenEngage(l)}
-                  className="flex-1 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm ios-press"
-                >
-                  <span>{t('Engage Advocate', 'अधिवक्ता नियुक्त करें')}</span>
-                  <ArrowUpRight size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Advocate Detailed Portfolio Modal (Public Court Records from eCourts) */}
+      {/* Advocate Detailed Portfolio Modal */}
       {selectedLawyer && !isEngageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in">
-          {/* Backdrop */}
           <div
             onClick={() => setSelectedLawyer(null)}
             className="fixed inset-0 bg-neutral-950/70 dark:bg-black/85 backdrop-blur-md"
           />
 
-          <div className="relative z-10 bg-white dark:bg-[#111216] border border-neutral-200 dark:border-white/[0.12] rounded-3xl p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl text-neutral-900 dark:text-white">
+          <div className="relative z-10 bg-white dark:bg-[#111216] border border-neutral-200 dark:border-white/[0.12] rounded-3xl p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl text-main">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-neutral-100 dark:border-white/[0.08] pb-3">
               <div className="flex items-center gap-3">
@@ -282,17 +447,17 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
                 />
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white tracking-tight">{selectedLawyer.name}</h3>
+                    <h3 className="text-sm font-bold text-main tracking-tight">{selectedLawyer.name}</h3>
                     <ShieldCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-mono mt-0.5">
+                  <p className="text-[10px] text-sub font-mono mt-0.5">
                     {selectedLawyer.barCouncilId} • {selectedLawyer.state}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedLawyer(null)}
-                className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white transition"
+                className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center text-sub hover:text-main transition"
               >
                 <X size={15} />
               </button>
@@ -301,41 +466,25 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
             {/* Metrics */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-neutral-50 dark:bg-black/40 p-3 rounded-2xl border border-neutral-200 dark:border-white/[0.06]">
-                <span className="text-neutral-500 dark:text-neutral-400 block text-[10px] uppercase font-semibold">{t('Experience', 'अनुभव')}</span>
-                <span className="text-sm font-bold text-neutral-900 dark:text-white font-mono mt-0.5 block">{selectedLawyer.experience || 10} Years</span>
+                <span className="text-sub block text-[10px] uppercase font-semibold">{t('Standing', 'अनुभव', 'अनुभव')}</span>
+                <span className="text-sm font-bold text-main font-mono mt-0.5 block">{selectedLawyer.experience || 10} Years</span>
               </div>
               <div className="bg-neutral-50 dark:bg-black/40 p-3 rounded-2xl border border-neutral-200 dark:border-white/[0.06]">
-                <span className="text-neutral-500 dark:text-neutral-400 block text-[10px] uppercase font-semibold">{t('Bar Council / State', 'बार काउंसिल / राज्य')}</span>
+                <span className="text-sub block text-[10px] uppercase font-semibold">{t('Bar / State', 'बार / राज्य', 'बार / राज्य')}</span>
                 <span className="text-sm font-bold text-amber-700 dark:text-amber-300 font-mono mt-0.5 block truncate">
                   {selectedLawyer.state ? `${selectedLawyer.state} Bar` : 'Bar Council'}
                 </span>
               </div>
             </div>
 
-            {/* Education */}
-            {selectedLawyer.education && selectedLawyer.education.length > 0 && (
-              <div>
-                <h4 className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider mb-1">
-                  Education & Qualifications
-                </h4>
-                <div className="space-y-1">
-                  {selectedLawyer.education.map((edu, idx) => (
-                    <p key={idx} className="text-xs text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-black/40 p-2 rounded-xl border border-neutral-200 dark:border-white/[0.04]">
-                      🎓 {edu}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Public Court Cases / eCourts Dockets with Provenance & Notes */}
+            {/* Public Court Cases */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-semibold text-neutral-800 dark:text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
+                <h4 className="text-xs font-semibold text-main uppercase tracking-wider flex items-center gap-1.5">
                   <Gavel size={13} className="text-amber-600 dark:text-amber-300" />
-                  <span>{t('Public Court Cases & Judgments', 'सार्वजनिक केस एवं आदेश (eCourts)')}</span>
+                  <span>{t('Public Court Matters (eCourts)', 'सार्वजनिक केस (eCourts)', 'सार्वजनिक खटले')}</span>
                 </h4>
-                <span className="text-[9px] text-neutral-500 font-mono">eCourts Verified</span>
+                <span className="text-[9px] text-faint font-mono">eCourts Verified</span>
               </div>
 
               <div className="space-y-2">
@@ -345,93 +494,27 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
                     .map((c) => (
                       <div
                         key={c.id}
-                        className="bg-neutral-50 dark:bg-black/40 p-3.5 rounded-2xl border border-neutral-200 dark:border-white/[0.06] space-y-2 text-left"
+                        className="bg-neutral-50 dark:bg-black/40 p-3.5 rounded-2xl border border-neutral-200 dark:border-white/[0.06] space-y-1.5 text-left text-xs"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-mono text-amber-800 dark:text-amber-300 font-bold">{c.caseNumber}</span>
-                          {c.cnrNumber && (
-                            <a
-                              href={c.ecourtsUrl || `https://services.ecourts.gov.in/ecourtindia_v6/?p=casestatus/index&cnr_no=${c.cnrNumber}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 font-mono border border-blue-500/20 hover:bg-blue-500/25"
-                              title="Verify on Official eCourts Portal"
-                            >
-                              <span>CNR: {c.cnrNumber}</span>
-                              <ExternalLink size={9} />
-                            </a>
-                          )}
-                        </div>
-
-                        <p className="text-xs font-semibold text-neutral-900 dark:text-white">{c.title}</p>
-                        
-                        <p className="text-[10px] text-neutral-600 dark:text-neutral-400">
-                          {c.court} • {c.year} • {c.stage}
-                          {c.benchJudge && <span className="text-neutral-500"> • Bench: {c.benchJudge}</span>}
-                        </p>
-
-                        {(c.petitioner || c.respondent) && (
-                          <p className="text-[10px] text-neutral-700 dark:text-neutral-400 bg-neutral-100 dark:bg-white/[0.02] px-2 py-1 rounded-lg border border-neutral-200 dark:border-white/[0.04]">
-                            <span className="text-neutral-900 dark:text-neutral-300">{c.petitioner || 'Petitioner'}</span>
-                            <span className="text-amber-700 dark:text-amber-400/80 mx-1.5 font-bold">vs</span>
-                            <span className="text-neutral-900 dark:text-neutral-300">{c.respondent || 'Respondent'}</span>
-                          </p>
-                        )}
-
-                        {c.judgmentOutcome && (
-                          <p className="text-[10px] text-emerald-800 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-medium">
-                            ⚖️ {c.judgmentOutcome}
-                          </p>
-                        )}
-
-                        {c.advocateNotes && (
-                          <p className="text-[10px] text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-white/[0.02] p-2 rounded-xl border border-neutral-200 dark:border-white/[0.04] italic">
-                            <span className="text-neutral-500 font-semibold uppercase not-italic block text-[9px]">Advocate Observation:</span>
-                            "{c.advocateNotes}"
-                          </p>
-                        )}
-
-                        {c.ecourtsUrl && (
-                          <div className="pt-1 border-t border-neutral-200 dark:border-white/[0.04] flex justify-end">
-                            <a
-                              href={c.ecourtsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
-                            >
-                              <span>Verify on Official Court Portal</span>
-                              <ExternalLink size={10} />
-                            </a>
-                          </div>
-                        )}
+                        <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400 font-bold block">{c.caseNumber}</span>
+                        <p className="font-bold text-main">{c.title}</p>
+                        <p className="text-sub text-[11px]">{c.court}</p>
                       </div>
                     ))
                 ) : (
-                  <p className="text-xs text-neutral-500 italic p-3 bg-neutral-50 dark:bg-black/40 rounded-2xl text-center border border-neutral-200 dark:border-transparent">
-                    {t('No public cases marked for public display yet.', 'कोई सार्वजनिक केस प्रदर्शित नहीं')}
+                  <p className="text-xs text-sub italic p-3 bg-neutral-50 dark:bg-black/40 rounded-2xl text-center border border-neutral-200 dark:border-transparent">
+                    {t('No public cases listed yet.', 'कोई सार्वजनिक केस प्रदर्शित नहीं', 'सार्वजनिक खटले उपलब्ध नाहीत')}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Bio */}
-            {selectedLawyer.bio && (
-              <div>
-                <h4 className="text-xs font-semibold text-neutral-800 dark:text-neutral-300 uppercase tracking-wider mb-1">
-                  {t('Advocate Bio', 'अधिवक्ता परिचय')}
-                </h4>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed bg-neutral-50 dark:bg-black/40 p-3 rounded-2xl border border-neutral-200 dark:border-white/[0.06]">
-                  {selectedLawyer.bio}
-                </p>
-              </div>
-            )}
-
-            {/* Engage Trigger from modal */}
+            {/* Engage Button */}
             <button
               onClick={() => handleOpenEngage(selectedLawyer)}
               className="w-full py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold ios-press flex items-center justify-center gap-1.5 shadow-md transition"
             >
-              <span>{t('Engage This Advocate', 'अधिवक्ता नियुक्त करें')}</span>
+              <span>{t('Engage This Advocate', 'अधिवक्ता से परामर्श शुरू करें', 'वकीलांशी जोडा')}</span>
               <ArrowUpRight size={14} />
             </button>
           </div>
@@ -441,26 +524,25 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
       {/* Engagement & AI Brief Transfer Modal */}
       {isEngageModalOpen && selectedLawyer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in">
-          {/* Backdrop */}
           <div
             onClick={() => setIsEngageModalOpen(false)}
             className="fixed inset-0 bg-neutral-950/70 dark:bg-black/85 backdrop-blur-md"
           />
 
-          <div className="relative z-10 bg-white dark:bg-[#111216] border border-neutral-200 dark:border-white/[0.12] rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-neutral-900 dark:text-white">
+          <div className="relative z-10 bg-white dark:bg-[#111216] border border-neutral-200 dark:border-white/[0.12] rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl text-main">
             <div className="flex items-center justify-between border-b border-neutral-100 dark:border-white/[0.08] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-600 dark:text-amber-300">
                   <Scale size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-900 dark:text-white">{t('Engage Advocate', 'अधिवक्ता से जुड़ें')}</h3>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{selectedLawyer.name}</p>
+                  <h3 className="text-sm font-bold text-main">{t('Engage Advocate', 'अधिवक्ता से जुड़ें', 'वकीलांशी जोडा')}</h3>
+                  <p className="text-[11px] text-sub">{selectedLawyer.name}</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsEngageModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white transition"
+                className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-white/[0.06] flex items-center justify-center text-sub hover:text-main transition"
               >
                 <X size={15} />
               </button>
@@ -468,15 +550,15 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
 
             {/* Matter Subject */}
             <div>
-              <label className="text-neutral-700 dark:text-white/70 text-xs font-semibold mb-1.5 block">
-                {t('Case Subject / Dispute Matter *', 'केस का विषय / विवाद विवरण *')}
+              <label className="text-sub text-xs font-semibold mb-1.5 block">
+                {t('Case Subject / Dispute Matter *', 'केस का विषय / विवाद विवरण *', 'खटल्याचा विषय *')}
               </label>
               <input
                 type="text"
                 value={matterSubject}
                 onChange={(e) => setMatterSubject(e.target.value)}
                 placeholder="e.g. Cheque Bounce Sec 138 / Bail / Title Dispute"
-                className="w-full rounded-xl px-3.5 py-2.5 text-xs bg-neutral-100 dark:bg-black/40 text-neutral-900 dark:text-white placeholder:text-neutral-400 border border-neutral-300 dark:border-white/10 outline-none focus:border-amber-500"
+                className="w-full rounded-xl px-3.5 py-2.5 text-xs bg-neutral-100 dark:bg-black/40 text-main placeholder:text-neutral-400 border border-neutral-300 dark:border-white/10 outline-none focus:border-amber-500"
               />
             </div>
 
@@ -485,8 +567,8 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500 dark:text-amber-300" />
-                  <span className="text-xs font-semibold text-neutral-900 dark:text-white">
-                    {t('Transfer AI Consultation Summary?', 'AI परामर्श सारांश साझा करें?')}
+                  <span className="text-xs font-semibold text-main">
+                    {t('Attach Prepared Client Packet?', 'तैयार केस डॉकेट साझा करें?', 'तयार खटला माहिती पाठवायची?')}
                   </span>
                 </div>
                 <input
@@ -496,35 +578,36 @@ export const ClientLawyerDirectory: React.FC<ClientLawyerDirectoryProps> = ({
                   className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
                 />
               </div>
-              <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              <p className="text-[11px] text-sub leading-relaxed">
                 {attachAIBrief
-                  ? t('Your AI facts and legal sections will be immediately attached so the lawyer can review your situation.', 'आपके तथ्य और धाराएं वकील को तुरंत भेज दी जाएंगी।')
-                  : t('No summary sent now. You can still transfer it anytime during live chat.', 'सारांश अभी नहीं भेजा जाएगा। आप बाद में चैट में भी भेज सकते हैं।')}
+                  ? t(
+                      'A structured client intake packet (facts, legal area, required documents) will be securely sent to the advocate.',
+                      'संरचित केस डॉकेट (तथ्य, कानूनी धाराएं और दस्तावेज सूची) अधिवक्ता को प्रेषित होगी।',
+                      'तथ्य, कायदेशीर कलमे आणि आवश्यक कागदपत्रे वकिलांना पाठवली जातील.'
+                    )
+                  : t('No summary sent now.', 'कोई सारांश नहीं भेजा जाएगा।', 'माहिती पाठवली जाणार नाही.')}
               </p>
             </div>
 
-            {/* Notification alert info */}
-            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-900 dark:text-neutral-300 leading-relaxed font-medium">
-              🔔 {t(
-                'When you click confirm, the advocate will receive an instant in-app notification & alert to their registered contact, and a direct chat room will open.',
-                'अधिवक्ता को ऐप व ईमेल सूचना प्राप्त होगी और सीधी चैट खुल जाएगी।'
-              )}
-            </div>
+            {/* BCI Disclaimer */}
+            <p className="text-[10px] text-faint text-center leading-relaxed">
+              Advocate matching complies with Bar Council of India guidelines. Client initiates engagement willingly.
+            </p>
 
             {/* Submit buttons */}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setIsEngageModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.08] dark:hover:bg-white/[0.12] text-xs font-semibold text-neutral-700 dark:text-neutral-300 ios-press transition"
+                className="flex-1 py-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-white/[0.08] dark:hover:bg-white/[0.12] text-xs font-semibold text-sub ios-press transition"
               >
-                {t('Cancel', 'रद्द करें')}
+                {t('Cancel', 'रद्द करें', 'रद्द')}
               </button>
               <button
                 onClick={handleConfirmEngagement}
                 disabled={engaging || !matterSubject.trim()}
                 className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold ios-press disabled:opacity-40 shadow-sm transition"
               >
-                {engaging ? t('Connecting...', 'जुड़ रहे हैं...') : t('Confirm & Start Chat', 'पुष्टि करें और चैट करें')}
+                {engaging ? t('Connecting...', 'जुड़ रहे हैं...', 'जोडत आहे...') : t('Confirm & Start Chat', 'पुष्टि करें और चैट करें', 'पुष्टी करा व चॅट करा')}
               </button>
             </div>
           </div>

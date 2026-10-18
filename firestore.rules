@@ -91,6 +91,18 @@ service cloud.firestore {
       allow read, write: if signedIn();
     }
 
+    match /case_timeline/{id} {
+      allow read, write: if signedIn();
+    }
+
+    match /case_notes/{id} {
+      allow read, write: if signedIn();
+    }
+
+    match /templates/{id} {
+      allow read, write: if signedIn();
+    }
+
     match /feedbacks/{id} {
       allow create: if signedIn();
       allow read: if isAdmin();

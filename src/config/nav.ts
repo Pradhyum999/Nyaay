@@ -21,7 +21,7 @@ export const lawyerTabs: TabDef[] = [
 ];
 
 export const clientTabs: TabDef[] = [
-  { id: 'case',     to: '/case',     labelKey: 'nav.case',     labelEn: 'Case',      labelHi: 'केस रूम',  labelMr: 'केस रूम',  icon: Scale },
+  { id: 'case',     to: '/case',     labelKey: 'nav.case',     labelEn: 'Case Room', labelHi: 'केस रूम',  labelMr: 'केस रूम',  icon: Scale },
   { id: 'help',     to: '/help',     labelKey: 'nav.findHelp', labelEn: 'Find Help', labelHi: 'सहायता',   labelMr: 'मदत',     icon: Sparkles },
   { id: 'messages', to: '/messages', labelKey: 'nav.messages', labelEn: 'Messages',  labelHi: 'चैट',      labelMr: 'चॅट',      icon: MessageSquare, badge: 'unread' },
   { id: 'me',       to: '/me',       labelKey: 'nav.me',       labelEn: 'Me',        labelHi: 'प्रोफाइल', labelMr: 'माझे खाते', icon: User },

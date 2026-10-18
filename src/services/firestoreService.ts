@@ -674,6 +674,27 @@ export async function createCaseFromProfile(params: {
     actorRole: 'client',
   });
 
+  // Seed initial action tasks for the case
+  if (params.profile.documentsRequired && params.profile.documentsRequired.length > 0) {
+    await createCaseTask({
+      caseId,
+      titleEn: `Procure & upload ${params.profile.documentsRequired.length} required documents`,
+      titleHi: `${params.profile.documentsRequired.length} आवश्यक दस्तावेज अपलोड करें`,
+      assignedTo: 'client',
+      status: 'pending',
+      dueDate: 'Within 7 days',
+    });
+  }
+
+  await createCaseTask({
+    caseId,
+    titleEn: 'Review matter facts and confirm consultation packet',
+    titleHi: 'केस विवरण और परामर्श डॉकेट की समीक्षा करें',
+    assignedTo: 'client',
+    status: 'pending',
+    dueDate: 'Before next hearing',
+  });
+
   return caseId;
 }
 
