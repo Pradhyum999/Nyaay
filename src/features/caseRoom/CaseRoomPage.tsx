@@ -749,10 +749,17 @@ export const CaseRoomPage: React.FC<CaseRoomPageProps> = ({
               <Card key={doc.id} className="flex items-center justify-between p-3.5">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <FileText size={16} className="text-amber-300 shrink-0" />
-                  <span className="text-xs font-semibold text-main truncate">{doc.titleEn}</span>
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-main truncate block">
+                      {doc.titleEn || doc.title || (doc as any).name || 'Legal Document'}
+                    </span>
+                    {(doc as any).category && (
+                      <span className="text-[10px] font-mono text-neutral-400">{(doc as any).category}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={doc.status} />
+                  <StatusBadge status={doc.status || 'Verified'} />
                   {doc.status !== 'Verified' && (
                     <Button size="sm" variant="ghost" onClick={() => onUploadDocument?.(doc.id)}>
                       <UploadCloud size={13} />

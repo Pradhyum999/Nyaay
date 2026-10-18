@@ -202,6 +202,13 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
     else return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
+  // Auto scroll to bottom helper
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    });
+  };
+
   // Realtime subscription to thread messages
   useEffect(() => {
     if (!threadId) return;
@@ -219,10 +226,25 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
     return () => unsub();
   }, [threadId, currentUserId, currentUserRole]);
 
-  // Auto scroll to bottom
+  // Auto scroll to bottom on message list updates
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    scrollToBottom('smooth');
   }, [messages]);
+
+  // Keep bottom pinned on visual viewport resize (e.g. mobile keyboard show/hide)
+  useEffect(() => {
+    scrollToBottom('auto');
+    const handleResize = () => {
+      scrollToBottom('smooth');
+    };
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    } else {
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   // Trigger one-time case transfer popup after 4+ messages (client only)
   useEffect(() => {
@@ -237,9 +259,12 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
   }, [messages.length, currentUserRole, isAiBriefShared, transferPopupShownKey]);
 
   const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!trimmed || isSending) return;
 
     setIsSending(true);
     setErrorMessage(null);
@@ -255,6 +280,8 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         senderRole: currentUserRole,
         text: textToSend,
       });
+      // Remain in chat seamlessly and scroll to latest message like WhatsApp
+      scrollToBottom('smooth');
     } catch (err) {
       console.warn("Failed to send message:", err);
       setErrorMessage(t('Message delivery failed. Please retry.', 'संदेश भेजने में त्रुटि।'));
@@ -291,7 +318,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 max-h-full overflow-hidden bg-neutral-100/70 dark:bg-black text-neutral-900 dark:text-white relative">
+    <div className="flex flex-col h-full w-full min-h-0 max-h-full overflow-hidden bg-neutral-100/70 dark:bg-black text-neutral-900 dark:text-white relative">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="absolute top-16 left-4 right-4 z-40 bg-neutral-900/95 dark:bg-neutral-900/95 border border-emerald-500/40 px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-2 text-xs font-medium animate-in fade-in">
@@ -479,8 +506,14 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
       )}
 
-      {/* Messages Feed */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 relative">
+      {/* Messages Feed - Fixed Top/Bottom, Scrollable Center */}
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 relative flex flex-col"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {/* Flexible top spacer: pushes single/few messages towards bottom so they are clearly visible above input and never clipped by header when keyboard opens */}
+        <div className="flex-1 min-h-[10px]" />
+
         {/* One-time Transfer Case Popup (citizen only, after 4+ messages) */}
         <AnimatePresence>
           {showTransferPopup && (
@@ -543,7 +576,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </AnimatePresence>
 
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-3">
+          <div className="flex flex-col items-center justify-center my-auto text-center p-6 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-amber-300">
               <Lock size={20} />
             </div>
@@ -558,7 +591,8 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
             </div>
           </div>
         ) : (
-          (() => {
+          <div className="space-y-4">
+          {(() => {
             // Sort messages strictly chronologically (Bug 2)
             const sortedMessages = [...messages].sort((a, b) => {
               const getMs = (m: DirectMessage) => {
@@ -713,7 +747,7 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
                           {isMe && (
                             <span
                               className={`inline-flex items-center text-[11px] font-bold tracking-[-3px] ml-0.5 select-none ${
-                                msg.read ? 'text-blue-700 font-black' : 'text-neutral-900 font-bold'
+                                msg.read ? 'text-blue-400' : 'text-neutral-400'
                               }`}
                               title={msg.read ? 'Read' : 'Delivered'}
                             >
@@ -727,9 +761,10 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
                 </React.Fragment>
               );
             });
-          })()
+          })()}
+          </div>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-[1px] flex-shrink-0" />
       </div>
 
       {/* Transfer AI Brief Confirmation Modal */}
@@ -775,10 +810,10 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
         </div>
       )}
 
-      {/* ── Input Bar with WhatsApp-style + button & Camera (Suggestion 7) ── */}
+      {/* ── Input Bar with WhatsApp-style + button & Camera (Permanently pinned at bottom) ── */}
       <form
         onSubmit={handleSend}
-        className="flex-shrink-0 bg-white/95 dark:bg-neutral-950/95 border-t border-neutral-200 dark:border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl relative"
+        className="flex-shrink-0 sticky bottom-0 z-20 bg-white/95 dark:bg-neutral-950/95 border-t border-neutral-200 dark:border-white/[0.08] p-3 flex items-center gap-2 backdrop-blur-xl relative pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       >
         {/* Hidden File Inputs for Mobile & Desktop (BUGS_20261002 Item 8) */}
         <input
@@ -915,6 +950,20 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onFocus={() => {
+              setTimeout(() => scrollToBottom('smooth'), 120);
+              setTimeout(() => scrollToBottom('smooth'), 300);
+            }}
+            onClick={() => {
+              setTimeout(() => scrollToBottom('smooth'), 120);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSend();
+              }
+            }}
             placeholder={
               currentUserRole === 'lawyer'
                 ? t('Type a message...', 'संदेश लिखें...')
@@ -926,7 +975,12 @@ export const DirectChatView: React.FC<DirectChatViewProps> = ({
 
         {/* Circular Send Button */}
         <button
-          type="submit"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSend();
+          }}
           disabled={!inputText.trim() || isSending}
           className="w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 dark:bg-white dark:hover:bg-neutral-200 dark:text-black flex items-center justify-center font-bold disabled:opacity-30 ios-press transition flex-shrink-0 shadow-lg cursor-pointer"
         >

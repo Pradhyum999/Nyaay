@@ -8,7 +8,7 @@ import { HearingCard } from '../hearings/HearingCard';
 import { LogOrderSheet, LogOrderData } from '../hearings/LogOrderSheet';
 import { HearingFormSheet } from '../hearings/HearingFormSheet';
 import { CaseFile, HearingItem, InvoiceItem, DocumentItem, Language } from '../../types';
-import { getStagesForMatter } from '../../config/stages';
+import { getStagesForMatter, matchStageIndex } from '../../config/stages';
 import { normaliseCaseNumber } from '../../lib/caseNumber';
 import { PREDEFINED_FEE_DESCRIPTIONS } from '../../config/courtsData';
 import { getISTDateString, getISTTimeString, getCaseNextHearing } from '../../lib/istDate';
@@ -34,8 +34,13 @@ import {
   Landmark,
   ExternalLink,
   Users,
+  HelpCircle,
+  ChevronRight,
+  Info,
+  BookOpen,
 } from 'lucide-react';
 import { NewCaseSheet } from './NewCaseSheet';
+import { LegalTemplatesModal } from '../templates/LegalTemplatesModal';
 
 interface CaseDetailPageProps {
   caseFile: CaseFile;
@@ -87,6 +92,10 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
   const [savedNotesList, setSavedNotesList] = useState<{ id: string; text: string; createdAt: string }[]>([]);
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSavedSuccess, setNotesSavedSuccess] = useState(false);
+  const [showStageInfoModal, setShowStageInfoModal] = useState(false);
+  const [showUpdateStageModal, setShowUpdateStageModal] = useState(false);
+  const [updatingStage, setUpdatingStage] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
 
   // Sync notes when case changes (supporting both JSON array and legacy text)
   useEffect(() => {
@@ -189,8 +198,8 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
     setInvoiceStatus('Pending');
   };
 
-  const t = (en: string, hi: string, mr: string) => {
-    if (language === 'mr') return mr;
+  const t = (en: string, hi: string, mr?: string) => {
+    if (language === 'mr') return mr || hi || en;
     if (language === 'hi') return hi;
     return en;
   };
@@ -254,10 +263,19 @@ export const CaseDetailPage: React.FC<CaseDetailPageProps> = ({
 
   // Matter stages from config - show all without slicing (O5-1)
   const stages = getStagesForMatter(caseFile.caseType || caseFile.actSections?.join(', '));
-  const currentStageIndex = stages.findIndex(
-    s => s.name.toLowerCase() === (caseFile.stage || '').toLowerCase()
-  );
-  const safeStageIdx = currentStageIndex >= 0 ? currentStageIndex : 0;
+  const safeStageIdx = matchStageIndex(stages, caseFile.stage);
+
+  const handleSelectStage = async (stageName: string) => {
+    setUpdatingStage(true);
+    try {
+      if (onUpdateCaseDetails) {
+        await onUpdateCaseDetails(caseFile.caseNumber, { stage: stageName as any });
+      }
+      setShowUpdateStageModal(false);
+    } finally {
+      setUpdatingStage(false);
+    }
+  };
 
   const handleSaveOrder = (data: LogOrderData) => {
     if (activeLogOrderHearing && onUpdateHearingOrder) {
@@ -440,6 +458,16 @@ Provide an exhaustive advocate strategic memorandum covering:
             <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap pt-1 sm:pt-0">
               <button
                 type="button"
+                onClick={() => setShowTemplatesModal(true)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-xl border bg-white/[0.04] border-white/10 text-neutral-200 hover:text-white hover:border-white/20 flex items-center gap-1.5 transition ios-press"
+                title="Legal Drafting Templates"
+              >
+                <BookOpen size={13} className="text-amber-400" />
+                <span>{t('Legal Templates', 'ड्राफ्ट टेम्प्लेट', 'मसुदा टेम्पलेट्स')}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowEditCase(true)}
                 className="text-xs font-semibold px-3 py-1.5 rounded-xl border bg-white/[0.04] border-white/10 text-neutral-300 hover:text-white hover:border-white/20 flex items-center gap-1.5 transition ios-press"
                 title="Edit Case Details"
@@ -470,29 +498,34 @@ Provide an exhaustive advocate strategic memorandum covering:
             </div>
           </div>
 
-          {/* 3 Balanced Metadata Capsules */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-white/[0.08] text-xs">
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
+          {/* 3 Balanced Metadata Capsules — Smoothly Slideable & Scrollable without text clipping */}
+          <div className="flex sm:grid sm:grid-cols-3 gap-2.5 pt-3 border-t border-white/[0.08] text-xs overflow-x-auto no-scrollbar pb-1">
+            <div className="min-w-[220px] sm:min-w-0 shrink-0 flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
               <MapPin size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
               <span className="truncate">{caseFile.courtLocation || caseFile.court || t('Court', 'अदालत', 'न्यायालय')}</span>
             </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
+            <div className="min-w-[260px] sm:min-w-0 shrink-0 flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
               <Calendar size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
-              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                <span className="text-neutral-400 font-medium">
+              <div className="min-w-0 flex items-center gap-1.5 flex-nowrap overflow-x-auto no-scrollbar">
+                <span className="text-neutral-400 font-medium shrink-0">
                   {t('Next Hearing', 'अगली सुनवाई', 'पुढील सुनावणी')}:
                 </span>
-                <strong className="text-amber-800 dark:text-amber-300 font-bold font-mono">
-                  {nextHearingInfo.formattedDateTime || nextHearingInfo.rawDate || caseFile.nextHearingDate || t('TBD', 'निर्धारित नहीं', 'ठरवायचे आहे')}
-                </strong>
+                {(() => {
+                  const scheduledNextHearingDate = nextHearingInfo.formattedDateTime || nextHearingInfo.rawDate || caseFile.nextHearingDate || t('TBD', 'निर्धारित नहीं', 'ठरवायचे आहे');
+                  return (
+                    <strong className="text-amber-800 dark:text-amber-300 font-bold font-mono whitespace-nowrap">
+                      {scheduledNextHearingDate}
+                    </strong>
+                  );
+                })()}
                 {nextHearingInfo.countdown && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap shrink-0">
                     ⏳ {nextHearingInfo.countdown.label}
                   </span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
+            <div className="min-w-[200px] sm:min-w-0 shrink-0 flex items-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sub">
               <Scale size={15} className="text-amber-500 dark:text-amber-400 shrink-0" />
               <span className="truncate">{caseFile.stage || t('Hearing Scheduled', 'सुनवाई निर्धारित', 'सुनावणी नियोजित')}</span>
             </div>
@@ -500,20 +533,20 @@ Provide an exhaustive advocate strategic memorandum covering:
         </div>
       </Card>
 
-      {/* ── Segmented Navigation Tabs ── */}
+      {/* ── Segmented Navigation Tabs (No 0 badge, evenly spaced) ── */}
       <Segmented
         value={activeTab}
         onChange={setActiveTab}
         items={[
           { id: 'overview', label: t('Overview', 'सिंहावलोकन', 'आढावा') },
-          { id: 'hearings', label: t('Hearings', 'सुनवाई', 'सुनावणी'), badge: caseHearings.length },
-          { id: 'documents', label: t('Documents', 'दस्तावेज', 'कागदपत्रे'), badge: pendingDocsCount || undefined },
-          { id: 'fees', label: t('Fees', 'शुल्क व बिल', 'फी व बिले'), badge: caseInvoices.length },
-          { id: 'notes', label: t('Notes', 'टिप्पणियाँ', 'टिपा') },
+          { id: 'hearings', label: t('Hearings', 'सुनवाई', 'सुनावणी'), badge: caseHearings.length > 0 ? caseHearings.length : undefined },
+          { id: 'documents', label: t('Documents', 'दस्तावेज', 'कागदपत्रे'), badge: caseDocs.length > 0 ? caseDocs.length : undefined },
+          { id: 'fees', label: t('Fees', 'शुल्क व बिल', 'फी व बिले'), badge: caseInvoices.length > 0 ? caseInvoices.length : undefined },
+          { id: 'notes', label: t('Notes', 'टिप्पणियाँ', 'टिपा'), badge: savedNotesList.length > 0 ? savedNotesList.length : undefined },
         ]}
       />
 
-      {/* ── Tab 1: Overview (O1: ZERO buttons here, clean info only) ── */}
+      {/* ── Tab 1: Overview ── */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-in fade-in">
           {/* Parties to the Matter: Petitioner & Accused / Respondent */}
@@ -569,19 +602,42 @@ Provide an exhaustive advocate strategic memorandum covering:
             </div>
           </Card>
 
-          {/* Stage Progression Stepper: Horizontal Scrolling Strip (O5-1, O5-2) */}
+          {/* Stage Progression Stepper: Horizontal Scrolling Strip */}
           <Card>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
-                {t('Procedural Stage Progression', 'न्यायिक कार्यवाही का चरण', 'न्यायालयीन प्रक्रियेचे टप्पे')}
-              </h3>
-              <span className="text-xs font-bold text-amber-300">
-                {t('Stage', 'चरण', 'टप्पा')} {safeStageIdx + 1} / {stages.length}
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                  {t('Procedural Stage Progression', 'न्यायिक कार्यवाही का चरण', 'न्यायालयीन प्रक्रियेचे टप्पे')}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowStageInfoModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition"
+                  title="How are stages decided & linked?"
+                >
+                  <HelpCircle size={13} />
+                  <span className="text-[10px] font-medium underline">How it works</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300 font-mono">
+                  {t('Stage', 'चरण', 'टप्पा')} {safeStageIdx + 1} / {stages.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowUpdateStageModal(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[11px] font-semibold transition ios-press"
+                  title="Click to manually update case stage"
+                >
+                  <Edit3 size={11} />
+                  <span>{t('Change Stage', 'चरण बदलें', 'टप्पा बदला')}</span>
+                </button>
+              </div>
             </div>
 
             {/* Stepper bar */}
-            <div className="w-full bg-white/[0.08] h-2 rounded-full overflow-hidden mb-4">
+            <div className="w-full bg-white/[0.08] h-2 rounded-full overflow-hidden mb-3">
               <div
                 className="bg-amber-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${((safeStageIdx + 1) / Math.max(stages.length, 1)) * 100}%` }}
@@ -595,26 +651,33 @@ Provide an exhaustive advocate strategic memorandum covering:
                 const isCurrent = idx === safeStageIdx;
 
                 return (
-                  <div
+                  <button
                     key={s.id}
-                    className={`min-w-[120px] max-w-[160px] flex-shrink-0 p-2.5 rounded-2xl border text-xs ${
+                    type="button"
+                    onClick={() => handleSelectStage(s.name)}
+                    className={`min-w-[125px] max-w-[165px] flex-shrink-0 p-2.5 rounded-2xl border text-xs text-left transition select-none ios-press ${
                       isCurrent
-                        ? 'bg-amber-400/10 border-amber-400/40 text-amber-300'
+                        ? 'bg-amber-400/15 border-amber-400/50 text-amber-300 ring-1 ring-amber-400/30'
                         : isPassed
-                        ? 'bg-white/[0.04] border-emerald-500/30 text-emerald-400'
-                        : 'bg-white/[0.02] border-white/[0.06] text-neutral-500'
+                        ? 'bg-white/[0.04] border-emerald-500/30 text-emerald-400 hover:border-emerald-500/50'
+                        : 'bg-white/[0.02] border-white/[0.06] text-neutral-400 hover:border-white/20'
                     }`}
+                    title={`Click to set stage to: ${s.name}`}
                   >
                     <div className="flex items-center gap-1.5 font-bold mb-1">
-                      {isPassed && <CheckCircle2 size={12} />}
-                      {isCurrent && <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+                      {isPassed && <CheckCircle2 size={12} className="shrink-0" />}
+                      {isCurrent && <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />}
+                      {!isPassed && !isCurrent && <span className="text-[10px] text-neutral-500 font-mono">#{idx + 1}</span>}
                       <span className="truncate">{s.name}</span>
                     </div>
-                    <p className="text-[11px] text-neutral-400 line-clamp-1">{s.description}</p>
-                  </div>
+                    <p className="text-[10.5px] text-neutral-400 line-clamp-2 leading-tight">{s.description}</p>
+                  </button>
                 );
               })}
             </div>
+            <p className="text-[10px] text-neutral-500 font-mono mt-1">
+              💡 {t('Tip: Click any step above or tap "Change Stage" to transition case progress.', 'सुझाव: चरण बदलने के लिए ऊपर किसी भी बॉक्स पर टैप करें।', 'टीप: टप्पा बदलण्यासाठी वरील बॉक्सवर क्लिक करा.')}
+            </p>
           </Card>
 
           {/* Legal Sections & Acts (Item 9) */}
@@ -632,62 +695,6 @@ Provide an exhaustive advocate strategic memorandum covering:
                     {sec}
                   </span>
                 ))}
-              </div>
-            </Card>
-          )}
-
-          {/* AI Case Strategic Intelligence Card (Full Context Aware) */}
-          {onAskAI && (
-            <Card className="border-amber-400/30 bg-gradient-to-br from-amber-400/10 via-white/[0.03] to-transparent p-4 sm:p-5 shadow-lg">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.08]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shrink-0">
-                    <Sparkles size={18} className="animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-main font-display">
-                      {t('AI Case Strategic Intelligence', 'AI केस रणनीतिक विश्लेषण', 'AI खटला धोरणात्मक विश्लेषण')}
-                    </h3>
-                    <p className="text-[11px] text-sub">
-                      {t('Grounded on facts, statutory sections, hearing history & chamber notes', 'तथ्यों, धाराओं, सुनवाई इतिहास और नोट्स पर आधारित', 'तथ्ये, कलमे, सुनावणी इतिहास व नोंदींवर आधारित')}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAnalyzeThisCase}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-md transition ios-press self-start sm:self-auto shrink-0"
-                >
-                  <Sparkles size={14} className="text-black" />
-                  <span>{t('Summarize Case', 'केस सारांश', 'केस सारांश')}</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => onAskAI(`Draft key contentions, defenses, and citations for case ${caseFile.caseNumber} at stage ${caseFile.stage}. Parties: ${caseFile.clientName} vs ${caseFile.opponentName || 'Opposing Party'}. Sections: ${cleanedActSections.join(', ')}.`)}
-                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
-                >
-                  <span className="font-semibold text-amber-300 block mb-0.5">⚖️ Legal Arguments</span>
-                  <span className="text-[10px] text-neutral-400">Draft key arguments & citations</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAskAI(`Check limitation deadlines and statutory compliance risks for case ${caseFile.caseNumber} under ${cleanedActSections.join(', ') || 'governing statutes'}.`)}
-                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
-                >
-                  <span className="font-semibold text-amber-300 block mb-0.5">⏱️ Limitation & Risks</span>
-                  <span className="text-[10px] text-neutral-400">Deadlines, summons & notice risks</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAskAI(`What next evidentiary steps and document checklist should Advocate Adv. Rajesh Sharma prepare for upcoming hearing in ${caseFile.caseNumber}? Notes: ${caseNotes || 'None'}`)}
-                  className="text-left p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-xs text-neutral-300 hover:text-white transition ios-press"
-                >
-                  <span className="font-semibold text-amber-300 block mb-0.5">📋 Hearing Checklist</span>
-                  <span className="text-[10px] text-neutral-400">Checklist for next listing</span>
-                </button>
               </div>
             </Card>
           )}
@@ -748,22 +755,34 @@ Provide an exhaustive advocate strategic memorandum covering:
                   : t('No documents uploaded yet', 'कोई दस्तावेज अपलोड नहीं', 'अद्याप कोणतेही कागदपत्र नाही')}
               </p>
             </div>
-            <label className="shrink-0 cursor-pointer">
-              <input
-                type="file"
-                className="hidden"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file && onUploadDocument) {
-                    onUploadDocument(caseFile.caseNumber, file);
-                  }
-                }}
-              />
-              <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.12] text-white transition border border-white/[0.1]">
-                <UploadCloud size={14} />
-                <span>{t('Upload Doc', 'दस्तावेज जोड़ें', 'कागदपत्र जोडा')}</span>
-              </span>
-            </label>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowTemplatesModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-black transition shadow-sm"
+                title="Draft Legal Document with AI Pre-fill"
+              >
+                <FileText size={14} className="text-black" />
+                <span>{t('Legal Templates & AI Draft', 'ड्राफ्ट टेम्प्लेट', 'मसुदा टेम्पलेट्स')}</span>
+              </button>
+
+              <label className="shrink-0 cursor-pointer">
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file && onUploadDocument) {
+                      onUploadDocument(caseFile.caseNumber, file);
+                    }
+                  }}
+                />
+                <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.12] text-white transition border border-white/[0.1]">
+                  <UploadCloud size={14} />
+                  <span>{t('Upload Doc', 'दस्तावेज जोड़ें', 'कागदपत्र जोडा')}</span>
+                </span>
+              </label>
+            </div>
           </div>
 
           {caseDocs.length === 0 ? (
@@ -1181,6 +1200,148 @@ Provide an exhaustive advocate strategic memorandum covering:
           }}
         />
       )}
+
+      {/* ── How Procedural Stages Work Explainer Modal ── */}
+      <Sheet
+        open={showStageInfoModal}
+        onOpenChange={setShowStageInfoModal}
+        title={t('How Case Stages are Linked & Decided', 'न्यायिक चरण कैसे निर्धारित व लिंक होते हैं', 'न्यायालयीन टप्पे कसे ठरतात व जोडले जातात')}
+        description={t('Statutory progression lifecycles in Indian Courts', 'भारतीय न्यायालयों में वैधानिक प्रक्रिया चक्र', 'भारतीय न्यायालयांमधील वैधानिक प्रक्रिया चक्र')}
+      >
+        <div className="space-y-4 text-xs text-neutral-300">
+          {/* Card 1: How Stages are Decided */}
+          <div className="p-3.5 rounded-2xl bg-amber-400/10 border border-amber-400/25 space-y-1.5">
+            <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+              <Scale size={15} />
+              <span>1. {t('How steps are decided by case type', 'केस प्रकार से चरण कैसे तय होते हैं', 'केस प्रकारानुसार टप्पे कसे ठरतात')}</span>
+            </div>
+            <p className="text-[11.5px] leading-relaxed text-neutral-200">
+              {t(
+                `Every matter adheres to statutory legal lifecycles under Indian statutes:
+• Criminal matters follow BNSS / CrPC (FIR ➔ Bail ➔ Chargesheet ➔ PW Evidence ➔ S.313 ➔ DW ➔ Arguments ➔ Verdict).
+• Civil suits follow CPC (Plaint ➔ Summons ➔ Written Statement ➔ Issues ➔ PE ➔ DE ➔ Arguments ➔ Decree).
+• Section 138 NI Act follows summary procedure (Statutory Notice ➔ S.142 Complaint ➔ Pre-Summoning ➔ Accused Plea ➔ Cross-Exam ➔ Judgment).
+• Special dockets (Writ Petitions under Art. 226/32, Matrimonial mediation & maintenance, MACT accident compensation, Consumer Forum CPA 2019, Arbitration) each automatically adopt their exact statutory checkpoints.`,
+                `प्रत्येक मामले का वैधानिक चक्र उसके कानून के अनुसार तय होता है:
+• आपराधिक मामले: प्राथमिकी (FIR) ➔ जमानत ➔ आरोप तय होना ➔ अभियोजन साक्ष्य (PW) ➔ धारा 313 बयान ➔ बचाव साक्ष्य ➔ अंतिम बहस ➔ फैसला।
+• दीवानी वाद (CPC): वाद पत्र ➔ समन ➔ लिखित जवाब (WS) ➔ विवादक (Issues) ➔ साक्ष्य ➔ बहस ➔ डिक्री।
+• एन.आई. एक्ट धारा 138: 15-दिवसीय विधिक नोटिस ➔ धारा 142 परिवाद ➔ संज्ञान ➔ समन ➔ परिवादी से जिरह ➔ सजा/मुआवजा।
+• रिट याचिका, पारिवारिक/वैवाहिक, मोटर दुर्घटना दावा (MACT) और उपभोक्ता आयोग के लिए स्वतः उनकी विशिष्ट प्रक्रिया लागू होती है।`,
+                `प्रत्येक खटल्याचा वैधानिक क्रम कायद्यानुसार ठरतो:
+• फौजदारी: प्रथम खबरी ➔ जामीन ➔ दोषारोप ➔ सरकारी पुरावे ➔ कलम ३१३ ➔ बचाव पुरावा ➔ युक्तिवाद ➔ निकाल.
+• दिवाणी: दावा ➔ समन्स ➔ लेखी म्हणणे ➔ मुद्दे ➔ पुरावे ➔ युक्तिवाद ➔ हुकूमनामा.
+• १३८ चेक बाऊन्स: कायदेशीर नोटीस ➔ कलम १४२ तक्रार ➔ हजेरी ➔ उलटतपासणी ➔ निकाल.`
+              )}
+            </p>
+          </div>
+
+          {/* Card 2: How Stages are Linked & Updated */}
+          <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/25 space-y-1.5">
+            <div className="flex items-center gap-2 text-sky-300 font-bold text-xs">
+              <Sparkles size={15} />
+              <span>2. {t('How stages are linked and get updated', 'चरण कैसे जुड़े हैं और कैसे अपडेट होते हैं', 'टप्पे कसे जोडलेले असतात व कसे अपडेट होतात')}</span>
+            </div>
+            <div className="space-y-2 text-[11.5px] leading-relaxed text-neutral-200">
+              <p>
+                <strong>a) {t('Automatic via Hearing Orders:', 'सुनवाई आदेश से स्वतः:', 'सुनावणी आदेशाद्वारे आपोआप:')}</strong>{' '}
+                {t(
+                  'When you log a court order on any hearing (e.g., "Framing of Charges concluded, next date for PW"), selecting the next stage automatically advances the case progression stepper.',
+                  'जब आप किसी सुनवाई का अदालती आदेश दर्ज करते हैं, तो चुना गया अगला चरण केस की स्थिति को स्वतः आगे बढ़ा देता है।'
+                )}
+              </p>
+              <p>
+                <strong>b) {t('eCourts CIS Live Sync:', 'eCourts CIS लाइव सिंक:', 'eCourts CIS लाइव्ह सिंक:')}</strong>{' '}
+                {t(
+                  'Cases with verified CNR numbers automatically synchronize purpose of listing and order stages directly from official court records.',
+                  'सत्यापित CNR वाले मामले सीधे आधिकारिक ई-कोर्ट्स रिकॉर्ड से अगली सुनवाई और चरण को सिंक करते हैं।'
+                )}
+              </p>
+              <p>
+                <strong>c) {t('Direct Interactive Override:', 'सीधा मैनुअल बदलाव:', 'थेट मॅन्युअल बदल:')}</strong>{' '}
+                {t(
+                  'Advocates can tap any stage on the progression strip or use the "Change Stage" button anytime to immediately advance or update the current stage.',
+                  'अधिवक्ता कभी भी ऊपर दिए गए किसी भी चरण बॉक्स पर क्लिक करके या "चरण बदलें" दबाकर वर्तमान स्थिति बदल सकते हैं।'
+                )}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full"
+            onClick={() => setShowStageInfoModal(false)}
+          >
+            {t('Got It', 'समझ गया', 'समजले')}
+          </Button>
+        </div>
+      </Sheet>
+
+      {/* ── Interactive Stage Selector Sheet ── */}
+      <Sheet
+        open={showUpdateStageModal}
+        onOpenChange={setShowUpdateStageModal}
+        title={t('Update Procedural Stage', 'न्यायिक कार्यवाही का चरण बदलें', 'न्यायालयीन प्रक्रियेचा टप्पा बदला')}
+        description={t(
+          `Select the current stage for ${caseFile.caseNumber} (${caseFile.caseType || 'Matter'})`,
+          `${caseFile.caseNumber} के लिए वर्तमान चरण का चयन करें`,
+          `${caseFile.caseNumber} साठी सध्याचा टप्पा निवडा`
+        )}
+      >
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          {stages.map((s, idx) => {
+            const isCurrent = idx === safeStageIdx;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                disabled={updatingStage}
+                onClick={() => handleSelectStage(s.name)}
+                className={`w-full p-3 rounded-2xl border text-left transition flex items-start justify-between gap-3 ios-press ${
+                  isCurrent
+                    ? 'bg-amber-400/20 border-amber-400 text-amber-200 shadow-md ring-1 ring-amber-400/50'
+                    : 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06] hover:border-white/20 text-neutral-200'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/[0.08] text-neutral-400">
+                      Step {idx + 1}
+                    </span>
+                    <span className="text-xs font-bold text-white truncate">{s.name}</span>
+                    {isCurrent && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-black">
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">
+                    {s.description}
+                  </p>
+                </div>
+                <div className="shrink-0 pt-0.5 text-neutral-400">
+                  <ChevronRight size={16} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Sheet>
+
+      {/* Legal Templates & Drafting Assistant Modal (Request Item 9) */}
+      <LegalTemplatesModal
+        isOpen={showTemplatesModal}
+        onClose={() => setShowTemplatesModal(false)}
+        cases={[caseFile]}
+        activeCase={caseFile}
+        language={language}
+        onAttachDocumentToCase={(cNum, doc) => {
+          const fakeFile = new File([doc.content], doc.title, { type: 'text/plain' });
+          if (onUploadDocument) {
+            onUploadDocument(cNum, fakeFile);
+          }
+        }}
+      />
     </div>
   );
 };

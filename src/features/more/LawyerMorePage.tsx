@@ -37,8 +37,23 @@ import {
   Copy,
   AlertTriangle,
   HelpCircle,
+  Printer,
+  Upload,
+  Plus,
+  FilePlus,
+  Eye,
+  BookOpen,
 } from 'lucide-react';
 import { CallModal } from '../../components/chat/CallModal';
+import { LegalTemplatesModal } from '../templates/LegalTemplatesModal';
+import {
+  getAllTemplates,
+  getCustomTemplates,
+  saveCustomTemplate,
+  deleteCustomTemplate,
+  LegalTemplate,
+} from '../../config/legalTemplates';
+import { CaseFile } from '../../types';
 
 export interface LawyerMorePageProps {
   userProfile?: UserProfile;
@@ -52,6 +67,7 @@ export interface LawyerMorePageProps {
   onToggleTheme?: () => void;
   onSignOut?: () => void;
   deleteAccount?: () => Promise<void> | void;
+  cases?: CaseFile[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -247,11 +263,34 @@ export const LawyerMorePage: React.FC<LawyerMorePageProps> = ({
   onToggleTheme,
   onSignOut,
   deleteAccount,
+  cases = [],
 }) => {
   // Navigation / active section inside "More"
   const [activeSection, setActiveSection] = useState<
-    'hub' | 'assessment' | 'forum' | 'referral' | 'video' | 'portfolio' | 'settings'
+    'hub' | 'assessment' | 'forum' | 'referral' | 'video' | 'portfolio' | 'settings' | 'templates'
   >('hub');
+
+  // Templates Management State
+  const [allTemplates, setAllTemplates] = useState<LegalTemplate[]>([]);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [newTemplateTitle, setNewTemplateTitle] = useState('');
+  const [newTemplateCategory, setNewTemplateCategory] = useState<LegalTemplate['category']>('Notice');
+  const [newTemplateStatutoryRef, setNewTemplateStatutoryRef] = useState('');
+  const [newTemplateCourt, setNewTemplateCourt] = useState<LegalTemplate['courtHierarchy']>('District Court / Tribunal');
+  const [newTemplateContent, setNewTemplateContent] = useState('');
+  const [templateSearchTerm, setTemplateSearchTerm] = useState('');
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('All');
+  const [draftingModalTemplate, setDraftingModalTemplate] = useState<LegalTemplate | null>(null);
+  const [isDraftingModalOpen, setIsDraftingModalOpen] = useState(false);
+  const [templateToast, setTemplateToast] = useState<string | null>(null);
+
+  const refreshTemplates = () => {
+    setAllTemplates(getAllTemplates());
+  };
+
+  useEffect(() => {
+    refreshTemplates();
+  }, []);
 
   // Translations helper
   const t = (en: string, hi: string, mr: string) => {
@@ -497,6 +536,7 @@ Confidential Counsel-to-Counsel Brief.`;
             {activeSection === 'video' && t('Video Conferencing', 'व्हिडिओ कॉन्फरन्स', 'व्हिडिओ कॉन्फरन्स')}
             {activeSection === 'portfolio' && t('Chambers Portfolio', 'डिजिटल चेंबर्स', 'डिजिटल चेंबर्स')}
             {activeSection === 'settings' && t('Settings & Account', 'सेटिंग्ज व खाते', 'सेटिंग्ज व खाते')}
+            {activeSection === 'templates' && t('Legal Templates & Drafting', 'ड्राफ्टिंग टेम्प्लेट व अपलोड', 'मसुदा टेम्पलेट्स आणि अपलोड')}
           </span>
         </div>
       )}
@@ -697,6 +737,32 @@ Confidential Counsel-to-Counsel Brief.`;
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
+
+              {/* Legal Templates & Drafting Manager */}
+              <Card
+                onClick={() => setActiveSection('templates')}
+                className="p-4 bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.1] hover:border-amber-400/40 transition cursor-pointer flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                        {t('Legal Templates & Drafting', 'ड्राफ्टिंग टेम्प्लेट व अपलोड', 'मसुदा टेम्पलेट्स आणि अपलोड')}
+                      </h3>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                        {allTemplates.length} {t('Formats', 'प्रारूप', 'प्रारूपे')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400">
+                      {t('Upload custom templates, AI pre-fill client facts & direct print', 'कस्टम टेम्प्लेट अपलोड करें, AI से क्लाइंट डेटा भरें और प्रिंट लें', 'कस्टम टेम्पलेट अपलोड करा, AI द्वारे माहिती भरा आणि प्रिंट करा')}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-neutral-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition" />
+              </Card>
 
               {/* Settings & Preferences */}
               <Card
@@ -1381,6 +1447,22 @@ Confidential Counsel-to-Counsel Brief.`;
               {t('System Preferences & Account Settings', 'सिस्टम प्राथमिकताएं और खाता सेटिंग्स', 'प्रणाली प्राधान्ये आणि खाते सेटिंग्ज')}
             </h3>
 
+            {/* Templates & Custom Formats Shortcut */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+              <div>
+                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <FileText size={14} className="text-amber-300" />
+                  <span>{t('Legal Templates & Custom Formats', 'कानूनी ड्राफ्टिंग टेम्प्लेट व प्रारूप', 'कायदेशीर मसुदा टेम्पलेट्स आणि प्रारूपे')}</span>
+                </h4>
+                <p className="text-[11px] text-neutral-400">
+                  {t('Upload custom formats, pre-fill live client data and print directly', 'कस्टम ड्राफ्ट टेम्प्लेट अपलोड करें, क्लाइंट विवरण भरें और प्रिंट करें', 'कस्टम मसुदा टेम्पलेट्स अपलोड करा आणि थेट प्रिंट करा')}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" icon={<Upload size={13} />} onClick={() => setActiveSection('templates')}>
+                {t('Manage Formats', 'टेम्प्लेट प्रबंधित करें', 'टेम्पलेट्स व्यवस्थापित करा')}
+              </Button>
+            </div>
+
             {/* Language Selector */}
             {onSelectLanguage && (
               <div className="space-y-2 pb-4 border-b border-white/[0.08]">
@@ -1479,6 +1561,376 @@ Confidential Counsel-to-Counsel Brief.`;
             )}
           </Card>
         </div>
+      )}
+
+      {/* ── 8. SUB-MODULE: TEMPLATES & LEGAL DRAFTING REPOSITORY ── */}
+      {activeSection === 'templates' && (
+        <div className="space-y-4 animate-in fade-in">
+          {/* Header Action Card */}
+          <Card className="p-4 sm:p-5 bg-neutral-900/90 border-white/[0.12] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <FileText className="text-amber-400" size={18} />
+                  <span>{t('Legal Templates & Drafting Hub', 'कानूनी ड्राफ्टिंग टेम्प्लेट व प्रारूप भंडार', 'कायदेशीर मसुदा टेम्पलेट्स हब')}</span>
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1">
+                  {t(
+                    'Upload custom templates, search judicial formats, pre-fill live client data, and print directly.',
+                    'कस्टम टेम्प्लेट अपलोड करें, ड्राफ्ट खोजें, क्लाइंट डेटा स्वचालित भरें और सीधा प्रिंट लें।',
+                    'कस्टम मसुदा टेम्पलेट्स अपलोड करा, शोध करा, क्लायंट डेटा भरा आणि थेट प्रिंट करा.'
+                  )}
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={14} />}
+                onClick={() => setIsUploadModalOpen(true)}
+                className="shrink-0"
+              >
+                {t('Upload Custom Template', '+ नया टेम्प्लेट अपलोड करें', '+ नवीन टेम्पलेट अपलोड करा')}
+              </Button>
+            </div>
+
+            {/* Notification Toast */}
+            {templateToast && (
+              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+                <span>{templateToast}</span>
+                <button onClick={() => setTemplateToast(null)} className="text-neutral-400 hover:text-white">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Search & Category Filter */}
+            <div className="space-y-3 pt-2 border-t border-white/[0.08]">
+              <div className="relative">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  value={templateSearchTerm}
+                  onChange={e => setTemplateSearchTerm(e.target.value)}
+                  placeholder={t(
+                    'Search formats by title, act or keyword (e.g. NI Act, Bail, Injunction, Vakalatnama)...',
+                    'प्रारूप खोजें (उदा. 138 NI Act, जमानत, व्यादेश, वकालतनामा)...',
+                    'मसुदा शोधा (उदा. 138 NI Act, जामीन, मनाई हुकूम, वकालतनामा)...'
+                  )}
+                  className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-white/[0.04] border border-white/[0.1] text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400/50"
+                />
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {['All', 'Notice', 'Bail', 'Civil Application', 'Vakalatnama', 'Pleading', 'Custom'].map(cat => {
+                  const count =
+                    cat === 'All'
+                      ? allTemplates.length
+                      : cat === 'Custom'
+                      ? allTemplates.filter(tp => tp.id.startsWith('custom_')).length
+                      : allTemplates.filter(tp => tp.category === cat).length;
+                  const isSelected = templateCategoryFilter === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setTemplateCategoryFilter(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
+                          : 'bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] border border-white/[0.06]'
+                      }`}
+                    >
+                      <span>{cat === 'Custom' ? t('My Uploads', 'मेरे अपलोड', 'माझे अपलोड') : cat}</span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                          isSelected ? 'bg-neutral-900/20 text-neutral-900 font-bold' : 'bg-white/[0.1] text-neutral-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+
+          {/* Templates Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {allTemplates
+              .filter(tp => {
+                const matchesCat =
+                  templateCategoryFilter === 'All'
+                    ? true
+                    : templateCategoryFilter === 'Custom'
+                    ? tp.id.startsWith('custom_')
+                    : tp.category === templateCategoryFilter;
+                const matchesSearch =
+                  tp.title.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+                  tp.statutoryReference?.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+                  tp.category.toLowerCase().includes(templateSearchTerm.toLowerCase());
+                return matchesCat && matchesSearch;
+              })
+              .map(tp => {
+                const isCustom = tp.id.startsWith('custom_');
+                return (
+                  <Card
+                    key={tp.id}
+                    className="p-4 bg-neutral-900/80 hover:bg-neutral-900 border-white/[0.08] hover:border-amber-400/30 transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-amber-400/10 text-amber-400 text-xs">
+                            <FileText size={14} />
+                          </span>
+                          <div>
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400/80 font-bold">
+                              {tp.category}
+                            </span>
+                            {isCustom && (
+                              <span className="ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                {t('Custom Upload', 'कस्टम अपलोड', 'कस्टम अपलोड')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          {tp.courtHierarchy}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                          {tp.title}
+                        </h4>
+                        {tp.statutoryReference && (
+                          <p className="text-[11px] font-mono text-neutral-400 mt-0.5">
+                            § {tp.statutoryReference}
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
+                        {tp.description || tp.templateContent.slice(0, 120)}...
+                      </p>
+                    </div>
+
+                    <div className="pt-3 mt-3 border-t border-white/[0.06] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Eye size={13} />}
+                          onClick={() => {
+                            setDraftingModalTemplate(tp);
+                            setIsDraftingModalOpen(true);
+                          }}
+                        >
+                          {t('Open & Draft', 'खोलें व ड्राफ्ट करें', 'उघडा आणि मसुदा तयार करा')}
+                        </Button>
+                      </div>
+
+                      {isCustom && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(t('Are you sure you want to delete this custom template?', 'क्या आप इस कस्टम टेम्प्लेट को हटाना चाहते हैं?', 'तुम्हाला हे कस्टम टेम्पलेट हटवायचे आहे का?'))) {
+                              deleteCustomTemplate(tp.id);
+                              refreshTemplates();
+                              setTemplateToast(t('Template deleted successfully', 'टेम्प्लेट सफलतापूर्वक हटाया गया', 'टेम्पलेट यशस्वीरित्या हटवले'));
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                          title={t('Delete Template', 'हटाएं', 'हटवा')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* ── UPLOAD CUSTOM TEMPLATE MODAL ── */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-white/[0.14] rounded-3xl p-5 sm:p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-400/10 text-amber-400">
+                  <Upload size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    {t('Upload Custom Legal Format', 'कस्टम कानूनी प्रारूप अपलोड करें', 'कस्टम कायदेशीर मसुदा अपलोड करा')}
+                  </h3>
+                  <p className="text-[11px] text-neutral-400">
+                    {t('Save standard formats to reuse and auto-fill in your cases', 'केसों में उपयोग और स्वतः भरने के लिए फॉर्मेट सुरक्षित करें', 'केसमध्ये पुन्हा वापरण्यासाठी आणि आपोआप भरण्यासाठी सेव्ह करा')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-white/[0.08] text-neutral-400 hover:text-white transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  {t('Template Title *', 'टेम्प्लेट शीर्षक *', 'टेम्पलेट शीर्षक *')}
+                </label>
+                <input
+                  type="text"
+                  value={newTemplateTitle}
+                  onChange={e => setNewTemplateTitle(e.target.value)}
+                  placeholder="e.g. Notice for Breach of Commercial Agreement"
+                  className="w-full px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400/50"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    {t('Category', 'श्रेणी', 'वर्ग')}
+                  </label>
+                  <select
+                    value={newTemplateCategory}
+                    onChange={e => setNewTemplateCategory(e.target.value as LegalTemplate['category'])}
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-800 border border-white/[0.1] text-xs text-white focus:outline-none focus:border-amber-400/50"
+                  >
+                    <option value="Notice">Notice</option>
+                    <option value="Bail">Bail</option>
+                    <option value="Civil Application">Civil Application</option>
+                    <option value="Vakalatnama">Vakalatnama</option>
+                    <option value="Pleading">Pleading</option>
+                    <option value="Affidavit">Affidavit</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    {t('Statutory Section / Act', 'कानूनी धारा / अधिनियम', 'कायदेशीर कलम / कायदा')}
+                  </label>
+                  <input
+                    type="text"
+                    value={newTemplateStatutoryRef}
+                    onChange={e => setNewTemplateStatutoryRef(e.target.value)}
+                    placeholder="e.g. Sec 73 Indian Contract Act"
+                    className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-amber-400/50"
+                  />
+                </div>
+              </div>
+
+              {/* Upload file helper */}
+              <div className="p-3 rounded-2xl bg-amber-400/5 border border-amber-400/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-amber-300">
+                    {t('Quick Import from text file (.txt)', '.txt फाइल से आयात करें', '.txt फाईल वरून आयात करा')}
+                  </span>
+                  <label className="cursor-pointer text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-400 text-neutral-950 hover:bg-amber-300 transition">
+                    <span>{t('Browse File', 'फाइल चुनें', 'फाईल निवडा')}</span>
+                    <input
+                      type="file"
+                      accept=".txt,.md,.text"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = ev => {
+                            const content = ev.target?.result as string;
+                            if (content) setNewTemplateContent(content);
+                            if (!newTemplateTitle) setNewTemplateTitle(file.name.replace(/\.[^/.]+$/, ''));
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="text-[10px] text-neutral-400">
+                  {t(
+                    'Tip: Use placeholders like [CLIENT_NAME], [OPPONENT_NAME], [CASE_NUMBER], or [CLIENT ACTION REQUIRED: question] for intelligent pre-fill.',
+                    'सुझाव: स्वचालित भरने के लिए [CLIENT_NAME], [CASE_NUMBER] आदि का प्रयोग करें।',
+                    'टीप: आपोआप भरण्यासाठी [CLIENT_NAME], [CASE_NUMBER] इत्यादी वापरा.'
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  {t('Draft Template Text *', 'प्रारूप सामग्री *', 'मसुदा मजकूर *')}
+                </label>
+                <textarea
+                  rows={8}
+                  value={newTemplateContent}
+                  onChange={e => setNewTemplateContent(e.target.value)}
+                  placeholder="Paste or write legal notice/application draft here..."
+                  className="w-full p-3 rounded-xl bg-white/[0.04] border border-white/[0.1] text-xs text-white font-mono placeholder:text-neutral-500 focus:outline-none focus:border-amber-400/50 leading-relaxed"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.08]">
+              <Button variant="secondary" size="sm" onClick={() => setIsUploadModalOpen(false)}>
+                {t('Cancel', 'रद्द करें', 'रद्द करा')}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Check size={14} />}
+                onClick={() => {
+                  if (!newTemplateTitle.trim() || !newTemplateContent.trim()) {
+                    alert(t('Please provide both Title and Template Content', 'कृपया शीर्षक और सामग्री दोनों दर्ज करें', 'कृपया शीर्षक आणि मजकूर दोन्ही प्रविष्ट करा'));
+                    return;
+                  }
+                  saveCustomTemplate({
+                    title: newTemplateTitle.trim(),
+                    category: newTemplateCategory,
+                    description: `Custom format uploaded for ${newTemplateCategory} matters`,
+                    statutoryReference: newTemplateStatutoryRef.trim() || 'Indian Laws & Practice',
+                    courtHierarchy: newTemplateCourt,
+                    placeholders: [
+                      { key: 'CLIENT_NAME', label: 'Client / Complainant Name' },
+                      { key: 'CASE_NUMBER', label: 'Case Number / Diary Number' },
+                      { key: 'COURT_LOCATION', label: 'Court / Forum Jurisdiction' },
+                    ],
+                    templateContent: newTemplateContent,
+                  });
+                  refreshTemplates();
+                  setIsUploadModalOpen(false);
+                  setNewTemplateTitle('');
+                  setNewTemplateStatutoryRef('');
+                  setNewTemplateContent('');
+                  setTemplateToast(t('Custom format saved to your library', 'कस्टम प्रारूप आपके भंडार में सहेजा गया', 'कस्टम मसुदा तुमच्या संग्रहात सेव्ह झाला'));
+                }}
+              >
+                {t('Save Template', 'टेम्प्लेट सुरक्षित करें', 'टेम्पलेट सेव्ह करा')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DRAFTING MODAL (PRE-FILL, PRINT & DIRECT ATTACH) ── */}
+      {isDraftingModalOpen && (
+        <LegalTemplatesModal
+          isOpen={isDraftingModalOpen}
+          onClose={() => {
+            setIsDraftingModalOpen(false);
+            setDraftingModalTemplate(null);
+          }}
+          initialTemplate={draftingModalTemplate || undefined}
+          cases={cases}
+        />
       )}
 
       {/* Delete Confirmation Modal */}

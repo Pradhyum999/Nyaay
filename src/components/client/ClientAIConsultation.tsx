@@ -82,6 +82,19 @@ export function ClientAIConsultation({
   }, [messages, isLoading]);
 
   useEffect(() => {
+    const handleResize = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    } else {
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  useEffect(() => {
     const welcome: ChatMessage = {
       id: 'welcome',
       role: 'assistant',
@@ -228,7 +241,8 @@ export function ClientAIConsultation({
       </div>
 
       {/* ── Messages ────────────────────────────────────────────────────────── */}
-      <div className="ai-chat-feed flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#EEF2F6] dark:bg-[#0B0F19]">
+      <div className="ai-chat-feed flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#EEF2F6] dark:bg-[#0B0F19] flex flex-col">
+        <div className="flex-1 min-h-[6px]" />
         {messages.map(msg => (
           <motion.div
             key={msg.id}
@@ -482,6 +496,13 @@ export function ClientAIConsultation({
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
+              onFocus={() => {
+                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 120);
+                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
+              }}
+              onClick={() => {
+                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 120);
+              }}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

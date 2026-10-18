@@ -578,211 +578,178 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
           </div>
         )}
 
-        {/* ── Mode Selection Header ── */}
+        {/* ── Unified Smart Auto-Fill Header (Embedded eCourts CNR & AI/Voice) ── */}
         {!isEditMode && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/[0.08] rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setActiveAssistMode('none')}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
-                  activeAssistMode === 'none'
-                    ? 'bg-amber-400 text-black shadow-md font-bold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <span>✍️ Standard Dossier</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveAssistMode('ecourts')}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
-                  activeAssistMode === 'ecourts'
-                    ? 'bg-sky-400 text-black shadow-md font-bold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <span>🏛️ eCourts (CNR)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveAssistMode('ai')}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
-                  activeAssistMode === 'ai'
-                    ? 'bg-purple-400 text-black shadow-md font-bold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <span>🤖 AI / Voice</span>
-              </button>
+          <div className="rounded-2xl border border-amber-400/25 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-3.5 space-y-3 shadow-lg animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-amber-400/20 text-amber-300 flex items-center justify-center">
+                  <Sparkles size={13} />
+                </div>
+                <span className="text-xs font-bold text-white tracking-tight">
+                  {t('⚡ Smart Intake & Auto-Fill', '⚡ त्वरित ऑटो-फिल (eCourts CNR / AI)', '⚡ त्वरित ऑटो-फिल (eCourts CNR / AI)')}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                All-in-One
+              </span>
             </div>
 
-            {/* AI Assistant Block */}
-            {activeAssistMode === 'ai' && (
-              <div className="rounded-2xl border border-purple-500/30 overflow-hidden bg-purple-500/5 p-3 space-y-2.5 animate-in fade-in">
-                <div className="flex items-center justify-between text-xs font-bold text-purple-300">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={15} className="text-purple-400" />
-                    <span>Voice or Paste Case Summary (AI Auto-Fill)</span>
-                  </div>
-                  <span className="text-[10px] text-purple-400 font-mono">ASSIST MODE</span>
-                </div>
-                <p className="text-[11px] text-neutral-300">
-                  Speak or paste case facts, court name, or client statements. AI will extract and pre-fill all fields below.
-                </p>
-                <div className="relative">
-                  <textarea
-                    rows={3}
-                    value={aiInputText}
-                    onChange={e => setAiInputText(e.target.value)}
-                    placeholder="e.g. Ramesh Gupta filed for bail under 420 IPC in Tis Hazari Court before ASJ Sharma..."
-                    className="w-full surface-inset border hairline rounded-xl p-2.5 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-purple-400 pr-10"
-                  />
+            {/* Option 1: Official eCourts CNR Search Bar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-sky-300 flex items-center gap-1.5">
+                  <Landmark size={13} className="text-sky-400" />
+                  <span>{t('1. Import via eCourts 16-Digit CNR', '1. 16-अंकीय CNR द्वारा eCourts से आयात करें', '1. 16-अंकी CNR द्वारे eCourts वरून आयात करा')}</span>
+                </label>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleToggleVoice}
-                    className={`absolute right-2.5 bottom-2.5 p-1.5 rounded-lg transition ${
-                      isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-white'
-                    }`}
-                    title="Speak case details"
+                    onClick={() => setShowApiKeyInput(prev => !prev)}
+                    className="text-[9.5px] font-mono text-sky-400 hover:underline"
                   >
-                    <Mic size={15} />
+                    {ecourtsApiKey ? '✓ Live API Token' : '🔑 API Token'}
                   </button>
+                  <a
+                    href="https://ecourtsindia.com/api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[9.5px] text-amber-300 hover:text-amber-200 underline inline-flex items-center gap-0.5"
+                  >
+                    <span>₹200 Free</span>
+                    <ExternalLink size={9} />
+                  </a>
                 </div>
-                {aiError && <p className="text-[11px] text-red-400">{aiError}</p>}
+              </div>
+
+              {showApiKeyInput && (
+                <div className="space-y-1.5 p-2 rounded-xl bg-black/40 border border-sky-500/30 text-[10px]">
+                  <div className="flex gap-1.5">
+                    <input
+                      type="password"
+                      value={ecourtsApiKey}
+                      onChange={e => setEcourtsApiKey(e.target.value)}
+                      placeholder="eci_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-mono text-white placeholder-neutral-500 focus:outline-none focus:border-sky-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        saveECourtsIndiaApiKey(ecourtsApiKey);
+                        setShowApiKeyInput(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={cnrInput}
+                  onChange={e => setCnrInput(e.target.value)}
+                  placeholder="Enter 16-char CNR (e.g. DLHC010049202022) or Case No..."
+                  className="flex-1 surface-inset border border-sky-500/30 rounded-xl px-3 py-2 text-xs font-mono text-main placeholder-neutral-500 focus:outline-none focus:border-sky-400"
+                />
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleLookupCNR()}
+                  loading={cnrLoading}
+                  className="shrink-0"
+                >
+                  {t('Fetch Docket', 'डॉक्युमेंट लाएं', 'दस्तावेज आणा')}
+                </Button>
+              </div>
+
+              {cnrError && (
+                <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-[11px] flex items-center gap-1.5">
+                  <AlertCircle size={13} className="shrink-0 text-red-400" />
+                  <span>{cnrError}</span>
+                </div>
+              )}
+
+              {/* Sample CNR Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[10px] text-neutral-400 shrink-0">Sample CNRs:</span>
+                {SAMPLE_ECOURTS_CNRS.slice(0, 3).map(s => (
+                  <button
+                    key={s.cnr}
+                    type="button"
+                    onClick={() => handleLookupCNR(s.cnr)}
+                    className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/25 shrink-0 transition"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Divider OR */}
+            <div className="flex items-center gap-2 py-0.5">
+              <div className="flex-1 h-[1px] bg-white/[0.08]" />
+              <span className="text-[10px] font-mono uppercase font-bold text-neutral-500">OR</span>
+              <div className="flex-1 h-[1px] bg-white/[0.08]" />
+            </div>
+
+            {/* Option 2: AI Voice / Paste Intake */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-purple-300 flex items-center gap-1.5">
+                  <Mic size={13} className="text-purple-400" />
+                  <span>{t('2. Speak or Paste Case Facts (AI Voice Intake)', '2. बोलकर या पेस्ट करके विवरण भरें (AI वॉयस)', '2. बोलून किंवा पेस्ट करून तपशील भरा (AI व्हॉइस)')}</span>
+                </label>
+                <span className="text-[9.5px] font-mono text-purple-400">Speech-to-Text</span>
+              </div>
+
+              <div className="relative">
+                <textarea
+                  rows={2}
+                  value={aiInputText}
+                  onChange={e => setAiInputText(e.target.value)}
+                  placeholder={t(
+                    'Dictate or paste: "Ramesh Sharma vs State, Bail under Sec 420 IPC at Tis Hazari Court..."',
+                    'बोलें या लिखें: "रमेश शर्मा बनाम राज्य, धारा 420 आईपीसी में जमानत, तीस हजारी कोर्ट..."',
+                    'बोला किंवा लिहा: "रमेश शर्मा विरुद्ध राज्य, कलम ४२० आयपीसी जामीन, तीस हजारी न्यायालय..."'
+                  )}
+                  className="w-full surface-inset border border-purple-500/30 rounded-xl p-2.5 text-xs text-main placeholder-neutral-500 focus:outline-none focus:border-purple-400 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={handleToggleVoice}
+                  className={`absolute right-2.5 bottom-2.5 p-1.5 rounded-lg transition ${
+                    isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-neutral-400 hover:text-white'
+                  }`}
+                  title="Speak case details"
+                >
+                  <Mic size={15} />
+                </button>
+              </div>
+
+              {aiError && <p className="text-[11px] text-red-400">{aiError}</p>}
+
+              {aiInputText.trim() && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   onClick={handleExtractWithAI}
                   loading={aiExtracting}
-                  disabled={!aiInputText.trim() || aiExtracting}
                   className="w-full"
                 >
-                  <Sparkles size={14} className="mr-1.5 text-purple-400" />
-                  <span>Extract & Auto-Fill Fields</span>
+                  <Sparkles size={13} className="mr-1.5 text-purple-400" />
+                  <span>{t('Extract & Pre-fill Below Fields', 'AI से विवरण निकालें व नीचे भरें', 'AI द्वारे तपशील काढा व खाली भरा')}</span>
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* eCourts CNR Import Block */}
-            {activeAssistMode === 'ecourts' && (
-              <div className="rounded-2xl border border-sky-500/30 overflow-hidden bg-sky-500/5 p-3.5 space-y-3 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Landmark size={16} className="text-sky-400" />
-                    <span className="text-xs font-bold text-white tracking-tight">Official eCourts Docket Importer</span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-mono font-semibold">
-                    16-DIGIT CNR / CIS
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-neutral-300 leading-relaxed">
-                  Enter the 16-character official eCourts <strong>CNR</strong> (e.g. <span className="font-mono text-sky-300">DLHC010049202022</span>), <strong>Case Number</strong> (e.g. <span className="font-mono text-amber-300">4920/2022</span>), or <strong>Party Name</strong> to auto-fill all court, registry, and party records.
-                </p>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={cnrInput}
-                    onChange={e => setCnrInput(e.target.value)}
-                    placeholder="Enter 16-char CNR, Case No. (e.g. 4920/2022), or Party..."
-                    className="flex-1 surface-inset border border-sky-500/30 rounded-xl px-3 py-2 text-xs font-mono text-main placeholder-neutral-500 focus:outline-none focus:border-sky-400"
-                  />
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleLookupCNR()}
-                    loading={cnrLoading}
-                  >
-                    Import Docket
-                  </Button>
-                </div>
-
-                {cnrError && (
-                  <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-[11px] flex items-center gap-1.5">
-                    <AlertCircle size={14} className="shrink-0 text-red-400" />
-                    <span>{cnrError}</span>
-                  </div>
-                )}
-
-                {/* Live eCourts API Key configuration */}
-                <div className="pt-2 border-t border-sky-500/20">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKeyInput(prev => !prev)}
-                      className="text-[11px] text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
-                    >
-                      <Key size={12} />
-                      <span>
-                        {ecourtsApiKey ? '✓ eCourts Live API Key Connected' : '🔑 Connect Live eCourts API (ecourtsindia.com)'}
-                      </span>
-                    </button>
-                    <a
-                      href="https://ecourtsindia.com/api"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-amber-300 hover:text-amber-200 underline inline-flex items-center gap-0.5"
-                    >
-                      <span>Get Free ₹200 Token</span>
-                      <ExternalLink size={10} />
-                    </a>
-                  </div>
-
-                  {showApiKeyInput && (
-                    <div className="mt-2 space-y-2 p-2.5 rounded-xl bg-black/40 border border-sky-500/30">
-                      <label className="text-[10px] font-semibold text-neutral-300 block">
-                        Enter eCourtsIndia API Bearer Token (<code className="text-sky-300">eci_live_...</code>):
-                      </label>
-                      <div className="flex gap-1.5">
-                        <input
-                          type="password"
-                          value={ecourtsApiKey}
-                          onChange={e => setEcourtsApiKey(e.target.value)}
-                          placeholder="eci_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                          className="flex-1 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-mono text-white placeholder-neutral-500 focus:outline-none focus:border-sky-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            saveECourtsIndiaApiKey(ecourtsApiKey);
-                            setShowApiKeyInput(false);
-                          }}
-                          className="px-3 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-bold text-xs"
-                        >
-                          Save
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 leading-normal">
-                        Token is securely saved locally and enables live, 100% authentic real-time CNR fetching across Indian High Courts, District Courts, and Supreme Court via <a href="https://ecourtsindia.com" target="_blank" rel="noopener noreferrer" className="text-sky-300 underline">ecourtsindia.com</a>.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Sample CNR Chips for Quick 1-Click Import */}
-                <div className="space-y-1.5 pt-1">
-                  <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">
-                    Quick-Test Real Dockets (Tap to Auto-Fill):
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SAMPLE_ECOURTS_CNRS.map(sample => (
-                      <button
-                        key={sample.cnr}
-                        type="button"
-                        onClick={() => handleLookupCNR(sample.cnr)}
-                        className="px-2 py-1 rounded-lg bg-white/[0.05] hover:bg-sky-400/20 border border-white/[0.1] hover:border-sky-400/50 text-[10px] text-neutral-300 hover:text-sky-300 transition text-left font-medium"
-                      >
-                        {sample.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <p className="text-[10px] text-neutral-400 italic">
+              ✍️ {t('Or simply edit/type directly into the dossier fields below.', 'या सीधे नीचे दिए गए फ़ील्ड में जानकारी भरें।', 'किंवा थेट खालील रकान्यांमध्ये माहिती भरा.')}
+            </p>
           </div>
         )}
 
@@ -907,7 +874,9 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
             </div>
             <div>
               <label className="text-xs font-semibold text-sub block mb-1">
-                {t('Initial Stage *', 'शुरुआती चरण (Dropdown)', 'प्रारंभिक टप्पा (Dropdown)')}
+                {isEditMode
+                  ? t('Procedural Stage *', 'प्रक्रियात्मक चरण *', 'प्रक्रियात्मक टप्पा *')
+                  : t('Initial Procedural Stage *', 'शुरुआती प्रक्रियात्मक चरण *', 'प्रारंभिक प्रक्रियात्मक टप्पा *')}
               </label>
               <select
                 value={stage}
@@ -935,7 +904,7 @@ export const NewCaseSheet: React.FC<NewCaseSheetProps> = ({
                 className="w-full bg-neutral-900 border hairline rounded-xl px-3 py-2 text-xs text-main focus:outline-none focus:border-amber-400 font-medium"
               >
                 <option value="Normal">{t('Normal Queue', 'सामान्य (Normal)', 'सामान्य (Normal)')}</option>
-                <option value="Urgent">{t('Urgent Queue (Dual Listed)', 'अत्यावश्यक (Urgent)', 'तातडीचे (Urgent)')}</option>
+                <option value="Urgent">{t('Urgent Queue', 'अत्यावश्यक (Urgent)', 'तातडीचे (Urgent)')}</option>
               </select>
             </div>
             <div>

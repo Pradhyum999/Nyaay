@@ -1052,6 +1052,63 @@ function generateIntelligentChambersAnswer(prompt: string, data: LawyerAIGroundi
       `You can review and send payment reminders directly from the Invoices tab.`;
   }
 
+  // Query: Legal Drafting (Section 138 Notice, Order 39 Injunction, Anticipatory Bail, Vakalatnama)
+  if (pLower.includes('draft') || pLower.includes('notice') || pLower.includes('injunction') || pLower.includes('bail')) {
+    if (pLower.includes('138') || pLower.includes('cheque') || pLower.includes('dishonour')) {
+      return `### 📜 Legal Draft: Section 138 NI Act Demand Notice\n\n` +
+        `**STATUTORY NOTICE UNDER SECTION 138 NEGOTIABLE INSTRUMENTS ACT, 1881**\n\n` +
+        `**To:** [Accused / Drawer Name & Address]\n\n` +
+        `**Under Instructions from:** [Complainant / Client Name]\n\n` +
+        `1. That you issued Cheque No. [Cheque Number] dated [Cheque Date] for ₹[Amount] drawn on [Bank Name] towards discharge of your existing legally enforceable debt and liability.\n` +
+        `2. That upon presentation, the said cheque was returned dishonoured with remark *"Funds Insufficient"* vide bank return memo dated [Return Memo Date].\n` +
+        `3. You are hereby called upon to pay the said sum of ₹[Amount] within **15 days** from the receipt of this statutory notice, failing which criminal proceedings under Section 138 NI Act read with Section 142 will be initiated before the competent court at your risk and consequence.`;
+    }
+
+    if (pLower.includes('order 39') || pLower.includes('injunction') || pLower.includes('stay')) {
+      return `### 🏛️ Legal Draft: Application under Order XXXIX Rule 1 & 2 CPC\n\n` +
+        `**IN THE COURT OF THE CIVIL JUDGE / DISTRICT JUDGE**\n\n` +
+        `**Suit No.:** [Suit Number]\n` +
+        `**Plaintiff vs. Defendant**\n\n` +
+        `**APPLICATION UNDER ORDER XXXIX RULES 1 & 2 READ WITH SECTION 151 CPC FOR AD-INTERIM EX-PARTE TEMPORARY INJUNCTION**\n\n` +
+        `1. That the Plaintiff has filed the accompanying suit for declaration and permanent injunction.\n` +
+        `2. That the Plaintiff has established a strong **prima facie case**, the **balance of convenience** lies in favour of the Plaintiff, and the Plaintiff will suffer **irreparable injury** if the status quo is altered.\n` +
+        `**Prayer:** Graciously grant temporary injunction restraining the Defendant from creating third-party interests or alienating the suit property during the pendency of this suit.`;
+    }
+
+    if (pLower.includes('bail') || pLower.includes('anticipatory') || pLower.includes('482') || pLower.includes('438')) {
+      return `### ⚖️ Legal Draft: Anticipatory Bail Petition (Section 482 BNSS / S.438 CrPC)\n\n` +
+        `**IN THE COURT OF SESSIONS / HIGH COURT OF JUDICATURE**\n\n` +
+        `**Bail Application No.:** [Number] of ${new Date().getFullYear()}\n` +
+        `**In re: FIR No.:** [FIR Number] at Police Station: [PS Name]\n\n` +
+        `**APPLICATION UNDER SECTION 482 BNSS FOR GRANT OF PRE-ARREST BAIL**\n\n` +
+        `1. That the applicant is a respectable citizen with clean antecedents and bona fide apprehension of arrest.\n` +
+        `2. That the dispute is predominantly civil/commercial in nature and does not warrant custodial interrogation.\n` +
+        `3. That the applicant undertakes to join and cooperate fully with the investigation whenever required.\n` +
+        `**Prayer:** Protect the applicant from arrest and direct release on anticipatory bail in the event of arrest.`;
+    }
+  }
+
+  // Query: Statutory Legal Sections & Procedural Timeline Lookup (BNS, BNSS, BSA, CPC, Limitation)
+  const statutoryHits = searchLegalSections(prompt);
+  if (statutoryHits.length > 0) {
+    const hit = statutoryHits[0];
+    return `### ⚖️ Statutory Section & Precedent Guidance\n\n` +
+      `• **Title:** ${hit.title}\n` +
+      `• **BNS Section (2023):** Section ${hit.bns}\n` +
+      `• **Corresponding IPC:** Section ${hit.ipc}\n` +
+      (hit.punishment ? `• **Prescribed Punishment:** ${hit.punishment}\n` : '') +
+      (hit.description ? `\n**Statutory Provision & Application:**\n${hit.description}\n` : '') +
+      `\n💡 *Grounded in Bharatiya Nyaya Sanhita, 2023 & Indian High Court procedural rules.*`;
+  }
+
+  if (pLower.includes('limitation') || pLower.includes('written statement') || pLower.includes('order viii')) {
+    return `### ⏱️ Procedural Limitation Guidance (Order VIII Rule 1 CPC)\n\n` +
+      `• **Initial Timeframe:** 30 days from the date of service of summons to file Written Statement.\n` +
+      `• **Extended Period:** The Court may permit filing up to a maximum of **90 days** from service upon recording reasons in writing.\n` +
+      `• **Commercial Courts Act:** For commercial disputes, the 120-day outer deadline is strictly mandatory (*SC in SCG Contracts India Pvt Ltd*).\n` +
+      `• **Recommendation:** File application for condonation of delay with supporting affidavit under Section 151 CPC if beyond 30 days.`;
+  }
+
   // Default helpful response with real chambers numbers and suggested actions
   return `### ⚖️ NYAAY AI Counsel\n\n` +
     `I am actively analyzing your **${cases.length} cases**, **${allHearings.length} hearings**, and practice records.\n\n` +

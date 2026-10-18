@@ -235,19 +235,19 @@ export const CitizenFeedbackModal: React.FC<CitizenFeedbackModalProps> = ({
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="w-full max-w-md bg-[#0E0F14] border border-amber-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 text-white max-h-[92vh] overflow-y-auto"
+          className="w-full max-w-lg bg-[#0E0F14] border border-amber-500/30 rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col gap-5 text-white max-h-[92vh] overflow-y-auto"
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                {activeTab === 'bug_report' ? <Bug size={18} /> : <MessageSquare size={18} />}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                {activeTab === 'bug_report' ? <Bug size={20} /> : <MessageSquare size={20} />}
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white tracking-tight">
+                <h3 className="text-base font-bold text-white tracking-tight">
                   {t('App Feedback & Bug Report', 'ऐप फीडबैक व बग रिपोर्ट', 'अ‍ॅप अभिप्राय आणि त्रुटी अहवाल')}
                 </h3>
-                <p className="text-[10px] text-neutral-400 font-mono">
+                <p className="text-[11px] text-neutral-400 font-mono">
                   {t('Sent directly to system administration', 'सिस्टम एडमिनिस्ट्रेशन को सीधे प्रेषित', 'थेट सिस्टम ॲडमिनला पाठवले जाते')}
                 </p>
               </div>
@@ -297,25 +297,25 @@ export const CitizenFeedbackModal: React.FC<CitizenFeedbackModalProps> = ({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {/* Category Segmented Switch */}
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-black/60 rounded-2xl border border-white/[0.08]">
+              <div className="grid grid-cols-2 gap-2 p-1.5 bg-black/60 rounded-2xl border border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setActiveTab('feedback')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
                     activeTab === 'feedback'
                       ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/20'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  <Star size={14} />
+                  <Star size={15} />
                   <span>{t('App Feedback', 'ऐप फीडबैक', 'अ‍ॅप अभिप्राय')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('bug_report')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 ${
                     activeTab === 'bug_report'
                       ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
                       : 'text-neutral-400 hover:text-white'

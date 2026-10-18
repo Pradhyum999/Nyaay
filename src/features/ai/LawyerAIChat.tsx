@@ -20,11 +20,11 @@ interface ChatMsg {
 }
 
 const SUGGESTED_PROMPTS = [
-  "Which number is larger, 9.11 or 9.8?",
-  "What hearings do I have scheduled for this week?",
-  "List all unpaid invoices and outstanding fees",
-  "Summarize urgent matters requiring immediate filing",
+  "Draft a Section 138 NI Act statutory demand notice",
+  "Summarize today's urgent cause list & pending hearings",
   "Draft an application under Order 39 Rule 1 & 2 CPC for injunction",
+  "List all unpaid invoices and outstanding client fees",
+  "What is the limitation period for filing Written Statement under CPC Order VIII?",
   "Which clients have pending procedural checklist tasks?"
 ];
 
@@ -150,11 +150,8 @@ export const LawyerAIChat: React.FC<LawyerAIChatProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-white tracking-tight font-display">NYAAY AI Counsel</h2>
-                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  openai/gpt-oss-20b
-                </span>
                 <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Live NIM
+                  Live
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 font-medium">

@@ -228,18 +228,21 @@ export const PREDEFINED_MATTER_CLASSIFICATIONS = [
 ];
 
 export const PREDEFINED_INITIAL_STAGES = [
+  'Pre-Filing / Statutory Legal Notice',
+  'Filing & Court Registry Scrutiny',
   'Admission / Preliminary Hearing',
   'Notice / Summons Issued',
+  'Interim Injunction / Stay Hearing',
+  'Bail Hearing / Police Report',
   'Written Statement / Reply Filing',
   'Framing of Issues / Charges',
   'Petitioner / Complainant Evidence',
+  'Cross-Examination of Witnesses',
   'Respondent / Defense Evidence',
   'Final Arguments',
   'Judgment / Final Order',
   'Execution of Decree / Order',
-  'Bail Hearing / Police Report',
-  'Interim Injunction / Stay Hearing',
-  'Cross-Examination of Witnesses',
+  'Disposed / Closed',
 ];
 
 export const POPULAR_ACTS_AND_SECTIONS = [

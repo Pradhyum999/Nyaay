@@ -12,6 +12,7 @@ import { ClientLawyerDirectory } from './components/client/ClientLawyerDirectory
 import { DirectChatView } from './components/chat/DirectChatView';
 import { ChatInboxView } from './components/chat/ChatInboxView';
 import { CitizenFeedbackModal } from './components/client/CitizenFeedbackModal';
+import { DeleteAccountModal } from './components/common/DeleteAccountModal';
 
 // NYAAY UX Refactor Core Pages & Shells
 import { TodayPage } from './features/today/TodayPage';
@@ -277,6 +278,7 @@ function AppContent() {
            localStorage.getItem('nyaay_admin_portal_authenticated') === 'true';
   });
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState<boolean>(false);
   const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState<boolean>(false);
   const [isFirmPortalOpen, setIsFirmPortalOpen] = useState<boolean>(false);
 
@@ -358,13 +360,17 @@ function AppContent() {
   const [selectedInvoiceCaseNumber, setSelectedInvoiceCaseNumber] = useState<string | null>(null);
 
   // Reset navigation to Home tab on every login/user switch (Bug 1)
+  const prevUidRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (user?.uid) {
-      setLawyerActiveTab('today');
-      setClientActiveTab('case');
-      setSelectedCaseNumber(null);
-      setActiveThread(null);
-      setSelectedInvoiceCaseNumber(null);
+      if (prevUidRef.current !== undefined && prevUidRef.current !== user.uid) {
+        setLawyerActiveTab('today');
+        setClientActiveTab('case');
+        setSelectedCaseNumber(null);
+        setActiveThread(null);
+        setSelectedInvoiceCaseNumber(null);
+      }
+      prevUidRef.current = user.uid;
     }
   }, [user?.uid]);
 
@@ -1227,7 +1233,7 @@ function AppContent() {
 
       {/* Main View: Direct Chat View or Role Views */}
       {activeThread ? (
-        <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
           <DirectChatView
             threadId={activeThread.threadId}
             currentUserId={user?.uid || 'guest'}
@@ -1427,6 +1433,7 @@ function AppContent() {
                   deleteAccount={async () => {
                     await deleteAccount();
                   }}
+                  cases={cases}
                 />
               )}
             </>
@@ -1608,6 +1615,7 @@ function AppContent() {
                   theme={theme}
                   onToggleTheme={handleToggleTheme}
                   onOpenFeedback={() => setIsFeedbackOpen(true)}
+                  onDeleteAccount={() => setIsDeleteAccountOpen(true)}
                   onSignOut={() => logout()}
                 />
               )}
@@ -1843,6 +1851,22 @@ function AppContent() {
           </div>
         </div>
       )}
+
+      {/* Delete Account Modal with mandatory reason questionnaire (Request Item 6) */}
+      <DeleteAccountModal
+        isOpen={isDeleteAccountOpen}
+        onClose={() => setIsDeleteAccountOpen(false)}
+        userName={profile?.name || user?.displayName || 'User'}
+        language={language}
+        onConfirmDelete={async (reason, details) => {
+          try {
+            await deleteAccount();
+          } catch (err) {
+            console.warn("Account delete error:", err);
+          }
+          setIsDeleteAccountOpen(false);
+        }}
+      />
     </AndroidFrame>
   );
 }

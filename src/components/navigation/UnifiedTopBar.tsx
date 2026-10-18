@@ -24,7 +24,6 @@ import {
   Settings as SettingsIcon,
   UserCheck,
 } from 'lucide-react';
-import { Sheet } from '../../design/ui/Sheet';
 import { AppNotification, Language, ThemeMode, UserRole } from '../../types';
 
 interface UnifiedTopBarProps {
@@ -99,31 +98,31 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full bg-white/95 dark:bg-black/90 backdrop-blur-2xl border-b border-neutral-200 dark:border-white/[0.08] px-4 py-1.5 sm:py-2 text-neutral-900 dark:text-white">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+      <header className="unified-top-bar sticky top-0 z-30 w-full bg-black dark:bg-black/95 backdrop-blur-2xl border-b border-white/[0.14] px-2.5 sm:px-4 py-1.5 sm:py-2 text-white shadow-md">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
           {/* Brand as Dropdown Menu Trigger - Displays logged-in lawyer name prominently */}
-          <div className="relative" ref={menuRef}>
+          <div className="relative min-w-0 flex-1 sm:flex-initial" ref={menuRef}>
             <button
               type="button"
               onClick={() => setShowMenu(prev => !prev)}
-              className="flex items-center gap-2 p-0.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/[0.06] transition text-left ios-press focus:outline-none"
+              className="flex items-center gap-1.5 p-0.5 rounded-xl hover:bg-white/[0.08] transition text-left ios-press focus:outline-none max-w-full"
               title={displayName}
             >
-              <div className="w-7 h-7 rounded-lg bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
-                <Scale size={15} />
+              <div className="w-7 h-7 rounded-lg bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-300 shrink-0">
+                <Scale size={14} />
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="flex flex-col text-left">
-                  <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white tracking-tight font-display truncate max-w-[150px] sm:max-w-[220px] leading-tight">
+              <div className="flex items-center gap-1 min-w-0">
+                <div className="flex flex-col text-left min-w-0">
+                  <span className="text-xs sm:text-sm font-bold text-white tracking-tight font-display truncate max-w-[95px] xs:max-w-[130px] sm:max-w-[200px] leading-tight">
                     {displayName}
                   </span>
-                  <span className="text-[9.5px] font-mono text-amber-600 dark:text-amber-400 font-semibold tracking-wider flex items-center gap-1 leading-tight">
+                  <span className="text-[9px] sm:text-[9.5px] font-mono text-amber-400 font-semibold tracking-wider flex items-center gap-1 leading-tight truncate">
                     NYAAYNEETI {userTag || (userRole === 'lawyer' ? (language === 'hi' ? 'काउंसिल' : language === 'mr' ? 'कौन्सिल' : 'Counsel') : (language === 'hi' ? 'नागरिक' : language === 'mr' ? 'नागरिक' : 'Client'))}
                   </span>
                 </div>
                 <ChevronDown
-                  size={13}
-                  className={`text-neutral-400 transition-transform ${showMenu ? 'rotate-180 text-amber-600 dark:text-amber-300' : ''}`}
+                  size={12}
+                  className={`text-neutral-400 shrink-0 transition-transform ${showMenu ? 'rotate-180 text-amber-300' : ''}`}
                 />
               </div>
             </button>
@@ -139,8 +138,8 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 </div>
 
                 <div className="px-2 py-1">
-                  <p className="text-xs font-bold text-white leading-tight truncate">{displayName}</p>
-                  <p className="text-[10px] text-neutral-400 font-mono">
+                  <p className="text-xs font-bold text-neutral-900 dark:text-white leading-tight truncate">{displayName}</p>
+                  <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-mono">
                     {barCouncilId || (userRole === 'lawyer' ? (language === 'hi' ? 'बार काउंसिल सत्यापित' : language === 'mr' ? 'बार कौन्सिल सत्यापित' : 'Bar Council Verified') : (language === 'hi' ? 'पंजीकृत उपयोगकर्ता' : language === 'mr' ? 'नोंदणीकृत वापरकर्ता' : 'Registered User'))}
                   </p>
                 </div>
@@ -163,18 +162,18 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
             )}
           </div>
 
-          {/* Action Icons: Ask NYAAY AI + Universal Search + Bell */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Action Icons: NyaayAI + Universal Search + Bell */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {onOpenLawyerAI && (
               <button
                 type="button"
                 onClick={onOpenLawyerAI}
-                aria-label="Ask NYAAY AI"
-                title="Ask NYAAY AI"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-bold text-xs shadow-md transition ios-press shrink-0 cursor-pointer"
+                aria-label="NyaayAI"
+                title="NyaayAI"
+                className="flex items-center gap-1 px-2 py-1.5 sm:px-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-bold text-xs shadow-md transition ios-press shrink-0 cursor-pointer"
               >
-                <Sparkles size={14} className="text-black animate-pulse shrink-0" />
-                <span className="font-sans font-bold text-xs tracking-tight whitespace-nowrap">Ask NYAAY AI</span>
+                <Sparkles size={13} className="text-black animate-pulse shrink-0" />
+                <span className="font-sans font-bold text-[11px] sm:text-xs tracking-tight whitespace-nowrap">NyaayAI</span>
               </button>
             )}
 
@@ -183,142 +182,187 @@ export const UnifiedTopBar: React.FC<UnifiedTopBarProps> = ({
                 type="button"
                 onClick={onOpenSearch}
                 aria-label={language === 'hi' ? 'सार्वभौमिक खोज' : language === 'mr' ? 'सार्वत्रिक शोध' : 'Universal Search'}
-                className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-neutral-300 hover:text-white flex items-center justify-center transition ios-press"
+                className="w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] sm:min-w-[36px] rounded-xl bg-white/[0.1] hover:bg-white/[0.18] text-white flex items-center justify-center transition ios-press border border-white/[0.16] shrink-0"
               >
-                <Search size={16} />
+                <Search size={15} />
               </button>
             )}
 
+            {/* Notification Bell Button - Top Right Corner */}
             <button
               type="button"
               onClick={() => setShowNotifications(true)}
               aria-label={language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'Notifications'}
-              className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-neutral-300 hover:text-white flex items-center justify-center transition ios-press relative"
+              title={language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'Notifications'}
+              className="w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] sm:min-w-[36px] rounded-xl bg-white/[0.1] hover:bg-white/[0.18] text-white hover:text-amber-300 flex items-center justify-center transition ios-press relative border border-white/[0.16] shadow-sm shrink-0 cursor-pointer mr-0.5"
             >
               <Bell size={16} />
-              {unreadAlertCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              {((unreadAlertCount || 0) + notifications.filter(n => !n.read).length) > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-red-500 text-white text-[8.5px] font-bold font-mono flex items-center justify-center border-2 border-white dark:border-black shadow-sm animate-pulse">
+                  {((unreadAlertCount || 0) + notifications.filter(n => !n.read).length) > 9 ? '9+' : ((unreadAlertCount || 0) + notifications.filter(n => !n.read).length)}
+                </span>
               )}
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── Notification Center Sheet ── */}
-      {(() => {
-        const unreadNotifications = notifications.filter(n => !n.read);
-        const hasNotifications = notifications.length > 0;
-        return (
-          <Sheet
-            open={showNotifications}
-            onOpenChange={setShowNotifications}
-            title={language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'Notification Center'}
-            description={
-              unreadNotifications.length > 0
-                ? `${unreadNotifications.length} ${language === 'hi' ? 'अपठित सूचनाएं' : language === 'mr' ? 'न वाचलेल्या सूचना' : 'unread updates'}`
-                : hasNotifications
-                ? `${notifications.length} ${language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'notifications'}`
-                : (language === 'hi' ? 'कोई अपठित सूचना नहीं है' : language === 'mr' ? 'कोणतीही न वाचलेली सूचना नाही' : 'No unread notifications')
-            }
-          >
-            {/* Top Toolbar with count & Dismiss All button */}
-            {hasNotifications && (
-              <div className="flex items-center justify-between pb-2 border-b border-white/[0.08] mb-1">
-                <span className="text-[11px] font-mono text-neutral-400">
-                  {notifications.length} {notifications.length === 1 ? (language === 'hi' ? 'सूचना' : language === 'mr' ? 'सूचना' : 'alert') : (language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'alerts')} {unreadNotifications.length > 0 ? `(${unreadNotifications.length} ${language === 'hi' ? 'अपठित' : language === 'mr' ? 'न वाचलेले' : 'unread'})` : ''}
-                </span>
-                {onDismissAllNotifications && (
+      {/* ── Top-Down Notification Drawer (Opens from top, slidable both left & right) ── */}
+      <AnimatePresence>
+        {showNotifications && (() => {
+          const unreadNotifications = notifications.filter(n => !n.read);
+          const hasNotifications = notifications.length > 0;
+          return (
+            <>
+              {/* Dark backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowNotifications(false)}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              />
+
+              {/* Notification Shade sliding down from top */}
+              <motion.div
+                initial={{ y: -60, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -60, opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+                className="fixed top-0 left-0 right-0 z-50 max-w-lg mx-auto bg-neutral-900 border-b border-white/[0.15] rounded-b-3xl shadow-2xl p-4 sm:p-5 max-h-[85vh] flex flex-col text-white"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/35 flex items-center justify-center text-amber-300">
+                      <Bell size={16} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-tight">
+                        {language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'Notification Center'}
+                      </h3>
+                      <p className="text-[10px] text-neutral-400 font-mono">
+                        {unreadNotifications.length > 0
+                          ? `${unreadNotifications.length} ${language === 'hi' ? 'अपठित सूचनाएं' : language === 'mr' ? 'न वाचलेल्या सूचना' : 'unread updates'}`
+                          : hasNotifications
+                          ? `${notifications.length} ${language === 'hi' ? 'सूचनाएं' : language === 'mr' ? 'सूचना' : 'notifications'}`
+                          : (language === 'hi' ? 'कोई अपठित सूचना नहीं है' : language === 'mr' ? 'कोणतीही न वाचलेली सूचना नाही' : 'No unread notifications')}
+                      </p>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => {
-                      onDismissAllNotifications();
-                    }}
-                    className="text-xs font-mono font-semibold text-amber-400 hover:text-amber-300 transition ios-press flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/10 border border-amber-400/20"
+                    onClick={() => setShowNotifications(false)}
+                    className="p-1.5 rounded-xl hover:bg-white/[0.08] text-neutral-400 hover:text-white transition ios-press"
+                    aria-label="Close"
                   >
-                    <Trash2 size={12} />
-                    <span>{language === 'hi' ? 'सभी हटाएं' : language === 'mr' ? 'सर्व काढा' : 'Dismiss All'}</span>
+                    <X size={18} />
                   </button>
+                </div>
+
+                {/* Toolbar */}
+                {hasNotifications && (
+                  <div className="flex items-center justify-between py-2 border-b border-white/[0.06] my-1">
+                    <span className="text-[11px] font-mono text-neutral-400">
+                      {notifications.length} {notifications.length === 1 ? 'alert' : 'alerts'} {unreadNotifications.length > 0 ? `(${unreadNotifications.length} unread)` : ''}
+                    </span>
+                    {onDismissAllNotifications && (
+                      <button
+                        type="button"
+                        onClick={() => onDismissAllNotifications()}
+                        className="text-xs font-mono font-semibold text-amber-400 hover:text-amber-300 transition ios-press flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/10 border border-amber-400/20"
+                      >
+                        <Trash2 size={12} />
+                        <span>{language === 'hi' ? 'सभी हटाएं' : language === 'mr' ? 'सर्व काढा' : 'Dismiss All'}</span>
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            {!hasNotifications ? (
-              <div className="p-8 text-center text-sub text-xs">
-                {language === 'hi'
-                  ? 'कोई नई सूचना नहीं है'
-                  : language === 'mr'
-                  ? 'कोणतीही नवीन सूचना नाही'
-                  : 'All caught up! No recent alerts.'}
-              </div>
-            ) : (
-              <div className="space-y-2 overflow-hidden">
-                <p className="text-[10px] text-neutral-500 font-mono italic">
-                  👉 {language === 'hi' ? 'हटाने के लिए बाईं ओर स्लाइड करें या ✕ दबाएं' : language === 'mr' ? 'काढण्यासाठी डावीकडे स्वाइप करा किंवा ✕ दाबा' : 'Slide left or tap ✕ to dismiss'}
-                </p>
-                <AnimatePresence mode="popLayout">
-                  {notifications.map(n => (
-                    <motion.div
-                      key={n.id}
-                      layout
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -240, height: 0, marginBottom: 0, padding: 0 }}
-                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                      drag="x"
-                      dragConstraints={{ left: -140, right: 0 }}
-                      dragElastic={0.2}
-                      onDragEnd={(_, info) => {
-                        if (info.offset.x < -50 || info.velocity.x < -200) {
-                          if (onDismissNotification) {
-                            onDismissNotification(n.id);
-                          }
-                        }
-                      }}
-                      onClick={() => {
-                        if (onNotificationClick) {
-                          onNotificationClick(n);
-                          setShowNotifications(false);
-                        }
-                      }}
-                      className={`relative p-3.5 rounded-2xl border transition ios-press flex items-start justify-between gap-3 cursor-grab active:cursor-grabbing select-none ${
-                        n.read
-                          ? 'bg-white/[0.02] border-white/[0.06] text-neutral-400'
-                          : 'bg-white/[0.06] border-white/[0.14] text-white shadow-sm'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold">{n.title}</span>
-                          {!n.read && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-neutral-400 mt-0.5 line-clamp-2">
-                          {n.message}
-                        </p>
-                      </div>
+                {/* Notification Items */}
+                <div className="flex-1 overflow-y-auto min-h-0 pt-2 space-y-2">
+                  {!hasNotifications ? (
+                    <div className="p-8 text-center text-neutral-400 text-xs">
+                      {language === 'hi'
+                        ? 'कोई नई सूचना नहीं है'
+                        : language === 'mr'
+                        ? 'कोणतीही नवीन सूचना नाही'
+                        : 'All caught up! No recent alerts.'}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-neutral-400 font-mono italic">
+                        👉 {language === 'hi' ? 'हटाने के लिए दोनों तरफ (बाएं या दाएं) स्लाइड करें या ✕ दबाएं' : language === 'mr' ? 'काढण्यासाठी डावीकडे किंवा उजवीकडे स्वाइप करा' : 'Slide left or right to dismiss, or tap ✕'}
+                      </p>
+                      <AnimatePresence mode="popLayout">
+                        {notifications.map(n => (
+                          <motion.div
+                            key={n.id}
+                            layout
+                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, height: 0, marginBottom: 0, padding: 0 }}
+                            transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                            drag="x"
+                            dragConstraints={{ left: -220, right: 220 }}
+                            dragElastic={0.4}
+                            onDragEnd={(_, info) => {
+                              // Slidable BOTH left and right
+                              if (Math.abs(info.offset.x) > 60 || Math.abs(info.velocity.x) > 200) {
+                                if (onDismissNotification) {
+                                  onDismissNotification(n.id);
+                                }
+                              }
+                            }}
+                            onClick={() => {
+                              if (onNotificationClick) {
+                                onNotificationClick(n);
+                                setShowNotifications(false);
+                              }
+                            }}
+                            className={`relative p-3.5 rounded-2xl border transition ios-press flex items-start justify-between gap-3 cursor-grab active:cursor-grabbing select-none ${
+                              n.read
+                                ? 'bg-white/[0.02] border-white/[0.06] text-neutral-400'
+                                : 'bg-white/[0.06] border-white/[0.14] text-white shadow-sm'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold">{n.title}</span>
+                                {!n.read && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-neutral-400 mt-0.5 line-clamp-2">
+                                {n.message}
+                              </p>
+                            </div>
 
-                      {onDismissNotification && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDismissNotification(n.id);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-neutral-400 hover:text-red-300 transition shrink-0 ios-press"
-                          title="Dismiss"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </Sheet>
-        );
-      })()}
+                            {onDismissNotification && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDismissNotification(n.id);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-red-500/20 text-neutral-400 hover:text-red-300 transition shrink-0 ios-press"
+                                title="Dismiss"
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
     </>
   );
 };

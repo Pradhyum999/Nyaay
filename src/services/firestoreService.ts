@@ -1308,11 +1308,13 @@ export function subscribeToUserThreads(
   role: 'lawyer' | 'client',
   callback: (threads: DirectThread[]) => void
 ) {
-  const field = role === 'lawyer' ? 'lawyerId' : 'clientId';
-  const q = query(
-    collection(db, 'threads'),
-    where(field, '==', userId)
-  );
+  const isLawyer = role === 'lawyer';
+  // If lawyer, query for their user ID or common lawyer alias handles ('firm', 'lawyer-rajesh-sharma')
+  const lawyerTargets = [userId, 'firm', 'lawyer-rajesh-sharma', 'lawyer_rajesh_sharma'];
+  const q = isLawyer
+    ? query(collection(db, 'threads'), where('lawyerId', 'in', Array.from(new Set(lawyerTargets))))
+    : query(collection(db, 'threads'), where('clientId', '==', userId));
+
   return onSnapshot(q, snap => {
     const list = snap.docs.map(d => {
       const data = d.data() as any;
@@ -1331,10 +1333,11 @@ export function subscribeToUserThreads(
       } as DirectThread;
     });
 
-    // Filter out test noise / gibberish threads (Bug 10: "Pradyumna Bharadwaj: Jsj")
+    // Keep all legitimate user threads, only filter empty junk without subject
     const cleanList = list.filter(t => {
       const msg = (t.lastMessage || '').trim().toLowerCase();
-      if (msg === 'jsj' || msg === 'test' || msg === 'asdf') return false;
+      const subject = (t.matterSubject || '').trim().toLowerCase();
+      if ((msg === 'jsj' || msg === 'asdf') && !subject) return false;
       return true;
     });
 
@@ -1417,6 +1420,23 @@ export async function engageAdvocate(params: {
     lawyerEmail: params.lawyerEmail || '',
     notifyAdminEmail: 'admin@nyaayneeti.in',
   });
+
+  // Create or update AI Brief Inquiry record so it appears in the advocate's Inquiries tab
+  try {
+    await addDoc(collection(db, 'ai_briefs'), {
+      clientId: params.clientId,
+      clientName: params.clientName,
+      clientPhone: params.clientPhone,
+      matterType: params.matterSubject,
+      summaryText: params.aiBriefText || `Client initiated consultation regarding ${params.matterSubject}.`,
+      status: 'pending',
+      lawyerId: params.lawyerId,
+      threadId,
+      createdAt: serverTimestamp(),
+    });
+  } catch (inqErr) {
+    console.warn("Could not write ai_briefs inquiry:", inqErr);
+  }
 
   return threadId;
 }

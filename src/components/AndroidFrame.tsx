@@ -39,9 +39,9 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
   // ── ON REAL SMARTPHONES OR TABLETS: ALWAYS FULL-SCREEN ────────────────────
   if (!isWideScreen) {
     return (
-      <div className="min-h-screen w-full surface-page text-main flex flex-col relative">
+      <div className="h-screen h-[100dvh] w-full surface-page text-main flex flex-col relative overflow-hidden">
         {/* Full-screen Content (Zero mock device borders or punch-holes) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full h-full">
           {children}
         </div>
       </div>
@@ -106,7 +106,7 @@ export const AndroidFrame: React.FC<AndroidFrameProps> = ({
         className={`w-full transition-all duration-300 surface-page flex flex-col overflow-hidden relative shadow-[0_25px_70px_rgba(0,0,0,0.8)] ${
           showFrame
             ? 'max-w-[420px] h-[890px] max-h-[92vh] rounded-[48px] border-[9px] border-[#1C1D22] ring-1 ring-white/[0.12]'
-            : 'max-w-4xl min-h-[88vh] rounded-3xl border border-white/[0.08]'
+            : 'max-w-4xl h-[88vh] max-h-[88vh] rounded-3xl border border-white/[0.08]'
         }`}
       >
         {/* Dynamic Island bar only in desktop mockup mode */}

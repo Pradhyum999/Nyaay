@@ -41,16 +41,16 @@ export function Segmented<T extends string = string>({
             ref={active ? activeBtnRef : undefined}
             type="button"
             onClick={() => onChange(item.id)}
-            className={`shrink-0 sm:shrink sm:flex-1 min-w-max px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 whitespace-nowrap select-none ios-press ${
+            className={`flex-1 min-w-0 px-2 sm:px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 whitespace-nowrap select-none ios-press ${
               active
                 ? 'bg-amber-400 text-black font-bold shadow-md ring-1 ring-amber-400/50'
                 : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
-            <span>{item.label}</span>
-            {item.badge !== undefined && (
+            <span className="truncate">{item.label}</span>
+            {item.badge !== undefined && item.badge !== 0 && item.badge !== '0' && (
               <span
-                className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
+                className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
                   active ? 'bg-black/20 text-black' : 'bg-white/[0.1] text-neutral-300'
                 }`}
               >

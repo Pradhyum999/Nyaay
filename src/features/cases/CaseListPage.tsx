@@ -97,9 +97,9 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
         />
       </div>
 
-      {/* ── Option Panel with balanced alignment (Bug 8) ── */}
-      <div className="grid grid-cols-4 gap-2 bg-neutral-900/60 p-1.5 rounded-2xl border border-white/[0.08]">
-        {(['all', 'active', 'urgent', 'closed'] as const).map(tab => (
+      {/* ── Option Panel with balanced alignment (Bug 8 & Request Item 2) ── */}
+      <div className="grid grid-cols-4 gap-1.5 bg-neutral-900/60 p-1.5 rounded-2xl border border-white/[0.08]">
+        {(['all', 'normal', 'urgent', 'closed'] as const).map(tab => (
           <button
             key={tab}
             type="button"
@@ -111,11 +111,11 @@ export const CaseListPage: React.FC<CaseListPageProps> = ({
             }`}
           >
             {tab === 'all'
-              ? (language === 'hi' ? 'सभी' : language === 'mr' ? 'सर्व' : 'All')
-              : tab === 'active'
-              ? (language === 'hi' ? 'सक्रिय' : language === 'mr' ? 'सक्रिय' : 'Active')
+              ? (language === 'hi' ? 'सभी केस' : language === 'mr' ? 'सर्व खटले' : 'All Cases')
+              : tab === 'normal'
+              ? (language === 'hi' ? 'सामान्य कतार' : language === 'mr' ? 'सामान्य रांग' : 'Normal Queue')
               : tab === 'urgent'
-              ? (language === 'hi' ? 'अत्यावश्यक' : language === 'mr' ? 'तातडीचे' : 'Urgent')
+              ? (language === 'hi' ? 'अत्यावश्यक' : language === 'mr' ? 'तातडीचे' : 'Urgent Queue')
               : (language === 'hi' ? 'बंद' : language === 'mr' ? 'बंद' : 'Closed')}
           </button>
         ))}

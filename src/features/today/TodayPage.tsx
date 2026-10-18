@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { HearingCard } from '../hearings/HearingCard';
 import { LogOrderSheet, LogOrderData } from '../hearings/LogOrderSheet';
 import { HearingFormSheet } from '../hearings/HearingFormSheet';
@@ -115,19 +115,30 @@ export const TodayPage: React.FC<TodayPageProps> = ({
     } catch {}
   };
 
-  // 7-day week strip dates with week offset navigation
+  // Slidable week strip dates (21-day window centered on current offset)
   const weekDays = useMemo(() => {
     const today = new Date();
     const startOfWeek = new Date(today);
-    // start 2 days before today + offset
-    startOfWeek.setDate(today.getDate() - 2 + (weekOffset * 7));
+    // start 7 days before today + offset
+    startOfWeek.setDate(today.getDate() - 7 + (weekOffset * 7));
 
-    return Array.from({ length: 7 }, (_, i) => {
+    return Array.from({ length: 21 }, (_, i) => {
       const d = new Date(startOfWeek);
       d.setDate(startOfWeek.getDate() + i);
       return d;
     });
   }, [weekOffset]);
+
+  const weekStripRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll selected day into center view on week strip
+  useEffect(() => {
+    const dateStr = getISTDateString(selectedDate);
+    const targetEl = document.getElementById(`week-day-${dateStr}`);
+    if (targetEl && weekStripRef.current) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [selectedDate, weekOffset]);
 
   const isSameDay = (d1: Date, d2: Date) => {
     return isSameDayIST(d1, d2);
@@ -269,6 +280,43 @@ export const TodayPage: React.FC<TodayPageProps> = ({
   const upcomingDeadlinesCount = useMemo(() => {
     return limitationAlerts.filter(a => a.severity === 'critical' || a.daysRemaining <= 7).length;
   }, [limitationAlerts]);
+
+  // Navigate to most recent pending task date (or do nothing if no pending tasks)
+  const handlePendingTasksClick = () => {
+    const pending = dailyTasks.filter(t => !t.completed && t.date);
+    if (pending.length === 0) {
+      return;
+    }
+
+    let targetDateStr = '';
+    const hasToday = pending.some(t => t.date === todayISTStr);
+    if (hasToday) {
+      targetDateStr = todayISTStr;
+    } else {
+      const sortedByProximity = [...pending].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        const now = new Date(todayISTStr).getTime();
+        const diffA = Math.abs(timeA - now);
+        const diffB = Math.abs(timeB - now);
+        if (diffA !== diffB) return diffA - diffB;
+        return timeB - timeA;
+      });
+      targetDateStr = sortedByProximity[0].date;
+    }
+
+    if (targetDateStr) {
+      const [y, m, d] = targetDateStr.split('-').map(Number);
+      const targetDate = new Date(y, m - 1, d);
+      setSelectedDate(targetDate);
+      setViewMode('timeline');
+
+      const today = new Date();
+      const diffDays = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const targetOffset = Math.floor(diffDays / 7);
+      setWeekOffset(targetOffset);
+    }
+  };
 
   const handleSaveOrder = (data: LogOrderData) => {
     if (activeLogOrderHearing && onUpdateHearingOrder) {
@@ -413,10 +461,7 @@ export const TodayPage: React.FC<TodayPageProps> = ({
         </div>
 
         <div
-          onClick={() => {
-            setSelectedDate(new Date());
-            setViewMode('timeline');
-          }}
+          onClick={handlePendingTasksClick}
           className="p-3 rounded-2xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] hover:border-sky-400/40 cursor-pointer transition ios-press flex flex-col justify-between gap-1 shadow-sm"
         >
           <div className="flex items-center justify-between">
@@ -534,17 +579,29 @@ export const TodayPage: React.FC<TodayPageProps> = ({
                 <div className="flex items-center gap-1 bg-white/[0.04] rounded-lg p-0.5 border border-white/[0.06]">
                   <button
                     type="button"
-                    onClick={() => setWeekOffset(prev => prev - 1)}
+                    onClick={() => {
+                      if (weekStripRef.current) {
+                        weekStripRef.current.scrollBy({ left: -220, behavior: 'smooth' });
+                      } else {
+                        setWeekOffset(prev => prev - 1);
+                      }
+                    }}
                     className="p-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition"
-                    title={t('Previous Week', 'पिछला सप्ताह', 'मागील आठवडा')}
+                    title={t('Previous', 'पिछला', 'मागील')}
                   >
                     <ChevronLeft size={13} />
                   </button>
                   <button
                     type="button"
-                    onClick={() => setWeekOffset(prev => prev + 1)}
+                    onClick={() => {
+                      if (weekStripRef.current) {
+                        weekStripRef.current.scrollBy({ left: 220, behavior: 'smooth' });
+                      } else {
+                        setWeekOffset(prev => prev + 1);
+                      }
+                    }}
                     className="p-1 rounded hover:bg-white/10 text-neutral-300 hover:text-white transition"
-                    title={t('Next Week', 'अगला सप्ताह', 'पुढील आठवडा')}
+                    title={t('Next', 'अगला', 'पुढील')}
                   >
                     <ChevronRight size={13} />
                   </button>
@@ -562,21 +619,28 @@ export const TodayPage: React.FC<TodayPageProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {/* Slidable Horizontal Week Strip */}
+            <div
+              ref={weekStripRef}
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 scroll-smooth touch-pan-x snap-x select-none"
+              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
               {weekDays.map(day => {
                 const isSelected = isSameDay(day, selectedDate);
                 const isCurrentToday = isSameDay(day, new Date());
                 const hearingCount = getHearingCountForDate(day);
                 const taskCount = getTaskCountForDate(day);
+                const dStr = getISTDateString(day);
 
                 return (
                   <button
-                    key={getISTDateString(day)}
+                    key={dStr}
+                    id={`week-day-${dStr}`}
                     type="button"
                     onClick={() => setSelectedDate(day)}
-                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-1 rounded-2xl border transition ios-press select-none w-full ${
+                    className={`flex flex-col items-center justify-center py-2 sm:py-2.5 px-3 min-w-[54px] sm:min-w-[62px] rounded-2xl border transition ios-press select-none shrink-0 snap-center ${
                       isSelected
-                        ? 'bg-[#111216] dark:bg-white text-white dark:text-black border-2 border-amber-400 shadow-md scale-[1.02]'
+                        ? 'bg-[#111216] dark:bg-white text-white dark:text-black border-2 border-amber-400 shadow-md scale-[1.03]'
                         : isCurrentToday
                         ? 'border-2 border-amber-400/60 bg-amber-400/10 text-main'
                         : 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06] text-neutral-300'

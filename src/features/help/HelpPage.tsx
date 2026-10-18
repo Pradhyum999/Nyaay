@@ -29,7 +29,7 @@ export const HelpPage: React.FC<HelpPageProps> = ({
     setProfile(generatedProfile);
     const matched = matchLawyers(generatedProfile, lawyers, 3);
     setMatches(matched);
-    setStep('matched');
+    // Keep user in chat so they can continue sending messages like WhatsApp
   };
 
   return (
@@ -56,8 +56,26 @@ export const HelpPage: React.FC<HelpPageProps> = ({
 
       {/* ── Step 1: AI Legal Consultation ── */}
       {step === 'intake' && (
-        <div className="space-y-4">
-          <div className="h-[620px] rounded-3xl overflow-hidden border border-slate-200 dark:border-white/[0.1] bg-[#EEF2F6] dark:bg-neutral-950/80 shadow-lg">
+        <div className="space-y-3">
+          {matches.length > 0 && (
+            <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-2.5 px-4 flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <Sparkles size={15} className="text-amber-400 shrink-0" />
+                <span className="text-xs font-semibold text-amber-200">
+                  {matches.length} {language === 'hi' ? 'सत्यापित अधिवक्ता मिले' : 'Verified Advocates Matched for Your Issue'}
+                </span>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setStep('matched')}
+                className="text-xs !py-1 !px-3"
+              >
+                {language === 'hi' ? 'वकील देखें →' : 'View Advocates →'}
+              </Button>
+            </div>
+          )}
+          <div className="h-[620px] rounded-3xl overflow-hidden border border-slate-200 dark:border-white/[0.1] bg-[#EEF2F6] dark:bg-neutral-950/80 shadow-lg flex flex-col">
             <ClientAIConsultation
               language={language}
               onCaseProfileReady={handleProfileReady}

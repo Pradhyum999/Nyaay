@@ -88,7 +88,7 @@ export const InboxPage: React.FC<InboxPageProps> = ({
       if (!t) return false;
       const rawMsg = t.lastMessage || t.matterSubject || '';
       const msg = (typeof rawMsg === 'string' ? rawMsg : String(rawMsg)).trim().toLowerCase();
-      if (msg === 'jsj' || msg === 'asdf' || msg === 'test' || msg === 'hello adv. adv.') return false;
+      if ((msg === 'jsj' || msg === 'asdf') && !t.matterSubject) return false;
       return true;
     });
 
