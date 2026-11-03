@@ -28,6 +28,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
+
+// Allow seamless phone auth testing on localhost / 127.0.0.1 without reCAPTCHA prompt
+if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+  auth.settings.appVerificationDisabledForTesting = true;
+}
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
