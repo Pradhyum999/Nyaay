@@ -1,13 +1,16 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { 
   auth, 
   onAuthStateChanged, 
   GoogleAuthProvider, 
+  signInWithPhoneNumber, 
+  RecaptchaVerifier, 
   signInWithPopup, 
   signOut,
-  User
+  User,
+  ConfirmationResult
 } from '../lib/firebase';
-import { getUserProfile, getUserProfileByEmail, createUserProfile, purgeAllCitizenData, UserProfile } from '../services/firestoreService';
+import { getUserProfile, getUserProfileByEmail, purgeAllCitizenData, UserProfile } from '../services/firestoreService';
 import { DEMO_ACCOUNTS } from '../config/demoAccounts';
 
 interface AuthContextType {
@@ -23,6 +26,8 @@ interface AuthContextType {
   updateProfile: (data: Partial<UserProfile>) => void;
 }
 
+const recaptchaContainerId = 'recaptcha-auth-container';
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,7 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [pendingPhone, setPendingPhone] = useState<string>('');
+  const [, setPendingPhone] = useState<string>('');
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -45,31 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // 2. Check if phone auth session is active
-    const savedPhone = localStorage.getItem('nyaay_phone_auth');
-    if (savedPhone) {
-      try {
-        const parsed = JSON.parse(savedPhone);
-        if (parsed?.uid) {
-          const phoneUser = {
-            uid: parsed.uid,
-            phoneNumber: parsed.phone,
-            displayName: `User ${parsed.uid.slice(-4)}`,
-            email: null,
-          } as unknown as User;
-          setUser(phoneUser);
-          getUserProfile(parsed.uid).then((p) => {
-            if (mounted) {
-              setProfile(p);
-              setLoading(false);
-            }
-          });
-          return;
-        }
-      } catch {}
-    }
-
-    // 3.5-second safety timer so loading never hangs indefinitely
+    // 2. 3.5-second safety timer so loading never hangs indefinitely
     const safetyTimer = setTimeout(() => {
       if (mounted) setLoading(false);
     }, 3500);
@@ -124,31 +107,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithPhone = async (phone: string): Promise<string> => {
     localStorage.removeItem('nyaay_demo_account');
     setPendingPhone(phone);
-    return `vid-${Date.now()}`;
+
+    try {
+      // 1. Ensure recaptcha container element exists in the DOM
+      let container = document.getElementById(recaptchaContainerId);
+      if (!container) {
+        container = document.createElement('div');
+        container.id = recaptchaContainerId;
+        document.body.appendChild(container);
+      }
+
+      // 2. Clear any prior verifier instance to prevent re-render collisions
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch {}
+        recaptchaVerifierRef.current = null;
+      }
+
+      // 3. Initialize RecaptchaVerifier with auth as first param (Firebase modular SDK v9+)
+      const appVerifier = new RecaptchaVerifier(auth, recaptchaContainerId, {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA solved
+        },
+        'expired-callback': () => {
+          if (recaptchaVerifierRef.current) {
+            try {
+              recaptchaVerifierRef.current.clear();
+            } catch {}
+            recaptchaVerifierRef.current = null;
+          }
+        },
+      });
+
+      recaptchaVerifierRef.current = appVerifier;
+
+      // 4. Send SMS via Firebase Phone Auth
+      const confirmationResult = await signInWithPhoneNumber(auth, phone, appVerifier);
+      confirmationResultRef.current = confirmationResult;
+
+      return confirmationResult.verificationId;
+    } catch (err: any) {
+      console.error('Firebase Phone Auth signIn error:', err);
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch {}
+        recaptchaVerifierRef.current = null;
+      }
+      throw err;
+    }
   };
 
-  const verifyOTP = async (_verificationId: string, otp: string): Promise<void> => {
+  const verifyOTP = async (verificationId: string, otp: string): Promise<void> => {
     localStorage.removeItem('nyaay_demo_account');
-    if (!otp || otp.trim().length < 4) {
-      throw new Error('Please enter a valid OTP code');
+    if (!otp || otp.trim().length < 6) {
+      throw new Error('Please enter the complete 6-digit OTP code');
     }
-    const cleanDigits = (pendingPhone || '9876543210').replace(/\D/g, '');
-    const phoneUid = `phone-${cleanDigits}`;
-    const phoneUser = {
-      uid: phoneUid,
-      phoneNumber: pendingPhone || '+91 98765 43210',
-      displayName: `User ${cleanDigits.slice(-4)}`,
-      email: null,
-    } as unknown as User;
 
-    setUser(phoneUser);
-    localStorage.setItem('nyaay_phone_auth', JSON.stringify({ uid: phoneUid, phone: pendingPhone }));
+    try {
+      const confirmationResult = confirmationResultRef.current;
+      if (!confirmationResult) {
+        throw new Error('No active verification session. Please request a new OTP code.');
+      }
 
-    let p = await getUserProfile(phoneUid);
-    if (p) {
-      setProfile(p);
-    } else {
-      setProfile(null);
+      // Confirm the OTP code directly with Firebase
+      const userCredential = await confirmationResult.confirm(otp.trim());
+      const currentUser = userCredential.user;
+
+      setUser(currentUser);
+
+      // Clean up verifier
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch {}
+        recaptchaVerifierRef.current = null;
+      }
+      confirmationResultRef.current = null;
+
+      let p = await getUserProfile(currentUser.uid);
+      if (!p && currentUser.email) {
+        p = await getUserProfileByEmail(currentUser.email);
+      }
+      if (p) {
+        setProfile(p);
+      } else {
+        setProfile(null);
+      }
+    } catch (err: any) {
+      console.error('Firebase verifyOTP error:', err);
+      throw err;
     }
   };
 
@@ -163,7 +213,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     localStorage.removeItem('nyaay_demo_account');
-    localStorage.removeItem('nyaay_phone_auth');
+    if (recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current.clear();
+      } catch {}
+      recaptchaVerifierRef.current = null;
+    }
+    confirmationResultRef.current = null;
     try {
       await signOut(auth);
     } catch {}
@@ -216,4 +272,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;
 }
-

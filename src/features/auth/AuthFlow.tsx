@@ -138,19 +138,57 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
     }
   };
 
-  const handleSendOtp = async (cleanPhone: string) => {
+  const normalizePhone = (phone: string): string => {
+    // Strip any leading +91 / + / whitespace / leading 0s, then format with +91
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('91') && digits.length > 10) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('0')) {
+      digits = digits.replace(/^0+/, '');
+    }
+    const cleaned = digits.slice(-10);
+    return `+91${cleaned}`;
+  };
+
+  const handleSendOtp = async (phone: string) => {
     localStorage.removeItem('nyaay_demo_account');
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      const formatted = `+91${cleanPhone}`;
+      const formatted = normalizePhone(phone);
       const vid = await signInWithPhone(formatted);
       setVerificationId(vid);
       setPhoneNumber(formatted);
       setCurrentStep('otp_verify');
     } catch (err: any) {
       console.error('Phone sign-in error:', err);
-      setErrorMsg(err.message || 'Failed to send OTP');
+      let friendly = err.message || 'Failed to send OTP';
+      if (err.code === 'auth/invalid-phone-number') {
+        friendly = language === 'mr'
+          ? 'अवैध मोबाईल क्रमांक. कृपया १०-अंकी वैध क्रमांक प्रविष्ट करा.'
+          : language === 'hi'
+          ? 'अमान्य मोबाइल नंबर। कृपया सही 10-अंकों का नंबर दर्ज करें।'
+          : 'Invalid phone number. Please enter a valid 10-digit mobile number.';
+      } else if (err.code === 'auth/too-many-requests') {
+        friendly = language === 'mr'
+          ? 'खूप जास्त प्रयत्न झाले. कृपया काही वेळ प्रतीक्षा करा.'
+          : language === 'hi'
+          ? 'अत्यधिक अनुरोध। कृपया कुछ समय प्रतीक्षा करके पुनः प्रयास करें।'
+          : 'Too many attempts. Please wait a moment and try again.';
+      } else if (err.code === 'auth/quota-exceeded') {
+        friendly = language === 'mr'
+          ? 'दैनिक एसएमएस मर्यादा संपली आहे. कृपया Google लॉगिन वापरा.'
+          : language === 'hi'
+          ? 'दैनिक SMS कोटा समाप्त हो गया है। कृपया Google लॉगिन का उपयोग करें।'
+          : 'Daily SMS quota exceeded. Please use Google Sign-In or try again later.';
+      } else if (err.code === 'auth/captcha-check-failed') {
+        friendly = language === 'mr'
+          ? 'सुरक्षा तपासणी अयशस्वी झाली. कृपया पुन्हा प्रयत्न करा.'
+          : language === 'hi'
+          ? 'सुरक्षा सत्यापन विफल हुआ। कृपया पुनः प्रयास करें।'
+          : 'reCAPTCHA security check failed. Please try again.';
+      }
+      setErrorMsg(friendly);
     } finally {
       setIsSubmitting(false);
     }
@@ -194,7 +232,21 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
       setCurrentStep('profile');
     } catch (err: any) {
       console.error('OTP verify error:', err);
-      setErrorMsg(err.message || 'Invalid verification code');
+      let friendly = err.message || 'Invalid verification code';
+      if (err.code === 'auth/invalid-verification-code') {
+        friendly = language === 'mr'
+          ? 'चुकीचा ६-अंकी पडताळणी कोड. कृपया पुन्हा तपासा.'
+          : language === 'hi'
+          ? 'गलत 6-अंकों का सत्यापन कोड। कृपया पुनः जाँचें।'
+          : 'Incorrect 6-digit verification code. Please check and retry.';
+      } else if (err.code === 'auth/code-expired') {
+        friendly = language === 'mr'
+          ? 'हा कोड कालबाह्य झाला आहे. कृपया नवीन कोड मागवा.'
+          : language === 'hi'
+          ? 'ओटीपी कोड समाप्त हो चुका है। कृपया नया कोड प्राप्त करें।'
+          : 'Verification code has expired. Please request a new code.';
+      }
+      setErrorMsg(friendly);
     } finally {
       setIsSubmitting(false);
     }
@@ -341,6 +393,13 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
           </div>
           <span className="font-extrabold tracking-wider text-sm uppercase">NYAAYNEETI</span>
         </div>
+      </div>
+
+      {/* Invisible reCAPTCHA render container for Firebase phone auth */}
+      <div id="recaptcha-auth-container" className="hidden" />
+
+      {/* Step Transition Machine */}
+      <div className="flex-1 flex flex-col justify-center">
 
         {/* 6-dot progress indicator */}
         <div className="flex items-center gap-1.5" aria-label="Progress">
@@ -452,6 +511,7 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
             >
               <PhoneInputStep
                 language={language}
+                initialPhone={phoneNumber}
                 onSendOtp={handleSendOtp}
                 onBack={() => setCurrentStep('sign_in')}
                 loading={isSubmitting}
@@ -473,7 +533,7 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
                 phone={phoneNumber}
                 onVerifyOtp={handleVerifyOtp}
                 onResendOtp={async () => {
-                  await handleSendOtp(phoneNumber.replace('+91', ''));
+                  await handleSendOtp(phoneNumber);
                 }}
                 onChangePhone={() => setCurrentStep('phone_input')}
                 loading={isSubmitting}

@@ -78,6 +78,10 @@ export const OtpStep: React.FC<OtpStepProps> = ({
 
   const isComplete = digits.every(d => d.length === 1);
 
+  const formattedPhone = phone.startsWith('+91') && phone.length === 13
+    ? `+91 ${phone.slice(3, 8)} ${phone.slice(8)}`
+    : phone;
+
   return (
     <div className="space-y-5 animate-in fade-in">
       <div className="flex items-center justify-between">
@@ -100,7 +104,7 @@ export const OtpStep: React.FC<OtpStepProps> = ({
         </h2>
         <p className="text-xs text-sub">
           {language === 'mr' ? 'कोड पाठवला:' : language === 'hi' ? 'कोड भेजा गया:' : 'Sent to:'}{' '}
-          <span className="font-mono font-bold text-main">{phone}</span>
+          <span className="font-mono font-bold text-main">{formattedPhone}</span>
         </p>
       </div>
 

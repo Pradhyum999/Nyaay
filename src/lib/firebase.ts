@@ -1,5 +1,16 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { 
+  getAuth, 
+  RecaptchaVerifier, 
+  signInWithPhoneNumber, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  User,
+  type ApplicationVerifier,
+  type ConfirmationResult
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -28,7 +39,7 @@ export {
   signOut, 
   onAuthStateChanged 
 };
-export type { User };
+export type { User, ApplicationVerifier, ConfirmationResult };
 
 export default app;
 

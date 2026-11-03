@@ -5,6 +5,7 @@ import { ArrowLeft, Phone, Loader2 } from 'lucide-react';
 
 interface PhoneInputStepProps {
   language: Language;
+  initialPhone?: string;
   onSendOtp: (cleanPhone: string) => Promise<void>;
   onBack: () => void;
   loading: boolean;
@@ -13,19 +14,33 @@ interface PhoneInputStepProps {
 
 export const PhoneInputStep: React.FC<PhoneInputStepProps> = ({
   language,
+  initialPhone = '',
   onSendOtp,
   onBack,
   loading,
   error: externalError,
 }) => {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    if (!initialPhone) return '';
+    const digits = initialPhone.replace(/\D/g, '');
+    return digits.slice(-10);
+  });
   const [localError, setLocalError] = useState('');
 
   const handlePhoneChange = (val: string) => {
     // Strip non-digits
-    const digitsOnly = val.replace(/\D/g, '');
-    // Take max 10 digits
-    const cleaned = digitsOnly.slice(0, 10);
+    let digits = val.replace(/\D/g, '');
+
+    // If user pasted/typed with country code (91) when length is greater than 10
+    if (digits.startsWith('91') && digits.length > 10) {
+      digits = digits.slice(2);
+    } else if (digits.startsWith('0')) {
+      // Strip leading 0 if entered (e.g. 09876543210 -> 9876543210)
+      digits = digits.replace(/^0+/, '');
+    }
+
+    // Keep maximum 10 digits
+    const cleaned = digits.slice(0, 10);
     setPhoneNumber(cleaned);
 
     if (cleaned.length === 10 && !/^[6-9]/.test(cleaned)) {
@@ -46,7 +61,7 @@ export const PhoneInputStep: React.FC<PhoneInputStepProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid || loading) return;
-    await onSendOtp(`+91${phoneNumber}`);
+    await onSendOtp(phoneNumber);
   };
 
   return (
@@ -108,9 +123,6 @@ export const PhoneInputStep: React.FC<PhoneInputStepProps> = ({
             </p>
           )}
         </div>
-
-        {/* Div for invisible reCAPTCHA */}
-        <div id="recaptcha-container" />
 
         <Button
           type="submit"
