@@ -109,12 +109,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPendingPhone(phone);
 
     try {
-      // 1. Ensure recaptcha container element exists in the DOM
+      // 1. Ensure recaptcha container element exists in the DOM and is clean
       let container = document.getElementById(recaptchaContainerId);
       if (!container) {
         container = document.createElement('div');
         container.id = recaptchaContainerId;
         document.body.appendChild(container);
+      } else {
+        container.innerHTML = '';
       }
 
       // 2. Clear any prior verifier instance to prevent re-render collisions

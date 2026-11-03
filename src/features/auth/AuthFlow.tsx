@@ -187,6 +187,30 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({
           : language === 'hi'
           ? 'सुरक्षा सत्यापन विफल हुआ। कृपया पुनः प्रयास करें।'
           : 'reCAPTCHA security check failed. Please try again.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        friendly = language === 'mr'
+          ? 'Firebase Console मध्ये फोन ऑथेंटिकेशन सक्षम केलेले नाही. कृपया Authentication > Sign-in method मध्ये Phone सुरू करा.'
+          : language === 'hi'
+          ? 'Firebase Console में Phone प्रमाणीकरण सक्षम नहीं है। कृपया Authentication > Sign-in method में Phone को चालू करें।'
+          : 'Phone authentication is not enabled in Firebase Console. Please enable "Phone" in Firebase Console > Authentication > Sign-in method.';
+      } else if (err.code === 'auth/invalid-app-credential') {
+        friendly = language === 'mr'
+          ? 'अ‍ॅप पडताळणी अयशस्वी. कृपया Firebase Console मध्ये Phone Auth आणि India (+91) SMS प्रदेश धोरण सक्षम असल्याचे तपासा.'
+          : language === 'hi'
+          ? 'ऐप सत्यापन विफल। कृपया जांचें कि Firebase Console में Phone Auth और India (+91) SMS क्षेत्र नीति सक्षम है।'
+          : 'App verification failed. Please ensure Phone Auth and India (+91) SMS region policy are enabled in Firebase Console.';
+      } else if (err.code === 'auth/billing-not-enabled') {
+        friendly = language === 'mr'
+          ? 'एसएमएस कोटा मर्यादा गाठली. चाचणीसाठी Firebase Console मध्ये चाचणी फोन नंबर (उदा. +91 99999 99999) वापरा.'
+          : language === 'hi'
+          ? 'SMS कोटा समाप्त। परीक्षण के लिए Firebase Console में टेस्ट फ़ोन नंबर (उदा. +91 99999 99999) का उपयोग करें।'
+          : 'SMS quota reached. For testing, please add a Test Phone Number in Firebase Console > Authentication > Sign-in method.';
+      } else if (err.code === 'auth/unauthorized-domain' || err.code === 'auth/app-not-authorized') {
+        friendly = language === 'mr'
+          ? 'हे डोमेन अधिकृत नाही. कृपया Firebase Console > Settings मध्ये अधिकृत डोमेन जोडा.'
+          : language === 'hi'
+          ? 'यह डोमेन अधिकृत नहीं है। कृपया Firebase Console > Settings में Authorized domains जोड़ें।'
+          : 'Domain not authorized. Please add this domain to Firebase Console > Authentication > Settings > Authorized domains.';
       }
       setErrorMsg(friendly);
     } finally {

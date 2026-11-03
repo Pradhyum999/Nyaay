@@ -46,17 +46,17 @@ export const PhoneInputStep: React.FC<PhoneInputStepProps> = ({
     if (cleaned.length === 10 && !/^[6-9]/.test(cleaned)) {
       setLocalError(
         language === 'mr'
-          ? 'भारतीय मोबाईल क्रमांक ६, ७, ८ किंवा ९ ने सुरू झाला पाहिजे'
+          ? 'सूचना: भारतीय मोबाईल क्रमांक सामान्यतः ६, ७, ८ किंवा ९ ने सुरू होतो'
           : language === 'hi'
-          ? 'भारतीय मोबाइल नंबर 6, 7, 8 या 9 से शुरू होना चाहिए'
-          : 'Indian mobile numbers must start with 6, 7, 8, or 9'
+          ? 'सूचना: भारतीय मोबाइल नंबर सामान्यतः 6, 7, 8 या 9 से शुरू होता है'
+          : 'Note: Standard Indian mobile numbers begin with 6, 7, 8, or 9'
       );
     } else {
       setLocalError('');
     }
   };
 
-  const isValid = phoneNumber.length === 10 && /^[6-9]\d{9}$/.test(phoneNumber);
+  const isValid = phoneNumber.length === 10;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
